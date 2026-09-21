@@ -192,26 +192,30 @@ better-informed creative decisions
 
 ## Possible Architecture
 
+The proposed design is documented in the [architecture](docs/architecture.md),
+[architecture decision record](docs/adr/0001-library-first-architecture.md), and
+[incremental build sequence](docs/implementation-plan.md).
+
+The first interface will be a Python library and CLI with interactive charts.
+The package layout below is proposed; application modules are not implemented yet.
+
 ```text
-setvector/
+set-vector/
 │
+├── pyproject.toml
+├── AGENTS.md
 ├── src/
-│   ├── analysis/
-│   │   ├── audio_features/
-│   │   ├── rhythm/
-│   │   ├── harmony/
-│   │   └── structure/
-│   │
-│   ├── energy/
-│   │   ├── scoring/
-│   │   ├── curves/
-│   │   └── normalization/
-│   │
-│   ├── transitions/
-│   │
-│   ├── playlists/
-│   │
-│   └── visualization/
+│   └── setvector/
+│       ├── domain/
+│       ├── ingestion/
+│       ├── analysis/
+│       ├── energy/
+│       ├── application/
+│       ├── storage/
+│       ├── visualization/
+│       ├── cli/
+│       ├── transitions/       # later milestone
+│       └── playlists/         # later milestone
 │
 ├── notebooks/
 │   ├── experiments/
@@ -222,6 +226,9 @@ setvector/
 ├── examples/
 │
 ├── docs/
+│   ├── architecture.md
+│   ├── implementation-plan.md
+│   └── adr/
 │
 ├── LICENSE
 └── README.md
