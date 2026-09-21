@@ -1,6 +1,4 @@
-# Working agreements
-
-These preferences were explicitly requested by the repository owner.
+# Repository Guidelines
 
 ## Clarify the objective
 
@@ -19,5 +17,10 @@ These preferences were explicitly requested by the repository owner.
 
 ## Project context
 
-- The owner selected a Python library and CLI with interactive charts as the first interface for SetVector.
-- Read `README.md` and `docs/architecture.md` before architectural changes. The design and `docs/implementation-plan.md` are proposals; their open questions are not settled requirements.
+- SetVector starts with a Python library and CLI with interactive charts.
+- Read `README.md` and `docs/architecture.md` before architectural changes. Resolve open release-scope decisions before implementing work that depends on them.
+
+## Documentation
+
+- Use plain document titles and focus on the technical content.
+- Omit status, date, author/decider fields, and conversation history unless they serve a specific project need. Keep relevant technical limitations and unresolved requirements clear.

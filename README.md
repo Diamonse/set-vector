@@ -5,8 +5,6 @@ SetVector is an open-source project exploring how audio analysis, mathematical m
 
 The goal is to build tools that help DJs analyze tracks, visualize changes in musical energy, compare transitions, and eventually plan sets around intentional energy curves rather than relying only on BPM or key.
 
-> **Status:** Early development / experimental
-
 ## Why SetVector?
 
 Most DJ software provides useful technical information such as BPM, key, waveform structure, and beat grids.
@@ -190,14 +188,14 @@ mathematical analysis
 better-informed creative decisions
 ```
 
-## Possible Architecture
+## Architecture
 
-The proposed design is documented in the [architecture](docs/architecture.md),
-[architecture decision record](docs/adr/0001-library-first-architecture.md), and
-[incremental build sequence](docs/implementation-plan.md).
+See the [Architecture](docs/architecture.md),
+[Python Library Architecture](docs/adr/0001-library-first-architecture.md), and
+[Implementation Plan](docs/implementation-plan.md) for the design and build sequence.
 
 The first interface will be a Python library and CLI with interactive charts.
-The package layout below is proposed; application modules are not implemented yet.
+Planned package layout:
 
 ```text
 set-vector/
