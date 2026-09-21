@@ -1,31 +1,18 @@
-# SetVector architecture
-
-**Status:** Proposed design; Python library, CLI, and interactive charts confirmed by the owner.
-**Date:** 2026-09-21
-**Basis:** The repository README and the owner's initial architecture discussion.
+# Architecture
 
 ## Purpose and scope
 
 Build an offline-capable Python analysis package that helps DJs inspect track energy, compare transitions, and eventually plan sets. Every score is an experimental estimate with visible inputs and provenance. Musical quality and creative judgment remain outside the model's claims.
 
-The repository currently has no application implementation. Names, commands, and contracts below describe the proposed system, not working features.
+The design starts with a Python library and CLI with interactive charts, then extends to transition and set analysis. The modules and commands below describe the planned implementation.
 
-Confirmed requirements:
+## Release scope
 
-- Reusable Python library and a CLI with interactive charts as the first interface.
-- Audio-derived features, time-dependent energy, transition analysis, and set analysis are the README's development direction.
-- Local Conventional Commits with no commit trailers; clarify uncertain objectives. See `../AGENTS.md`.
-
-Questions still open:
-
-- Which first milestone matters most: track curves, transition/set planning, or notebook experiments?
-- Which operating systems, approximate library size, audio formats, and music styles should the initial implementation support?
-
-These answers set the first release boundary, codec support matrix, calibration collection, and performance targets. They do not require changing the core module boundaries below. Do not treat suggested milestones or stack choices as owner-approved requirements.
+The first release still needs a defined milestone, supported operating systems, library size, audio formats, and music styles. These determine codec support, the calibration collection, and performance targets.
 
 ## Architectural decision
 
-Start with one installable Python package with explicit module boundaries. CLI and notebook clients call the same application services. Audio decoding, numerical analysis, storage, and chart rendering sit behind narrow interfaces. No network service is required for the confirmed interface.
+Start with one installable Python package with explicit module boundaries. CLI and notebook clients call the same application services. Audio decoding, numerical analysis, storage, and chart rendering sit behind narrow interfaces. Analysis and reports run locally.
 
 ```mermaid
 flowchart TD
@@ -63,9 +50,9 @@ The diagram shows data flow. Code dependencies point toward shared data contract
 
 Use ordinary functions and typed data objects first. Add interchangeable interfaces where there is a real boundary: decoder, artifact store, feature extractor, and energy model. Avoid a general plugin framework until there are multiple implementations to support.
 
-## Suggested Python stack
+## Python stack
 
-| Concern | Initial proposal | Reason and trade-off |
+| Concern | Recommended tool | Reason and trade-off |
 |---|---|---|
 | Package | `pyproject.toml`, `src/setvector/` | One installable library; test the installed package |
 | Numerical work | NumPy and SciPy | Array operations and signal-processing primitives |
@@ -79,7 +66,7 @@ Use ordinary functions and typed data objects first. Add interchangeable interfa
 
 The choice of librosa is based on its documented [feature APIs](https://librosa.org/doc/0.11.0/feature.html) and [beat tracker](https://librosa.org/doc/0.11.0/generated/librosa.beat.beat_track.html). SoundFile documents [audio I/O and block reads](https://python-soundfile.readthedocs.io/en/latest/). Plotly supports [standalone interactive HTML](https://plotly.com/python/interactive-html-export/). The [Python Packaging guide](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/) explains the import isolation provided by a `src` layout.
 
-Select the Python version and dependency pins after a clean installation check on the target OS. No claim of tested compatibility is made by this design. Add a separate decoder backend only if the confirmed audio formats require it; report unsupported codecs clearly.
+Select the Python version and dependency pins after a clean installation check on the target OS. Add a separate decoder backend if the required audio formats need it; report unsupported codecs clearly.
 
 ## Analysis pipeline
 
@@ -93,7 +80,7 @@ Select the Python version and dependency pins after a clean installation check o
 
 librosa's loading defaults can resample and mix to mono, so decoding policy must be explicit rather than inherited accidentally from [library defaults](https://librosa.org/doc/0.11.0/generated/librosa.load.html). Frame centering and padding likewise need explicit treatment; see [STFT alignment](https://librosa.org/doc/0.11.0/generated/librosa.stft.html).
 
-Do not fix FFT sizes, sample rates, smoothing duration, or bass-band edges in the architecture document. Put these choices in named analysis configurations and validate them against the selected music collection. Short clips, silence, variable tempo, and stereo cancellation need deliberate handling.
+Keep FFT sizes, sample rates, smoothing duration, and bass-band edges in named analysis configurations and validate them against the selected music collection. Short clips, silence, variable tempo, and stereo cancellation need deliberate handling.
 
 ## Core data contracts
 
@@ -164,9 +151,9 @@ Write into temporary artifact directories, then publish a complete artifact on t
 
 Start with sequential per-track execution and stage-level progress. A failed file should not discard successful artifacts from a batch. Return a batch summary and nonzero CLI exit status when any requested asset fails; distinguish argument errors from processing failures. Ctrl+C should stop cleanly and preserve completed work.
 
-No database or distributed queue is required for the first workflows. Introduce a SQLite catalog if confirmed library size and search needs warrant it. Add bounded process workers after measuring CPU and peak-memory costs on target hardware; keep decoding and temporary spectral arrays within an explicit per-job budget. Full-track loading is a starting implementation choice, not a promise that arbitrarily long recordings fit memory.
+No database or distributed queue is required for the first workflows. Introduce a SQLite catalog if library size and search needs warrant it. Add bounded process workers after measuring CPU and peak-memory costs on target hardware; keep decoding and temporary spectral arrays within an explicit per-job budget. Full-track loading is a starting implementation choice; long recordings may require block processing.
 
-## Public API and CLI direction
+## Python API and CLI
 
 Keep library entry points focused on stable artifacts:
 
@@ -205,21 +192,21 @@ Design extension contracts now; implement them when the corresponding milestone 
 
 **Recorded mix:** a new audio asset analyzed directly. Keep its measured curve separate from a predicted set-plan curve. Audio rendering, real-time DJ playback, automatic beat-grid correction, and optimized sequencing are later scopes that require their own design decisions.
 
-## Validation and development gates
+## Validation
 
 Technical correctness and musical usefulness need separate evidence:
 
 - Generate deterministic silence, tones, impulses, and click tracks to check time alignment, dimensions, units, invalid values, and expected feature behavior.
 - Check that configuration/model changes invalidate the appropriate cache layer, while weight changes reuse unchanged features.
 - Test installed-package CLI paths with spaces, invalid/corrupt audio, interrupted writes, missing artifacts, and partial batch failure.
-- Build a small owner-selected listening collection with contrastive examples and documented annotations. Store permitted metadata/annotations; use synthetic fixtures for distributable tests unless audio redistribution is authorized.
+- Build a small listening collection with contrastive examples and documented annotations. Store permitted metadata/annotations; use synthetic fixtures for distributable tests unless audio redistribution is authorized.
 - Compare energy hypotheses with loudness-only and tempo-only baselines, feature ablations, pairwise judgments, and within-track landmarks. Report disagreement as evidence rather than smoothing it away.
 - Keep evaluation tracks and recording variants out of calibration fitting. Do not split neighboring windows of the same track across fit and evaluation partitions. Follow the general [preprocessing leakage guidance](https://scikit-learn.org/stable/common_pitfalls.html).
-- Define numerical tolerances for repeatability and measure elapsed time, real-time factor, peak memory, and artifact size on target hardware. Set numerical targets after the owner confirms the intended workload.
+- Define numerical tolerances for repeatability and measure elapsed time, real-time factor, peak memory, and artifact size on target hardware. Set performance targets for the intended workload.
 
 Only introduce ML after the project has a defined target, annotations, evaluation split, and reproducible baseline. Persist model and training-data provenance. Future learned models must implement the same result contract and comparability rules.
 
-## Revisit triggers
+## Scaling and future work
 
 | Evidence or requirement | Revisit |
 |---|---|
@@ -230,4 +217,4 @@ Only introduce ML after the project has a defined target, annotations, evaluatio
 | Listening evidence shows the weighted model is inadequate | Alternative transforms/models with held-out evaluation |
 | Reliable cue/phrase data becomes available | Region-aware transitions and timed set plans |
 
-See [ADR-0001](adr/0001-library-first-architecture.md) for the main trade-off and [the build sequence](implementation-plan.md) for incremental delivery.
+See [Python Library Architecture](adr/0001-library-first-architecture.md) for the design trade-offs and the [Implementation Plan](implementation-plan.md) for the build sequence.
