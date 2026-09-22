@@ -12,6 +12,8 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
+.worktrees/
+.superpowers/
 
 # Local analysis workspaces and audio
 .setvector/
