@@ -58,12 +58,12 @@ Selection and ordering share the same track and transition representation. `use 
 
 The implemented `analyze` workflow persists RMS, spectral centroid, bass power ratio, onset strength, a global tempo estimate, and beat positions. It does not yet supply key, downbeats, phrases, cue regions, or calibrated cross-track energy. The tempo estimate lacks a pulse-confidence measure. [Onset strength is scaled by each track's own peak](../../src/setvector/analysis/baseline.py), while RMS is raw amplitude rather than standardized loudness, so their summaries should not be treated as a ready-made cross-track energy ranking. The latest track-report work is a design and implementation plan, not an implemented report. These gaps prevent a defensible automatic claim that two tracks will mix smoothly or that one is more energetic than another. See the [implementation plan](../implementation-plan.md).
 
-Research and implementation can proceed in this order:
+The DJ-first implementation can proceed in this order:
 
 1. Build a representative, rights-respecting local evaluation collection and record human corrections and judgments.
-2. Compare offline key, tempo, downbeat, and section candidates on that collection; preserve alternatives and abstain when evidence is weak.
-3. Calibrate cross-track energy independently of within-track display scaling.
-4. Define region-aware directional transition candidates, including explicit cut or blend assumptions.
-5. Compare greedy, improved approximate, and small exact search on both modes and both selection policies. Use [Playlist Engine Evaluation](playlist-engine-evaluation.md) before treating default weights as established.
+2. Index the local library and summarize candidate cue regions from existing measurements.
+3. Define directional cut and short-blend candidates from reviewed cues, including playback and overlap assumptions. Build the first timed DJ planner for fixed-list reordering, then pool selection. Compare greedy, improved approximate, and small exact search.
+4. Compare offline key, tempo, downbeat, and section candidates on the collection; preserve alternatives and abstain when evidence is weak. Admit automatic suggestions only after measuring reliability against the reviewed cues.
+5. Calibrate cross-track energy independently of within-track display scaling, then evaluate automatic set arcs. Add the listening-flow scoring profile and compare complete sequences. Use [Playlist Engine Evaluation](playlist-engine-evaluation.md) before treating default weights as established.
 
-Before fixing release behavior, the project still needs a target library size, supported audio formats and operating systems, a planning latency budget, the initial transition types, and the way users specify an energy arc. These open scope items are also recorded in the [architecture](../architecture.md#release-scope).
+The first planning workflow targets a 200–2,000-track library and 1–3 hour sets. Supported audio formats and operating systems, a planning latency budget, initial transition types, and the way users specify an energy arc still need to be fixed before implementation depends on them. See the [implementation plan](../implementation-plan.md#0-release-scope).
