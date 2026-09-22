@@ -7,7 +7,17 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from setvector.domain import AnalysisConfig
+from setvector.domain import (
+    AnalysisConfig,
+    AnalysisDiagnostics,
+    AnalysisMeasurements,
+    AudioAsset,
+    BeatPosition,
+    ExtractorIdentity,
+    FeatureBundle,
+    FeatureSeries,
+)
+from setvector.storage import compute_feature_id
 
 SAMPLE_RATE = 8_000
 
@@ -44,3 +54,89 @@ def config_path(tmp_path, config):
     path = tmp_path / "analysis config.json"
     path.write_text(json.dumps(config.to_dict()), encoding="utf-8")
     return path
+
+
+@pytest.fixture
+def report_inputs(tmp_path):
+    """Build a consistent (AudioAsset, FeatureBundle) pair without analyzing audio.
+
+    Spectral values listed in ``missing`` are invalid; level and hits are always valid.
+    """
+
+    def build(
+        frames=4,
+        missing=(),
+        beat_frames=(1,),
+        tempo=120.0,
+        warnings=(),
+        name="Artist Name - Track Title.mp3",
+        audio_format="MP3",
+        sample_rate=44_100,
+        channels=2,
+    ):
+        timestamps = tuple(0.25 + 0.5 * i for i in range(frames))
+        starts = tuple(t - 0.25 for t in timestamps)
+        ends = tuple(t + 0.25 for t in timestamps)
+
+        def series(series_name, unit, value, can_be_missing):
+            values = tuple(
+                None if can_be_missing and i in missing else value(i) for i in range(frames)
+            )
+            return FeatureSeries(
+                name=series_name,
+                unit=unit,
+                timestamps=timestamps,
+                values=values,
+                validity=tuple(v is not None for v in values),
+                window_starts=starts,
+                window_ends=ends,
+            )
+
+        beats = tuple(
+            BeatPosition(frame_index=i, seconds=timestamps[i]) for i in beat_frames if i < frames
+        )
+        measurements = AnalysisMeasurements(
+            rms=series("rms", "linear_amplitude", lambda i: 0.1 * (i % 9 + 1), False),
+            spectral_centroid=series(
+                "spectral_centroid", "Hz", lambda i: 1000.0 + 100 * (i % 30), True
+            ),
+            bass_power_ratio=series("bass_power_ratio", "ratio", lambda i: (i % 8) / 10, True),
+            onset_strength=series(
+                "onset_strength", "normalized_flux", lambda i: (i % 5) / 4, False
+            ),
+            tempo_bpm=tempo if beats else None,
+            beats=beats,
+            diagnostics=AnalysisDiagnostics(
+                analyzed_frames=frames, omitted_tail_samples=7, warnings=tuple(warnings)
+            ),
+        )
+        identity = ExtractorIdentity(
+            name="baseline-v1",
+            algorithm_version=1,
+            package_version="0.1.0a1",
+            config=AnalysisConfig(
+                sample_rate=None, frame_length=2048, hop_length=512, channel_policy="mono"
+            ),
+            parameters={"bass_cutoff_hz": 250.0},
+            dependency_versions={"librosa": "0.11.0", "numpy": "2.4.6"},
+        )
+        asset = AudioAsset(
+            asset_id="a" * 64,
+            observed_path=str((tmp_path / name).resolve()),
+            byte_size=1_000,
+            duration_seconds=frames * 0.5 + 0.1,
+            native_sample_rate=sample_rate,
+            channels=channels,
+            format=audio_format,
+            subtype="MPEG_LAYER_III",
+        )
+        bundle = FeatureBundle(
+            feature_id=compute_feature_id(asset.asset_id, identity),
+            asset_id=asset.asset_id,
+            config_id=identity.config.config_id,
+            extractor=identity,
+            measurements=measurements,
+        )
+        return asset, bundle
+
+    return build
