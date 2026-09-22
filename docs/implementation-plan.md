@@ -16,6 +16,8 @@ Done when the built package can be installed into a fresh environment, the CLI c
 
 Implement asset identity, supported-format checks, explicit decoding, and a small feature bundle with real timestamps and units. Add artifact storage, atomic publication, cache validation, and per-track diagnostics. Include silence and partial-window behavior from the start.
 
+Detailed design: [Audio Analysis Pipeline](superpowers/specs/2026-09-22-audio-analysis-pipeline-design.md).
+
 Done when supported local audio yields inspectable feature artifacts; rerunning unchanged input can reuse them; changed configuration invalidates the cache; invalid files fail clearly. Confirm numerical timing/units with synthetic signals.
 
 ## 3. First interactive report

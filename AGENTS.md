@@ -19,6 +19,14 @@
 
 - SetVector starts with a Python library and CLI with interactive charts.
 - Read `README.md` and `docs/architecture.md` before architectural changes. Resolve open release-scope decisions before implementing work that depends on them.
+- Core analysis must work locally without GPT access, API keys, cloud services, telemetry, or a network connection after dependencies are installed.
+- Keep any future hosted or language-model integration optional and isolated from the offline analysis path.
+
+## Delegation
+
+- Delegate independent, bounded work when it improves speed or review quality.
+- Select each subagent's model and reasoning effort for the task: use the most capable reasoning model for architecture, numerical work, and final review; a reliable coding model for implementation; and a faster model for narrow mechanical checks.
+- Give subagents non-overlapping file ownership and integrate their work through the full project checks.
 
 ## Documentation
 

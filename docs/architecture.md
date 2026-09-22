@@ -14,6 +14,14 @@ The first release still needs a defined milestone, supported operating systems, 
 
 Start with one installable Python package with explicit module boundaries. CLI and notebook clients call the same application services. Audio decoding, numerical analysis, storage, and chart rendering sit behind narrow interfaces. Analysis and reports run locally.
 
+## Offline operation
+
+SetVector's core workflow runs without GPT access, API keys, hosted inference, telemetry, or network requests. Audio decoding, numerical feature extraction, calibration, energy scoring, caching, and visualization use local code and local files. Once the Python package and its dependencies are installed, normal use must work with network access blocked.
+
+Interactive reports must embed their JavaScript so they open without a CDN. Future learned models must load from explicit local artifacts. Any hosted integration must be an optional adapter that is absent from the core dependency graph and cannot change the offline command behavior.
+
+Installation may use a package index. A fully air-gapped installer or wheel bundle is a separate distribution task; runtime analysis cannot depend on it.
+
 ```mermaid
 flowchart TD
     CLI[CLI] --> APP[Application services]
@@ -199,6 +207,7 @@ Technical correctness and musical usefulness need separate evidence:
 - Generate deterministic silence, tones, impulses, and click tracks to check time alignment, dimensions, units, invalid values, and expected feature behavior.
 - Check that configuration/model changes invalidate the appropriate cache layer, while weight changes reuse unchanged features.
 - Test installed-package CLI paths with spaces, invalid/corrupt audio, interrupted writes, missing artifacts, and partial batch failure.
+- Run an installed-package analysis with Python socket connections blocked to prevent accidental online dependencies.
 - Build a small listening collection with contrastive examples and documented annotations. Store permitted metadata/annotations; use synthetic fixtures for distributable tests unless audio redistribution is authorized.
 - Compare energy hypotheses with loudness-only and tempo-only baselines, feature ablations, pairwise judgments, and within-track landmarks. Report disagreement as evidence rather than smoothing it away.
 - Keep evaluation tracks and recording variants out of calibration fitting. Do not split neighboring windows of the same track across fit and evaluation partitions. Follow the general [preprocessing leakage guidance](https://scikit-learn.org/stable/common_pitfalls.html).
