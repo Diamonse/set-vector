@@ -21,7 +21,7 @@ from pathlib import Path
 
 import numpy as np
 
-from setvector.domain import ArtifactError, AudioAsset, FeatureBundle
+from setvector.domain import ArtifactError, AudioAsset, FeatureBundle, InputError
 from setvector.domain._validation import require_fields, validate_version
 from setvector.domain.audio import validate_sha256
 
@@ -204,6 +204,17 @@ class ArtifactStore:
         self._check_asset(expected_asset)
         return bundle
 
+    def load_stored(self, feature_id: str) -> tuple[AudioAsset, FeatureBundle]:
+        """Return the stored asset and bundle for ``feature_id`` without reading any audio."""
+        try:
+            directory = self._feature_directory(feature_id)
+        except ValueError as error:
+            raise InputError(f"invalid feature ID {feature_id!r}: {error}") from error
+        if not directory.exists():
+            raise InputError(f"no feature artifact {feature_id} in workspace {self.workspace}")
+        bundle = _read_feature_directory(directory, feature_id)
+        return self._read_asset(bundle.asset_id), bundle
+
     def save(self, asset: AudioAsset, bundle: FeatureBundle) -> Path:
         """Publish ``bundle`` atomically, or accept an identical existing artifact."""
         _check_bundle(asset, bundle)
@@ -232,16 +243,22 @@ class ArtifactStore:
     def _asset_path(self, asset_id: str) -> Path:
         return self.workspace / "assets" / validate_sha256(asset_id, "asset_id") / _ASSET
 
-    def _check_asset(self, expected: AudioAsset) -> None:
-        path = self._asset_path(expected.asset_id)
+    def _read_asset(self, asset_id: str) -> AudioAsset:
+        path = self._asset_path(asset_id)
         if not path.is_file():
-            raise ArtifactError(f"asset metadata is missing for {expected.asset_id}: {path}")
+            raise ArtifactError(f"asset metadata is missing for {asset_id}: {path}")
         try:
             stored = AudioAsset.from_dict(_read_json(path))
         except (OSError, ValueError, TypeError) as error:
             raise ArtifactError(
-                f"asset metadata for {expected.asset_id} is corrupt or incompatible: {error}"
+                f"asset metadata for {asset_id} is corrupt or incompatible: {error}"
             ) from error
+        if stored.asset_id != asset_id:
+            raise ArtifactError(f"asset metadata for {asset_id} records a different asset_id")
+        return stored
+
+    def _check_asset(self, expected: AudioAsset) -> None:
+        stored = self._read_asset(expected.asset_id)
         if _asset_identity(stored) != _asset_identity(expected):
             raise ArtifactError(
                 f"asset metadata for {expected.asset_id} does not match the inspected audio"

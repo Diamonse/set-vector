@@ -19,6 +19,7 @@ from setvector.domain import (
     ExtractorIdentity,
     FeatureBundle,
     FeatureSeries,
+    InputError,
 )
 from setvector.storage import ArtifactStore, canonical_json, compute_feature_id, strict_json_loads
 
@@ -307,6 +308,32 @@ def test_concurrent_publication_of_same_bundle_is_accepted(monkeypatch, tmp_path
     assert store.load(bundle.feature_id, asset) == bundle
     leftovers = [p.name for p in (tmp_path / "features").iterdir()]
     assert leftovers == [bundle.feature_id]
+
+
+def test_load_stored_reads_asset_and_bundle_without_audio(tmp_path, asset, bundle):
+    store = ArtifactStore(tmp_path)
+    store.save(asset, bundle)
+    stored_asset, stored_bundle = store.load_stored(bundle.feature_id)
+    assert stored_bundle == bundle
+    assert stored_asset == asset
+    assert not Path(asset.observed_path).exists()
+
+
+@pytest.mark.parametrize("feature_id", ["not-an-id", "F" * 64, "f" * 64])
+def test_load_stored_rejects_malformed_or_unknown_ids(tmp_path, feature_id):
+    with pytest.raises(InputError, match="feature"):
+        ArtifactStore(tmp_path).load_stored(feature_id)
+
+
+def test_load_stored_reports_corrupt_artifacts(tmp_path, asset, bundle):
+    store = ArtifactStore(tmp_path)
+    store.save(asset, bundle)
+    (tmp_path / "assets" / asset.asset_id / "asset.json").write_text("{broken", encoding="utf-8")
+    with pytest.raises(ArtifactError, match="asset metadata"):
+        store.load_stored(bundle.feature_id)
+    store.manifest_path(bundle.feature_id).write_text("{broken", encoding="utf-8")
+    with pytest.raises(ArtifactError, match="corrupt"):
+        store.load_stored(bundle.feature_id)
 
 
 def test_empty_series_round_trip(tmp_path, asset, identity):
