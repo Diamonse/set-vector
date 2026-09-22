@@ -93,7 +93,7 @@ def test_missing_config_has_a_clear_error(tmp_path):
     assert "Traceback" not in result.stderr
 
 
-@pytest.mark.parametrize("command", ["report", "score", "compare"])
+@pytest.mark.parametrize("command", ["score", "compare"])
 def test_unimplemented_commands_are_not_advertised(tmp_path, command):
     result = run_cli(command, cwd=tmp_path)
     assert result.returncode == 2
@@ -187,3 +187,59 @@ def test_warnings_go_to_stderr_after_json(monkeypatch, capsys, tmp_path, config_
     assert json.loads(captured.out)["cache_hit"] is False
     assert "setvector: warning:" in captured.err
     assert "shorter than one" in captured.err
+
+
+def analyze_for_report(tmp_path, tone_path, config_path):
+    result = run_cli(
+        "analyze", str(tone_path), "--config", str(config_path), "--workspace", "ws", cwd=tmp_path
+    )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)["feature_id"]
+
+
+def test_report_cli_writes_self_contained_page(tmp_path, tone_path, config_path):
+    feature_id = analyze_for_report(tmp_path, tone_path, config_path)
+    result = run_cli("report", feature_id, "--workspace", "ws", cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    assert output == {
+        "audio": "embedded",
+        "feature_id": feature_id,
+        "report_path": str((tmp_path / "ws" / "reports" / f"{feature_id}.html").resolve()),
+    }
+    assert Path(output["report_path"]).read_text(encoding="utf-8").startswith("<!DOCTYPE html>")
+
+    again = run_cli("report", feature_id, "--workspace", "ws", cwd=tmp_path)
+    assert again.returncode == 2
+    assert "--overwrite" in again.stderr
+    replaced = run_cli(
+        "report", feature_id, "--workspace", "ws", "--overwrite", "--no-audio", cwd=tmp_path
+    )
+    assert replaced.returncode == 0, replaced.stderr
+    assert json.loads(replaced.stdout)["audio"] == "none"
+
+
+@pytest.mark.parametrize(
+    "arguments, message",
+    [
+        (["f" * 64, "--workspace", "ws"], "no feature artifact"),
+        (["bad-id", "--workspace", "ws"], "invalid feature ID"),
+        (["f" * 64, "--workspace", "ws", "--audio", "x.wav", "--no-audio"], "not allowed with"),
+    ],
+)
+def test_report_cli_input_errors(tmp_path, arguments, message):
+    result = run_cli("report", *arguments, cwd=tmp_path)
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert result.stdout == ""
+    assert "Traceback" not in result.stderr
+
+
+def test_report_cli_processing_failure_exits_1(monkeypatch, capsys, tmp_path):
+    def failing(*args, **kwargs):
+        raise ArtifactError("stored artifact is corrupt")
+
+    monkeypatch.setattr(cli, "render_report", failing)
+    code = cli.main(["report", "f" * 64, "--workspace", str(tmp_path)])
+    assert code == 1
+    assert capsys.readouterr().err.strip() == "setvector: error: stored artifact is corrupt"

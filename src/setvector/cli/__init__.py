@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from setvector import AnalysisConfig, __version__
-from setvector.application import analyze_track
+from setvector.application import analyze_track, render_report
 from setvector.domain import InputError, SetVectorError
 from setvector.storage import ArtifactStore, strict_json_loads
 
@@ -25,21 +25,30 @@ def _run_config_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _call(args: argparse.Namespace, action):
+    """Run a service call, returning ``(result, None)`` or ``(None, exit_status)``."""
+    try:
+        return action(), None
+    except InputError as error:
+        args.parser.error(str(error))
+    except SetVectorError as error:
+        print(f"setvector: error: {error}", file=sys.stderr)
+        return None, 1
+    except KeyboardInterrupt:
+        print("setvector: interrupted; completed artifacts were kept", file=sys.stderr)
+        return None, 130
+
+
 def _run_analyze(args: argparse.Namespace) -> int:
     try:
         config = _load_config(args.config)
     except (OSError, ValueError, TypeError) as error:
         args.parser.error(f"cannot load configuration {args.config}: {error}")
-    try:
-        outcome = analyze_track(args.audio, config, ArtifactStore(args.workspace))
-    except InputError as error:
-        args.parser.error(str(error))
-    except SetVectorError as error:
-        print(f"setvector: error: {error}", file=sys.stderr)
-        return 1
-    except KeyboardInterrupt:
-        print("setvector: interrupted; completed artifacts were kept", file=sys.stderr)
-        return 130
+    outcome, status = _call(
+        args, lambda: analyze_track(args.audio, config, ArtifactStore(args.workspace))
+    )
+    if status is not None:
+        return status
     result = {
         "asset_id": outcome.asset.asset_id,
         "feature_id": outcome.features.feature_id,
@@ -49,6 +58,29 @@ def _run_analyze(args: argparse.Namespace) -> int:
     print(json.dumps(result, sort_keys=True, ensure_ascii=False))
     for warning in outcome.features.measurements.diagnostics.warnings:
         print(f"setvector: warning: {warning}", file=sys.stderr)
+    return 0
+
+
+def _run_report(args: argparse.Namespace) -> int:
+    outcome, status = _call(
+        args,
+        lambda: render_report(
+            args.feature_id,
+            ArtifactStore(args.workspace),
+            output=args.output,
+            audio=args.audio,
+            include_audio=not args.no_audio,
+            overwrite=args.overwrite,
+        ),
+    )
+    if status is not None:
+        return status
+    result = {
+        "audio": "embedded" if outcome.audio_embedded else "none",
+        "feature_id": outcome.feature_id,
+        "report_path": str(outcome.report_path),
+    }
+    print(json.dumps(result, sort_keys=True, ensure_ascii=False))
     return 0
 
 
@@ -79,6 +111,32 @@ def _build_parser() -> argparse.ArgumentParser:
         "--workspace", type=Path, required=True, help="Directory for analysis artifacts"
     )
     analyze_parser.set_defaults(handler=_run_analyze, parser=analyze_parser)
+
+    report_parser = commands.add_parser(
+        "report",
+        help="Render an interactive HTML report from analyzed features",
+        description="Render stored features as a self-contained HTML page that works offline.",
+    )
+    report_parser.add_argument("feature_id", help="Feature ID printed by analyze")
+    report_parser.add_argument(
+        "--workspace", type=Path, required=True, help="Directory holding analysis artifacts"
+    )
+    report_parser.add_argument(
+        "--output",
+        type=Path,
+        help="HTML file to write (default: <workspace>/reports/<feature-id>.html)",
+    )
+    audio_options = report_parser.add_mutually_exclusive_group()
+    audio_options.add_argument(
+        "--audio", type=Path, help="Current path of the analyzed audio file, if it moved"
+    )
+    audio_options.add_argument(
+        "--no-audio", action="store_true", help="Build the report without a player"
+    )
+    report_parser.add_argument(
+        "--overwrite", action="store_true", help="Replace an existing report file"
+    )
+    report_parser.set_defaults(handler=_run_report, parser=report_parser)
     return parser
 
 
