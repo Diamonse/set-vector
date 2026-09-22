@@ -407,7 +407,9 @@ def test_sine_centroid_and_bass_ratio(decoded_factory):
     sample_rate = 8_000
     t = np.arange(sample_rate, dtype=np.float32) / sample_rate
     signal = np.sin(2 * np.pi * 200 * t)[None, :]
-    config = AnalysisConfig(sample_rate=None, frame_length=2_000, hop_length=2_000, channel_policy="mono")
+    config = AnalysisConfig(
+        sample_rate=None, frame_length=2_000, hop_length=2_000, channel_policy="mono"
+    )
     result = extract_baseline(decoded_factory(signal, sample_rate), config)
     assert np.mean(result.spectral_centroid.values) == pytest.approx(200.0, abs=8.0)
     assert min(result.bass_power_ratio.values) > 0.95
@@ -416,7 +418,9 @@ def test_sine_centroid_and_bass_ratio(decoded_factory):
 def test_preserve_does_not_cancel_antiphase_channels(decoded_factory):
     left = np.ones(8, dtype=np.float32)
     decoded = decoded_factory(np.stack([left, -left]), sample_rate=8)
-    config = AnalysisConfig(sample_rate=None, frame_length=8, hop_length=8, channel_policy="preserve")
+    config = AnalysisConfig(
+        sample_rate=None, frame_length=8, hop_length=8, channel_policy="preserve"
+    )
     assert extract_baseline(decoded, config).rms.values == pytest.approx((1.0,))
 ```
 
@@ -461,7 +465,7 @@ else:
     )
 ```
 
-Normalize the scalar/array tempo return to one finite positive `float`; otherwise use `None`. Retain only beat frame indices within the common grid and map each beat to the corresponding feature timestamp. Translate unexpected numerical/library failures into `AnalysisError` while allowing contract `ValueError`s to identify programmer mistakes in focused tests.
+librosa's default global tempo estimate materializes a full per-frame tempogram (about 1 GB for a 6-minute 44.1 kHz track), so accumulate the time-averaged tempogram over chunks of `_TEMPOGRAM_FRAMES_PER_CHUNK` columns using the same linear-ramp padding, pass it to `librosa.feature.tempo(tg=...)`, and call `beat_track` with that `bpm`. Test that tempo and beat frames match an unchunked `beat_track` call and that peak memory stays bounded. Normalize the scalar/array tempo return to one finite positive `float`; otherwise use `None`. Retain only beat frame indices within the common grid and map each beat to the corresponding feature timestamp. Translate unexpected numerical/library failures into `AnalysisError` while allowing contract `ValueError`s to identify programmer mistakes in focused tests.
 
 - [x] **Step 6: Run focused and regression tests**
 
@@ -686,7 +690,13 @@ def test_analyze_cli_maps_expected_input_errors_without_traceback(
     if filename == "corrupt.wav":
         (tmp_path / filename).write_bytes(b"not an audio file")
     result = run_cli(
-        "analyze", filename, "--config", str(config_path), "--workspace", str(tmp_path / "out"), cwd=tmp_path
+        "analyze",
+        filename,
+        "--config",
+        str(config_path),
+        "--workspace",
+        str(tmp_path / "out"),
+        cwd=tmp_path,
     )
     assert result.returncode == expected_code
     assert result.stdout == ""
@@ -705,7 +715,9 @@ Expected: FAIL because the application service and `analyze` parser are absent.
 - [x] **Step 4: Implement cache-first orchestration**
 
 ```python
-def analyze_track(path: str | Path, config: AnalysisConfig, store: ArtifactStore) -> AnalysisOutcome:
+def analyze_track(
+    path: str | Path, config: AnalysisConfig, store: ArtifactStore
+) -> AnalysisOutcome:
     asset = inspect_audio(path)
     extractor = baseline_identity(config)
     feature_id = compute_feature_id(asset.asset_id, extractor)
@@ -765,7 +777,7 @@ git commit -m "feat(cli): add local audio analysis workflow"
 - Verifies no socket connection can occur while the command produces and reuses a valid local artifact.
 - Documents that runtime analysis is local and model-free, while initial package installation can require downloading wheels.
 
-- [ ] **Step 1: Add the failing socket-blocked subprocess test**
+- [x] **Step 1: Add the failing socket-blocked subprocess test**
 
 ```python
 def test_analyze_and_cache_work_with_network_sockets_blocked(tmp_path, tone_path, config_path):
@@ -803,13 +815,13 @@ socket.socket.connect_ex = blocked
     assert json.loads(second.stdout)["cache_hit"] is True
 ```
 
-- [ ] **Step 2: Run the offline test before documentation changes**
+- [x] **Step 2: Run the offline test before documentation changes**
 
 Run: `python -m pytest tests/test_offline_analysis.py -q`
 
 Expected: PASS only when the full workflow makes no socket connection; otherwise FAIL with `network access attempted`.
 
-- [ ] **Step 3: Document the working local command and artifact outputs**
+- [x] **Step 3: Document the working local command and artifact outputs**
 
 Add this shape to `README.md` and expand it in `docs/development.md`:
 
@@ -821,7 +833,7 @@ setvector analyze "C:\Music\track.wav" `
 
 Document the stdout fields, stderr warnings, cache reuse, supported SoundFile-backed formats, M4A/AAC limitation, in-memory track loading, and the `assets/` plus `features/` workspace layout. State plainly that analysis uses NumPy, SoundFile, librosa, SciPy, and soxr on the local machine and requires no GPT model, API key, cloud service, telemetry, or network access after installation. State separately that installing wheels can require internet and an air-gapped wheel bundle is future distribution work. Update the ingestion milestone in `docs/implementation-plan.md` to describe the implemented command without claiming charts or energy scoring exist.
 
-- [ ] **Step 4: Run the complete source-tree verification**
+- [x] **Step 4: Run the complete source-tree verification**
 
 Run: `python -m pytest -q`
 
@@ -831,7 +843,7 @@ Run: `python -m ruff check src tests && python -m ruff format --check src tests`
 
 Expected: PASS.
 
-- [ ] **Step 5: Build and inspect distributions**
+- [x] **Step 5: Build and inspect distributions**
 
 Run: `python -m build`
 
@@ -841,7 +853,7 @@ Run: `python -c "import zipfile, pathlib; wheel=next(pathlib.Path('dist').glob('
 
 Expected: prints the wheel path without an assertion failure.
 
-- [ ] **Step 6: Verify the wheel outside the checkout with sockets blocked**
+- [x] **Step 6: Verify the wheel outside the checkout with sockets blocked**
 
 ```powershell
 py -3.11 -m venv <scratch>\wheel-check
@@ -853,7 +865,7 @@ From a temporary directory outside the checkout, generate a short WAV with the c
 
 Also analyze a generated 6-minute stereo 44.1 kHz WAV with the example configuration and record elapsed time, real-time factor, and peak working-set memory in the commit body. Expected: completes without memory errors; peak memory is dominated by the decoded signal rather than per-frame spectra.
 
-- [ ] **Step 7: Commit documentation and offline verification**
+- [x] **Step 7: Commit documentation and offline verification**
 
 ```bash
 git add tests/test_offline_analysis.py README.md docs/development.md docs/implementation-plan.md

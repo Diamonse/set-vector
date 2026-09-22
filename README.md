@@ -7,8 +7,9 @@ The goal is to build tools that help DJs analyze tracks, visualize changes in mu
 
 ## Getting Started
 
-The Python package currently provides configuration validation and typed feature
-data. Audio extraction and interactive charts are the next steps.
+The Python package analyzes local audio files and saves baseline feature
+measurements: RMS amplitude, spectral centroid, bass power ratio, onset strength,
+and a tempo/beat estimate. Interactive charts and energy scoring are the next steps.
 
 Install locally with Python 3.11 or newer. In PowerShell, from the repository root:
 
@@ -17,9 +18,15 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install .
 .\.venv\Scripts\setvector.exe --help
 .\.venv\Scripts\setvector.exe config validate examples/analysis-config.json
+.\.venv\Scripts\setvector.exe analyze "C:\Music	rack.wav" `
+  --config examples/analysis-config.json `
+  --workspace .setvector
 ```
 
-The validator returns the configuration and its stable identifier as JSON.
+`config validate` prints the configuration and its stable identifier as JSON.
+`analyze` prints the asset ID, feature ID, cache status, and manifest path of the
+saved feature artifact. Analysis runs entirely on your machine: no GPT model, API
+key, cloud service, telemetry, or network connection is used after installation.
 For an editable installation, tests, and Python API examples, see
 [Development](docs/development.md).
 
@@ -256,7 +263,7 @@ The project structure will evolve as the system develops.
 
 ### Phase 1 — Track Analysis
 
-- [ ] Audio file ingestion
+- [x] Audio file ingestion
 - [ ] BPM extraction
 - [ ] Key detection
 - [ ] Loudness analysis
