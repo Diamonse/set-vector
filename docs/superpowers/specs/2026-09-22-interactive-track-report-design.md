@@ -97,7 +97,7 @@ Series keep every stored frame. A one-hour recording is about 370,000 frames and
 | `ingestion.load_preview(path, asset)` | Verify content identity, then return `PreviewAudio(mime_type, data)`: MP3 bytes unchanged or an in-memory MP3 encode. |
 | `visualization.model` | Build `ReportModel`. No filesystem access. |
 | `visualization.html` | Fill the template with inlined assets, the model JSON, and optional audio. Escape all text. Embed JSON so `</script>` cannot terminate the script element. |
-| `visualization/assets/` | `report.html`, `report.css`, `report.js`, vendored uPlot 1.6.32 (`uPlot.iife.min.js`, `uPlot.min.css`), Inter 4.1 `InterVariable.woff2`, and `LICENSES/` with uPlot's MIT and Inter's OFL 1.1 texts. Loaded with `importlib.resources` so they ship in the wheel. |
+| `visualization/assets/` | `report.html`, `report.css`, `report.js`, vendored uPlot 1.6.32 (`uPlot.iife.min.js`, `uPlot.min.css`), the Inter variable font from `@fontsource-variable/inter` 5.3.0 (`inter-latin-wght-normal.woff2` and `inter-latin-ext-wght-normal.woff2`), and `LICENSES/` with uPlot's MIT and Inter's OFL 1.1 texts. Loaded with `importlib.resources` so they ship in the wheel. |
 | `application.render_report(feature_id, store, output, audio, include_audio, overwrite)` | Coordinate loading, preview, model, rendering, and writing. Return `ReportOutcome(report_path, feature_id, audio_embedded)`. |
 | `cli` | Parse options, map errors to exit codes, and print JSON. |
 
