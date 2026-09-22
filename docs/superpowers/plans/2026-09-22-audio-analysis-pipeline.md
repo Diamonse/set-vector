@@ -635,7 +635,7 @@ git commit -m "feat(storage): persist atomic feature artifacts"
 - Successful CLI stdout is exactly one JSON object with `asset_id`, `feature_id`, `cache_hit`, and absolute `manifest_path`. Warnings are one per line on stderr.
 - `InputError`, `UnsupportedAudioError`, argument errors, and configuration errors map to exit 2. `DecodeError`, `AnalysisError`, and `ArtifactError` map to exit 1. Expected failures have no traceback.
 
-- [ ] **Step 1: Write failing application cache tests**
+- [x] **Step 1: Write failing application cache tests**
 
 ```python
 def test_analyze_track_writes_then_reuses_feature_artifact(tmp_path, tone_path, config):
@@ -658,7 +658,7 @@ def test_cache_hit_does_not_decode_or_extract(monkeypatch, tmp_path, tone_path, 
 
 Also prove that changed audio bytes and a changed configuration create different feature IDs, and a corrupt existing artifact raises `ArtifactError` rather than being recomputed over.
 
-- [ ] **Step 2: Write failing CLI success and error-mapping tests**
+- [x] **Step 2: Write failing CLI success and error-mapping tests**
 
 ```python
 def test_analyze_cli_emits_machine_json(tmp_path, tone_path, config_path):
@@ -696,13 +696,13 @@ def test_analyze_cli_maps_expected_input_errors_without_traceback(
 
 Add a second invocation assertion for `cache_hit=true`, a Unicode/space path, invalid configuration returning 2, and a monkeypatched application error returning 1 when `main([...])` is called directly.
 
-- [ ] **Step 3: Run application and CLI tests and confirm they fail**
+- [x] **Step 3: Run application and CLI tests and confirm they fail**
 
 Run: `python -m pytest tests/test_application_analyze.py tests/test_cli.py -q`
 
 Expected: FAIL because the application service and `analyze` parser are absent.
 
-- [ ] **Step 4: Implement cache-first orchestration**
+- [x] **Step 4: Implement cache-first orchestration**
 
 ```python
 def analyze_track(path: str | Path, config: AnalysisConfig, store: ArtifactStore) -> AnalysisOutcome:
@@ -725,11 +725,11 @@ def analyze_track(path: str | Path, config: AnalysisConfig, store: ArtifactStore
     return AnalysisOutcome(asset, bundle, manifest_path, False)
 ```
 
-- [ ] **Step 5: Refactor the CLI into explicit command handlers**
+- [x] **Step 5: Refactor the CLI into explicit command handlers**
 
 Create `_load_config(path: Path) -> AnalysisConfig` using the existing duplicate-key hook, `_run_config_validate(args) -> int`, and `_run_analyze(args) -> int`. Add the parser without putting decoding, feature, or artifact logic in `cli`. Resolve the artifact workspace in `ArtifactStore`, print compact sorted JSON to stdout, and print warnings to stderr after success. For exit-1 exceptions print `setvector: error: <message>` and return 1; let `argparse.ArgumentParser.error()` produce exit 2 for caller/configuration errors.
 
-- [ ] **Step 6: Run focused and full tests**
+- [x] **Step 6: Run focused and full tests**
 
 Run: `python -m pytest tests/test_application_analyze.py tests/test_cli.py -q`
 
@@ -739,7 +739,7 @@ Run: `python -m pytest -q`
 
 Expected: PASS.
 
-- [ ] **Step 7: Lint and commit**
+- [x] **Step 7: Lint and commit**
 
 Run: `python -m ruff check src tests && python -m ruff format --check src tests`
 
