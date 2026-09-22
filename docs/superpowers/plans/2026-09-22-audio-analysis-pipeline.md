@@ -375,7 +375,7 @@ git commit -m "feat(ingestion): decode local audio files"
 - Frames are processed in chunks of at most `_FRAMES_PER_CHUNK = 256` (a module constant tests may monkeypatch) so windowed samples and spectra stay bounded for full-length tracks. Chunking must not change any value.
 - Every feature uses identical timestamps and windows. Feature names and units are exactly `rms`/`linear_amplitude`, `spectral_centroid`/`Hz`, `bass_power_ratio`/`ratio`, and `onset_strength`/`normalized_flux`.
 
-- [ ] **Step 1: Write failing full-frame timing and silence tests**
+- [x] **Step 1: Write failing full-frame timing and silence tests**
 
 ```python
 def test_only_full_left_aligned_frames_are_measured(decoded_factory, config):
@@ -400,7 +400,7 @@ def test_silence_has_zero_amplitude_and_missing_spectral_values(decoded_factory)
     assert result.beats == ()
 ```
 
-- [ ] **Step 2: Write failing numerical and channel-policy tests**
+- [x] **Step 2: Write failing numerical and channel-policy tests**
 
 ```python
 def test_sine_centroid_and_bass_ratio(decoded_factory):
@@ -422,13 +422,13 @@ def test_preserve_does_not_cancel_antiphase_channels(decoded_factory):
 
 Also test that forcing `_FRAMES_PER_CHUNK` to 1 and 3 yields measurements equal to the default (including onset values across chunk boundaries), a clip shorter than one frame returns four empty series plus a warning, a partial tail count is correct, a click train produces nonzero onset values and ordered beat positions, and every series shares the same timing arrays.
 
-- [ ] **Step 3: Run analysis tests and confirm they fail**
+- [x] **Step 3: Run analysis tests and confirm they fail**
 
 Run: `python -m pytest tests/test_analysis_baseline.py -q`
 
 Expected: FAIL during collection because `setvector.analysis` does not exist.
 
-- [ ] **Step 4: Implement the identity and full-frame numerical path**
+- [x] **Step 4: Implement the identity and full-frame numerical path**
 
 ```python
 def _frame_count(sample_count: int, frame_length: int, hop_length: int) -> int:
@@ -445,7 +445,7 @@ def _omitted_tail(sample_count: int, frame_count: int, frame_length: int, hop_le
 
 Use `numpy.lib.stride_tricks.sliding_window_view` or explicit indexed views without padding, and iterate over frame chunks of `_FRAMES_PER_CHUNK`; only per-frame scalars are accumulated across chunks. Carry the previous frame's channel-summed magnitude between chunks so flux is identical to an unchunked computation. Compute RMS from unwindowed samples over channels and time. Apply `np.hanning(frame_length)` before `np.fft.rfft`. Compute centroid from channel-summed magnitude and bass ratio from channel-summed power at bins `<= 250 Hz`; when the denominator is zero, emit `None` and `False`. Define flux frame zero as `0.0`, later frames as the sum of positive magnitude differences, and divide by the track maximum only when it is positive.
 
-- [ ] **Step 5: Add local tempo and beat extraction**
+- [x] **Step 5: Add local tempo and beat extraction**
 
 ```python
 if not np.any(onset_values):
@@ -463,13 +463,13 @@ else:
 
 Normalize the scalar/array tempo return to one finite positive `float`; otherwise use `None`. Retain only beat frame indices within the common grid and map each beat to the corresponding feature timestamp. Translate unexpected numerical/library failures into `AnalysisError` while allowing contract `ValueError`s to identify programmer mistakes in focused tests.
 
-- [ ] **Step 6: Run focused and regression tests**
+- [x] **Step 6: Run focused and regression tests**
 
 Run: `python -m pytest tests/test_analysis_baseline.py tests/test_domain_bundle.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 7: Lint and commit**
+- [x] **Step 7: Lint and commit**
 
 Run: `python -m ruff check src tests && python -m ruff format --check src tests`
 
