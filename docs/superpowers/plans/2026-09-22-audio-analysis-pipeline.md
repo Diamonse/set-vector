@@ -49,7 +49,7 @@
 - All IDs are lowercase 64-character SHA-256 hex strings. All finite numeric fields reject booleans, NaN, and infinity. Collections are defensively copied and immutable.
 - `AnalysisMeasurements` enforces the exact four feature names and units, identical timing arrays, `diagnostics.analyzed_frames == len(rms.values)`, ordered in-range beat indices whose seconds equal the indexed timestamps, and the invariant that tempo is absent exactly when the beat tuple is empty.
 
-- [ ] **Step 1: Add failing audio-contract tests**
+- [x] **Step 1: Add failing audio-contract tests**
 
 ```python
 from pathlib import Path
@@ -85,7 +85,7 @@ def test_audio_asset_requires_sha256_hex(tmp_path, asset_id):
         AudioAsset(**{**valid_asset(tmp_path).to_dict(), "asset_id": asset_id})
 ```
 
-- [ ] **Step 2: Add failing bundle immutability and consistency tests**
+- [x] **Step 2: Add failing bundle immutability and consistency tests**
 
 ```python
 def test_extractor_identity_copies_mutable_inputs(config):
@@ -125,13 +125,13 @@ def test_measurements_reject_mislabeled_or_incoherent_series(measurements):
         )
 ```
 
-- [ ] **Step 3: Run the new tests and confirm the imports fail**
+- [x] **Step 3: Run the new tests and confirm the imports fail**
 
 Run: `python -m pytest tests/test_domain_audio.py tests/test_domain_bundle.py -q`
 
 Expected: FAIL during collection because the new contracts are not defined.
 
-- [ ] **Step 4: Pin the local runtime and development environment**
+- [x] **Step 4: Pin the local runtime and development environment**
 
 ```toml
 dependencies = [
@@ -145,7 +145,7 @@ dependencies = [
 
 Add the same five pins to `requirements-dev.txt` while retaining the existing development pins. Do not add HTTP, cloud, model-client, or telemetry packages directly.
 
-- [ ] **Step 5: Implement strict immutable contracts and errors**
+- [x] **Step 5: Implement strict immutable contracts and errors**
 
 ```python
 class SetVectorError(Exception):
@@ -174,7 +174,7 @@ class ArtifactError(SetVectorError):
 
 Implement each dataclass with `frozen=True, slots=True`, strict field sets in `from_dict()`, detached JSON-compatible values from `to_dict()`, finite-number validation, SHA-256 validation, and tuple or immutable mapping copies. `FeatureBundle` must require `config_id == extractor.config.config_id`. `AnalysisMeasurements` must enforce the semantic and timing invariants in **Interfaces**, including setting tempo to `None` whenever no valid beat remains after extraction.
 
-- [ ] **Step 6: Export the public contracts and run domain tests**
+- [x] **Step 6: Export the public contracts and run domain tests**
 
 ```python
 from .audio import AudioAsset
@@ -199,7 +199,7 @@ Run: `python -m pytest tests/test_domain_audio.py tests/test_domain_bundle.py te
 
 Expected: PASS.
 
-- [ ] **Step 7: Lint and commit**
+- [x] **Step 7: Lint and commit**
 
 Run: `python -m ruff check src tests && python -m ruff format --check src tests`
 
@@ -338,7 +338,7 @@ class DecodedAudio:
         object.__setattr__(self, "samples", samples)
 ```
 
-`inspect_audio()` must resolve the path, reject non-files and zero bytes, calculate SHA-256 in chunks, call `soundfile.info()`, and translate unrecognized content to `UnsupportedAudioError`. `decode_audio()` must compare a fresh hash with the inspected ID both immediately before and immediately after `soundfile.read()`, translate decoder failures to `DecodeError`, reject empty decoded sample arrays, apply channel policy and resampling along the sample axis before transposing, and return a `DecodedAudio`. The second hash closes the ordinary mutation-during-read race and must run before decoded samples can be returned.
+`inspect_audio()` must resolve the path, reject non-files and zero bytes, calculate SHA-256 in chunks, call `soundfile.info()`, and translate unrecognized content to `UnsupportedAudioError`. `decode_audio()` must compare a fresh hash with the inspected ID both immediately before and immediately after `soundfile.read()`, translate decoder failures to `DecodeError`, reject empty decoded sample arrays, apply channel policy and resampling along the sample axis before transposing, and return a `DecodedAudio`. The second hash closes the ordinary mutation-during-read race and must run before decoded samples can be returned. Call the decoder as `soundfile.read(...)` through the module attribute so the mutation test's monkeypatch reaches it.
 
 - [ ] **Step 5: Run focused and regression tests**
 
@@ -372,6 +372,7 @@ git commit -m "feat(ingestion): decode local audio files"
 - Produces: `baseline_identity(config: AnalysisConfig) -> ExtractorIdentity` using package version plus installed versions for `numpy`, `scipy`, `soundfile`, `librosa`, and `soxr`.
 - Produces: `extract_baseline(decoded: DecodedAudio, config: AnalysisConfig) -> AnalysisMeasurements`.
 - Fixed parameters are `bass_cutoff_hz=250.0`, `spectral_window="hann"`, `onset_method="positive_spectral_flux"`, `onset_normalization="track_peak"`, and `resampler="soxr_hq_when_requested"`.
+- Frames are processed in chunks of at most `_FRAMES_PER_CHUNK = 256` (a module constant tests may monkeypatch) so windowed samples and spectra stay bounded for full-length tracks. Chunking must not change any value.
 - Every feature uses identical timestamps and windows. Feature names and units are exactly `rms`/`linear_amplitude`, `spectral_centroid`/`Hz`, `bass_power_ratio`/`ratio`, and `onset_strength`/`normalized_flux`.
 
 - [ ] **Step 1: Write failing full-frame timing and silence tests**
@@ -419,7 +420,7 @@ def test_preserve_does_not_cancel_antiphase_channels(decoded_factory):
     assert extract_baseline(decoded, config).rms.values == pytest.approx((1.0,))
 ```
 
-Also test a clip shorter than one frame returns four empty series plus a warning, a partial tail count is correct, a click train produces nonzero onset values and ordered beat positions, and every series shares the same timing arrays.
+Also test that forcing `_FRAMES_PER_CHUNK` to 1 and 3 yields measurements equal to the default (including onset values across chunk boundaries), a clip shorter than one frame returns four empty series plus a warning, a partial tail count is correct, a click train produces nonzero onset values and ordered beat positions, and every series shares the same timing arrays.
 
 - [ ] **Step 3: Run analysis tests and confirm they fail**
 
@@ -442,7 +443,7 @@ def _omitted_tail(sample_count: int, frame_count: int, frame_length: int, hop_le
     return sample_count - ((frame_count - 1) * hop_length + frame_length)
 ```
 
-Use `numpy.lib.stride_tricks.sliding_window_view` or explicit indexed views without padding. Compute RMS from unwindowed samples over channels and time. Apply `np.hanning(frame_length)` before `np.fft.rfft`. Compute centroid from channel-summed magnitude and bass ratio from channel-summed power at bins `<= 250 Hz`; when the denominator is zero, emit `None` and `False`. Define flux frame zero as `0.0`, later frames as the sum of positive magnitude differences, and divide by the track maximum only when it is positive.
+Use `numpy.lib.stride_tricks.sliding_window_view` or explicit indexed views without padding, and iterate over frame chunks of `_FRAMES_PER_CHUNK`; only per-frame scalars are accumulated across chunks. Carry the previous frame's channel-summed magnitude between chunks so flux is identical to an unchunked computation. Compute RMS from unwindowed samples over channels and time. Apply `np.hanning(frame_length)` before `np.fft.rfft`. Compute centroid from channel-summed magnitude and bass ratio from channel-summed power at bins `<= 250 Hz`; when the denominator is zero, emit `None` and `False`. Define flux frame zero as `0.0`, later frames as the sum of positive magnitude differences, and divide by the track maximum only when it is positive.
 
 - [ ] **Step 5: Add local tempo and beat extraction**
 
@@ -596,7 +597,7 @@ except Exception:
     raise
 ```
 
-Create parents before the temporary directory. Write UTF-8 JSON with a trailing newline and call `flush()` plus `os.fsync()` before close. Save NPZ through an open binary file so NumPy cannot append an unexpected suffix, flush/fsync it, validate the temporary files by reloading, then rename. Validate or atomically publish the asset directory before publishing the feature directory, so a visible feature always has its asset metadata. If a target exists, validate it: return its manifest only when its bundle equals the supplied bundle; otherwise raise `ArtifactError`. Apply the same sibling-temp pattern to `asset.json`. Before any write, validate the supplied asset/bundle relationship and recompute the feature ID.
+Create parents before the temporary directory. Write UTF-8 JSON with a trailing newline and call `flush()` plus `os.fsync()` before close. Save NPZ through an open binary file so NumPy cannot append an unexpected suffix, flush/fsync it, validate the temporary files by reloading, then rename. Validate or atomically publish the asset directory before publishing the feature directory, so a visible feature always has its asset metadata. If a target exists, validate it: return its manifest only when its bundle equals the supplied bundle; otherwise raise `ArtifactError`. If `os.replace` fails because another writer published the target concurrently, remove the temporary directory and apply the same existing-target validation instead of failing. Apply the same sibling-temp pattern to `asset.json`. Before any write, validate the supplied asset/bundle relationship and recompute the feature ID.
 
 - [ ] **Step 6: Run focused and regression tests**
 
@@ -843,12 +844,14 @@ Expected: prints the wheel path without an assertion failure.
 - [ ] **Step 6: Verify the wheel outside the checkout with sockets blocked**
 
 ```powershell
-py -3.11 -m venv .venv-wheel-check
-.\.venv-wheel-check\Scripts\python.exe -m pip install --no-deps (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
-.\.venv-wheel-check\Scripts\python.exe -m pip install numpy==2.4.6 scipy==1.17.1 soundfile==0.14.0 librosa==0.11.0 soxr==1.1.0
+py -3.11 -m venv <scratch>\wheel-check
+<scratch>\wheel-check\Scripts\python.exe -m pip install --no-deps (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
+<scratch>\wheel-check\Scripts\python.exe -m pip install numpy==2.4.6 scipy==1.17.1 soundfile==0.14.0 librosa==0.11.0 soxr==1.1.0
 ```
 
-From a temporary directory outside the checkout, generate a short WAV with the clean environment, add the socket-blocking `sitecustomize.py`, and run the installed `setvector analyze` command twice. Expected: both runs exit 0, the first reports `cache_hit=false`, the second reports `cache_hit=true`, and the manifest exists. Then run `pip check`; expected: `No broken requirements found.`
+From a temporary directory outside the checkout, generate a short WAV with the clean environment, add the socket-blocking `sitecustomize.py`, and run the installed `setvector analyze` command twice. Expected: both runs exit 0, the first reports `cache_hit=false`, the second reports `cache_hit=true`, and the manifest exists. Then run `pip check`; expected: `No broken requirements found.` `<scratch>` is a temporary directory outside the checkout.
+
+Also analyze a generated 6-minute stereo 44.1 kHz WAV with the example configuration and record elapsed time, real-time factor, and peak working-set memory in the commit body. Expected: completes without memory errors; peak memory is dominated by the decoded signal rather than per-frame spectra.
 
 - [ ] **Step 7: Commit documentation and offline verification**
 
