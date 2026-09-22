@@ -1,0 +1,30 @@
+# Python environments and build output
+.venv/
+.venv-*/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Development tools
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local analysis workspaces and audio
+.setvector/
+analysis-workspace/
+*.wav
+*.flac
+*.mp3
+*.aiff
+*.aif
+*.m4a
+*.ogg
+
+# Local editor and notebook state
+.vscode/
+.idea/
+.ipynb_checkpoints/

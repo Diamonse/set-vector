@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "sample_rate": null,
+  "frame_length": 2048,
+  "hop_length": 512,
+  "channel_policy": "mono"
+}
