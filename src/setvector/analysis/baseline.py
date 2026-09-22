@@ -22,6 +22,7 @@ from setvector.ingestion import DecodedAudio
 from .identity import BASS_CUTOFF_HZ
 
 _FRAMES_PER_CHUNK = 256
+_TEMPOGRAM_FRAMES_PER_CHUNK = 2_048
 
 
 def _frame_count(sample_count: int, frame_length: int, hop_length: int) -> int:
@@ -98,16 +99,45 @@ def _measure_frames(samples: np.ndarray, sample_rate: int, config: AnalysisConfi
     return rms, _ratio(weighted, magnitude_total), _ratio(bass_power, total_power), onset
 
 
+def _mean_tempogram(onset: np.ndarray, sample_rate: int, hop_length: int) -> np.ndarray:
+    """Time-averaged tempogram equal to librosa's default global tempo input.
+
+    librosa materializes one autocorrelation column per onset frame before
+    averaging, which needs gigabytes for long recordings. Each column depends
+    only on its own window of the padded envelope, so the mean is accumulated
+    over chunks of columns instead.
+    """
+    import librosa
+
+    win_length = int(librosa.time_to_frames(8.0, sr=sample_rate, hop_length=hop_length))
+    padded = np.pad(onset, win_length // 2, mode="linear_ramp", end_values=(0, 0))
+    total = np.zeros(win_length)
+    for first in range(0, onset.size, _TEMPOGRAM_FRAMES_PER_CHUNK):
+        last = min(first + _TEMPOGRAM_FRAMES_PER_CHUNK, onset.size)
+        columns = librosa.feature.tempogram(
+            onset_envelope=padded[first : last + win_length - 1],
+            sr=sample_rate,
+            hop_length=hop_length,
+            win_length=win_length,
+            center=False,
+        )
+        total += columns.sum(axis=1)
+    return (total / onset.size)[:, np.newaxis]
+
+
 def _estimate_beats(onset: np.ndarray, timestamps, sample_rate: int, hop_length: int):
     if not np.any(onset):
         return None, ()
     import librosa
 
     try:
+        tempogram = _mean_tempogram(onset, sample_rate, hop_length)
+        bpm = librosa.feature.tempo(tg=tempogram, sr=sample_rate, hop_length=hop_length)
         tempo, beat_frames = librosa.beat.beat_track(
             onset_envelope=onset,
             sr=sample_rate,
             hop_length=hop_length,
+            bpm=float(bpm.reshape(-1)[0]),
             sparse=True,
             units="frames",
         )

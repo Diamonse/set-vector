@@ -171,6 +171,36 @@ def test_chunking_does_not_change_measurements(decoded_factory, monkeypatch, chu
     assert result.diagnostics == expected.diagnostics
 
 
+@pytest.mark.parametrize("chunk", [7, 500, 100_000])
+def test_chunked_tempo_matches_librosa_beat_track(monkeypatch, chunk):
+    rng = np.random.default_rng(3)
+    onset = np.abs(rng.standard_normal(1_500))
+    onset[::43] += 4.0
+    timestamps = tuple(float(i) for i in range(onset.size))
+    expected_tempo, expected_frames = librosa.beat.beat_track(
+        onset_envelope=onset, sr=22_050, hop_length=512, sparse=True, units="frames"
+    )
+    monkeypatch.setattr(baseline_module, "_TEMPOGRAM_FRAMES_PER_CHUNK", chunk)
+    tempo, beats = baseline_module._estimate_beats(onset, timestamps, 22_050, 512)
+    assert tempo == pytest.approx(float(np.asarray(expected_tempo).reshape(-1)[0]))
+    assert [beat.frame_index for beat in beats] == [int(f) for f in expected_frames]
+
+
+def test_tempo_estimation_memory_is_bounded():
+    import tracemalloc
+
+    onset = np.abs(np.random.default_rng(4).standard_normal(40_000))
+    timestamps = tuple(float(i) for i in range(onset.size))
+    tracemalloc.start()
+    try:
+        baseline_module._estimate_beats(onset, timestamps, 44_100, 512)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    # An unchunked tempogram for this envelope allocates more than 1 GB.
+    assert peak < 150 * 2**20
+
+
 def test_beat_tracker_failure_becomes_analysis_error(decoded_factory, monkeypatch):
     def failing(*args, **kwargs):
         raise librosa.util.exceptions.ParameterError("simulated")
