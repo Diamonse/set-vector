@@ -498,7 +498,7 @@ git commit -m "feat(analysis): extract baseline audio features"
 - Layout is `<workspace>/assets/<asset-id>/asset.json` and `<workspace>/features/<feature-id>/{manifest.json,arrays.npz}`.
 - `save()` and `load()` require `bundle.asset_id == asset.asset_id` and `bundle.feature_id == compute_feature_id(bundle.asset_id, bundle.extractor)`. A feature cache hit also requires a complete, strict `asset.json` whose identity and content metadata match the freshly inspected asset; `observed_path` may differ because paths do not participate in identity.
 
-- [ ] **Step 1: Write failing identity and round-trip tests**
+- [x] **Step 1: Write failing identity and round-trip tests**
 
 ```python
 def test_feature_id_excludes_observed_path(asset, identity):
@@ -518,7 +518,7 @@ def test_store_round_trip_uses_json_and_non_pickle_npz(tmp_path, asset, bundle):
         assert arrays["spectral_centroid__values"].dtype.kind == "f"
 ```
 
-- [ ] **Step 2: Write failing cache-integrity and atomicity tests**
+- [x] **Step 2: Write failing cache-integrity and atomicity tests**
 
 ```python
 def test_partial_feature_directory_is_an_error(tmp_path, asset):
@@ -558,13 +558,13 @@ def test_feature_cache_requires_valid_asset_artifact(tmp_path, asset, bundle):
 
 Monkeypatch the final feature rename to fail and assert no published feature target remains. Add tests for an absent feature ID returning `None`, duplicate JSON keys being rejected, incompatible schema versions, mismatched manifest IDs, missing arrays, a validity mask reconstructing invalid values as `None`, changed dependency/configuration identity changing the feature ID, and missing, corrupt, incompatible, or content-mismatched asset JSON rejecting a cache hit. Prove a stored asset with only a different absolute `observed_path` remains reusable.
 
-- [ ] **Step 3: Run storage tests and confirm they fail**
+- [x] **Step 3: Run storage tests and confirm they fail**
 
 Run: `python -m pytest tests/test_storage_artifacts.py -q`
 
 Expected: FAIL during collection because `setvector.storage` does not exist.
 
-- [ ] **Step 4: Implement canonical identity and explicit serialization**
+- [x] **Step 4: Implement canonical identity and explicit serialization**
 
 ```python
 def canonical_json(value: Mapping[str, object]) -> bytes:
@@ -584,7 +584,7 @@ def compute_feature_id(asset_id: str, extractor: ExtractorIdentity) -> str:
 
 The manifest stores identities, configuration, tempo, beats, diagnostics, and, for each series, its name, unit, schema version, and NPZ key names. The NPZ stores `timestamps`, `values`, `validity`, `window_starts`, and `window_ends` under a stable series prefix. Use zero only as the persisted placeholder where validity is false and reconstruct `None` before constructing `FeatureSeries`. On every load, reconstruct the strict bundle, recompute its feature ID, verify the directory/manifest/expected ID agree, load the strict asset JSON, and compare its identity plus all content-derived metadata to `expected_asset` while excluding `observed_path`.
 
-- [ ] **Step 5: Implement validated temporary-directory publication**
+- [x] **Step 5: Implement validated temporary-directory publication**
 
 ```python
 temporary = Path(tempfile.mkdtemp(prefix=f".{feature_id}.tmp-", dir=parent))
@@ -599,13 +599,13 @@ except Exception:
 
 Create parents before the temporary directory. Write UTF-8 JSON with a trailing newline and call `flush()` plus `os.fsync()` before close. Save NPZ through an open binary file so NumPy cannot append an unexpected suffix, flush/fsync it, validate the temporary files by reloading, then rename. Validate or atomically publish the asset directory before publishing the feature directory, so a visible feature always has its asset metadata. If a target exists, validate it: return its manifest only when its bundle equals the supplied bundle; otherwise raise `ArtifactError`. If `os.replace` fails because another writer published the target concurrently, remove the temporary directory and apply the same existing-target validation instead of failing. Apply the same sibling-temp pattern to `asset.json`. Before any write, validate the supplied asset/bundle relationship and recompute the feature ID.
 
-- [ ] **Step 6: Run focused and regression tests**
+- [x] **Step 6: Run focused and regression tests**
 
 Run: `python -m pytest tests/test_storage_artifacts.py tests/test_domain_bundle.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 7: Lint and commit**
+- [x] **Step 7: Lint and commit**
 
 Run: `python -m ruff check src tests && python -m ruff format --check src tests`
 
