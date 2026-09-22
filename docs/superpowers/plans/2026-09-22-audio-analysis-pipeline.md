@@ -225,7 +225,7 @@ git commit -m "feat(domain): add audio analysis contracts"
 - Produces: `inspect_audio(path: str | Path) -> AudioAsset` and `decode_audio(path: str | Path, asset: AudioAsset, config: AnalysisConfig) -> DecodedAudio`.
 - `decode_audio()` verifies the bytes match `asset.asset_id` before and after decoding, reads through SoundFile with `dtype="float32"` and `always_2d=True`, applies `mono` or `preserve` while samples are `(samples, channels)`, passes that sample-major array directly to `soxr.resample(samples, native_rate, target_rate, quality="HQ")` only when a configured sample rate differs, and converts to channels-first after resampling.
 
-- [ ] **Step 1: Write generated-audio inspection and decode tests**
+- [x] **Step 1: Write generated-audio inspection and decode tests**
 
 ```python
 import hashlib
@@ -274,7 +274,7 @@ def test_decode_preserves_channel_axis_while_resampling(tmp_path):
     assert not np.allclose(decoded.samples[0], decoded.samples[1])
 ```
 
-- [ ] **Step 2: Write failing path, corruption, mutation, and preserve tests**
+- [x] **Step 2: Write failing path, corruption, mutation, and preserve tests**
 
 ```python
 def test_missing_empty_and_corrupt_inputs_fail_clearly(tmp_path):
@@ -315,13 +315,13 @@ def test_decode_rejects_mutation_during_read(monkeypatch, tmp_path):
 
 Also assert a Unicode path works, `preserve` retains both channels, native-rate mode retains the source rate, a directory is rejected, and an audio header in a file with an arbitrary extension succeeds.
 
-- [ ] **Step 3: Run ingestion tests and confirm they fail**
+- [x] **Step 3: Run ingestion tests and confirm they fail**
 
 Run: `python -m pytest tests/test_ingestion.py -q`
 
 Expected: FAIL during collection because `setvector.ingestion` does not exist.
 
-- [ ] **Step 4: Implement inspection and decoding**
+- [x] **Step 4: Implement inspection and decoding**
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -340,13 +340,13 @@ class DecodedAudio:
 
 `inspect_audio()` must resolve the path, reject non-files and zero bytes, calculate SHA-256 in chunks, call `soundfile.info()`, and translate unrecognized content to `UnsupportedAudioError`. `decode_audio()` must compare a fresh hash with the inspected ID both immediately before and immediately after `soundfile.read()`, translate decoder failures to `DecodeError`, reject empty decoded sample arrays, apply channel policy and resampling along the sample axis before transposing, and return a `DecodedAudio`. The second hash closes the ordinary mutation-during-read race and must run before decoded samples can be returned. Call the decoder as `soundfile.read(...)` through the module attribute so the mutation test's monkeypatch reaches it.
 
-- [ ] **Step 5: Run focused and regression tests**
+- [x] **Step 5: Run focused and regression tests**
 
 Run: `python -m pytest tests/test_ingestion.py tests/test_domain_audio.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 6: Lint and commit**
+- [x] **Step 6: Lint and commit**
 
 Run: `python -m ruff check src tests && python -m ruff format --check src tests`
 
