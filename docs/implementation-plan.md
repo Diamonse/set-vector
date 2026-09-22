@@ -20,6 +20,8 @@ Detailed design: [Audio Analysis Pipeline](superpowers/specs/2026-09-22-audio-an
 
 Done when supported local audio yields inspectable feature artifacts; rerunning unchanged input can reuse them; changed configuration invalidates the cache; invalid files fail clearly. Confirm numerical timing/units with synthetic signals.
 
+Implemented as `setvector analyze`, which saves RMS, spectral centroid, bass power ratio, onset strength, tempo, and beats to a local workspace. It works with network sockets blocked. Charts and energy scoring are not part of this step. Open limitation: tempo is reported without a pulse-confidence measure.
+
 ## 3. First interactive report
 
 Render raw feature curves with aligned time axes, units, beat estimates where available, and quality flags. Export a self-contained HTML report and document the library and CLI usage.
