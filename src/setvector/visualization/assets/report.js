@@ -320,11 +320,11 @@
     ctx.beginPath();
     ctx.rect(left, top, width, height);
     ctx.clip();
-    ctx.strokeStyle = palette.line;
+    ctx.strokeStyle = palette.muted;
     model.beats.forEach((beat, index) => {
       if (beat < min || beat > max) return;
       const bar = barLines ? barLines.has(beat) : index % 4 === 0;
-      ctx.globalAlpha = bar ? 1 : 0.45;
+      ctx.globalAlpha = bar ? 0.5 : 0.2;
       ctx.lineWidth = (bar ? 1.4 : 1) * uPlot.pxRatio;
       const x = Math.round(u.valToPos(beat, "x", true)) + 0.5;
       ctx.beginPath();
@@ -364,6 +364,7 @@
       const plot = new uPlot({
         width: Math.max(host.clientWidth, 50),
         height: withAxis ? 94 : 66,
+        padding: [8, 16, 8, 16],
         legend: { show: false },
         select: { show: false },
         cursor: {
@@ -397,7 +398,7 @@
             },
           },
         ],
-        hooks: { drawAxes: [drawBeats], draw: [drawPlayhead], setCursor: [onCursor] },
+        hooks: { draw: [drawBeats, drawPlayhead], setCursor: [onCursor] },
       }, [times, values[lane.key]], host);
       plot.over.addEventListener("click", (event) => seek(plot.posToVal(event.offsetX, "x"), false));
       plots.push(plot);
