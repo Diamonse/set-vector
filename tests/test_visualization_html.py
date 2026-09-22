@@ -68,9 +68,9 @@ def test_title_text_is_escaped(report_inputs):
 
 
 def test_script_json_cannot_close_its_element():
-    hostile = "</script><!-- &   "
+    hostile = "</script><!-- & \u2028\u2029"
     text = json_for_script({"title": hostile})
-    assert not any(c in text for c in "<>&  ")
+    assert not any(c in text for c in "<>&\u2028\u2029")
     assert json.loads(text) == {"title": hostile}
 
 
