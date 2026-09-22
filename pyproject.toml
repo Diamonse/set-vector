@@ -16,7 +16,13 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Multimedia :: Sound/Audio :: Analysis",
 ]
-dependencies = []
+dependencies = [
+    "librosa==0.11.0",
+    "numpy==2.4.6",
+    "scipy==1.17.1",
+    "soundfile==0.14.0",
+    "soxr==1.1.0",
+]
 
 [project.urls]
 Repository = "https://github.com/Diamonse/set-vector"
