@@ -88,3 +88,31 @@ def test_rhythm_id_depends_on_feature_and_every_extractor_input(report_inputs, r
     assert compute_rhythm_id("b" * 64, rhythm.extractor) != base
     changed = replace(rhythm.extractor, parameters={"checkpoint": "final1"})
     assert compute_rhythm_id(bundle.feature_id, changed) != base
+
+
+def test_tempo_bpm_is_coerced_to_float(report_inputs, rhythm_factory):
+    _, bundle = report_inputs()
+    rhythm = rhythm_factory(bundle)
+    updated = replace(rhythm, tempo_bpm=120)
+    assert updated.tempo_bpm == 120.0
+    assert type(updated.tempo_bpm) is float
+
+
+def test_tempo_bpm_rejects_bool(report_inputs, rhythm_factory):
+    _, bundle = report_inputs()
+    rhythm = rhythm_factory(bundle, segments=(GridSegment(0.5, 1.0, 8, 1),))
+    with pytest.raises(ValueError, match="tempo_bpm"):
+        replace(rhythm, tempo_bpm=True)
+
+
+def test_quality_rejects_non_string_keys(report_inputs, rhythm_factory):
+    _, bundle = report_inputs()
+    rhythm = rhythm_factory(bundle)
+    with pytest.raises(ValueError, match="quality"):
+        replace(
+            rhythm,
+            quality={
+                5: CandidateQuality(1, None, None, 0, None, None),
+                "beat_this": CandidateQuality(1, None, None, 0, None, None),
+            },
+        )

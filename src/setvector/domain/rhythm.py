@@ -204,11 +204,14 @@ class RhythmAnalysis:
         detected = _times(self.detected_beats, "detected_beats")
         if not isinstance(self.quality, Mapping):
             raise ValueError("quality must be an object")
-        quality = dict(sorted(self.quality.items()))
-        if any(name not in CANDIDATES for name in quality) or not all(
-            isinstance(value, CandidateQuality) for value in quality.values()
+        if any(
+            type(name) is not str
+            or name not in CANDIDATES
+            or not isinstance(value, CandidateQuality)
+            for name, value in self.quality.items()
         ):
             raise ValueError(f"quality keys must be among {', '.join(CANDIDATES)}")
+        quality = dict(sorted(self.quality.items()))
         if type(self.reliable) is not bool:
             raise ValueError("reliable must be a boolean")
         reasons = tuple(nonempty_string(r, "reasons") for r in _array(self.reasons, "reasons"))
@@ -221,8 +224,10 @@ class RhythmAnalysis:
             if not segments or self.source not in quality:
                 raise ValueError("a selected source needs grid_segments and its quality")
             dominant = max(segments, key=lambda segment: segment.beat_count)
-            if self.tempo_bpm != dominant.bpm:
+            tempo_bpm = finite_number(self.tempo_bpm, "tempo_bpm")
+            if tempo_bpm != dominant.bpm:
                 raise ValueError("tempo_bpm must equal the bpm of the longest segment")
+            object.__setattr__(self, "tempo_bpm", tempo_bpm)
         if self.source == "setvector_fallback" and any(known):
             raise ValueError("setvector_fallback grids have no bar positions")
         object.__setattr__(self, "grid_segments", segments)
