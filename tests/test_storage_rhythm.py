@@ -66,6 +66,25 @@ def test_save_rejects_a_rhythm_whose_id_does_not_match(tmp_path, rhythm):
         RhythmStore(tmp_path).save(replace(rhythm, rhythm_id="d" * 64))
 
 
+def test_concurrent_publication_of_same_rhythm_is_accepted(monkeypatch, tmp_path, rhythm):
+    store = RhythmStore(tmp_path)
+    other_writer = RhythmStore(tmp_path)
+    real_replace = os.replace
+
+    def racing_replace(source, target):
+        if Path(target).parent.name == "rhythm":
+            monkeypatch.setattr(publish_module.os, "replace", real_replace)
+            other_writer.save(rhythm)
+            raise PermissionError("target exists")
+        return real_replace(source, target)
+
+    monkeypatch.setattr(publish_module.os, "replace", racing_replace)
+    assert store.save(rhythm) == store.path(rhythm.rhythm_id)
+    assert store.load(rhythm.rhythm_id) == rhythm
+    leftovers = [p.name for p in (tmp_path / "rhythm").iterdir()]
+    assert leftovers == [rhythm.rhythm_id]
+
+
 def test_failed_rename_leaves_nothing_published(monkeypatch, tmp_path, rhythm):
     store = RhythmStore(tmp_path)
     real_replace = os.replace
