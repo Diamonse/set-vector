@@ -115,7 +115,7 @@ def report_inputs(tmp_path):
             algorithm_version=1,
             package_version="0.1.0a1",
             config=AnalysisConfig(
-                sample_rate=None, frame_length=2048, hop_length=512, channel_policy="mono"
+                sample_rate=None, frame_length=22_050, hop_length=22_050, channel_policy="mono"
             ),
             parameters={"bass_cutoff_hz": 250.0},
             dependency_versions={"librosa": "0.11.0", "numpy": "2.4.6"},
@@ -124,7 +124,7 @@ def report_inputs(tmp_path):
             asset_id="a" * 64,
             observed_path=str((tmp_path / name).resolve()),
             byte_size=1_000,
-            duration_seconds=frames * 0.5 + 0.1,
+            duration_seconds=frames * 0.5 + 9.0,
             native_sample_rate=sample_rate,
             channels=channels,
             format=audio_format,
