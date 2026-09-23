@@ -8,7 +8,7 @@ The design starts with a Python library and CLI with interactive charts, then ex
 
 ## Release scope
 
-The first release still needs a defined milestone, supported operating systems, library size, audio formats, and music styles. These determine codec support, the calibration collection, and performance targets.
+The first package release boundary, supported operating systems, and audio formats remain to be decided. The first planning workflow targets 200–2,000 local tracks and 1–3 hour sets across House, Hip-hop, Pop, EDM, BollyHouse, and Bollywood. DJ preparation comes first, with reviewable transition suggestions and no rendered mix; listening flow follows. See the [implementation plan](implementation-plan.md#0-release-scope) for the remaining scope and performance decisions.
 
 ## Architectural decision
 
@@ -34,8 +34,10 @@ flowchart TD
     ENERGY --> RESULT[Energy results and explanations]
     RESULT --> REPORT[Interactive HTML reports]
     STORE --> REPORT
-    RESULT --> TRANS[Future: contextual transitions]
-    RESULT --> SET[Future: timed set analysis]
+    STORE --> TRANS[Contextual transitions]
+    ANN[Reviewed annotations] --> TRANS
+    RESULT --> TRANS
+    RESULT --> SET[Timed set analysis]
     TRANS --> SET
 ```
 
@@ -198,7 +200,7 @@ Design extension contracts now; implement them when the corresponding milestone 
 
 **Timed set plan:** explicit placements with separate occurrence IDs, source in/out points, set start times, playback-rate mappings, and overlaps. An occurrence ID allows a track to appear twice. Derive duration from these mappings and distinguish gaps, overlaps, and solo regions. An overlap-energy estimate is a provisional model, not measured mixed-audio energy.
 
-**Recorded mix:** a new audio asset analyzed directly. Keep its measured curve separate from a predicted set-plan curve. Audio rendering, real-time DJ playback, automatic beat-grid correction, and optimized sequencing are later scopes that require their own design decisions.
+**Recorded mix:** a new audio asset analyzed directly. Keep its measured curve separate from a predicted set-plan curve. Audio rendering and real-time DJ playback require their own design decisions. The [implementation plan](implementation-plan.md) stages DJ sequencing from reviewed cues before automatic beat-grid and cue suggestions.
 
 ## Validation
 
@@ -224,6 +226,6 @@ Only introduce ML after the project has a defined target, annotations, evaluatio
 | A visual local app is requested | UI adapter over the existing application API |
 | Multiple users need shared libraries | Service boundary, authentication, remote storage, and job orchestration |
 | Listening evidence shows the weighted model is inadequate | Alternative transforms/models with held-out evaluation |
-| Reliable cue/phrase data becomes available | Region-aware transitions and timed set plans |
+| Reviewed cue data is available | Region-aware transitions and timed set plans; automatic phrase suggestions require separate validation |
 
 See [Python Library Architecture](adr/0001-library-first-architecture.md) for the design trade-offs and the [Implementation Plan](implementation-plan.md) for the build sequence.
