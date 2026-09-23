@@ -8,8 +8,8 @@ version = "0.1.0a1"
 description = "Audio analysis and energy-aware DJ set planning."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "Apache-2.0"
-license-files = ["LICENSE"]
+license = "Apache-2.0 AND MIT AND OFL-1.1"
+license-files = ["LICENSE", "src/setvector/visualization/assets/LICENSES/*"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Programming Language :: Python :: 3",
