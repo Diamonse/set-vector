@@ -30,3 +30,7 @@ analysis-workspace/
 .vscode/
 .idea/
 .ipynb_checkpoints/
+
+# Bundled model downloaded by scripts/fetch_model.py
+src/setvector/models/*.ckpt
+src/setvector/models/*.part
