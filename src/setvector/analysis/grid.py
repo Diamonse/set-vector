@@ -47,15 +47,17 @@ class GridFit:
 
 
 def _reference_period(times: np.ndarray) -> float:
-    """Mean of the intervals within 25% of the median interval.
+    """Mean of the intervals within 25% of the median interval, else the median.
 
     The median of frame-quantized intervals snaps to a whole frame (0.48 s at 50 fps for
     124-126 BPM); averaging the typical intervals removes that bias, so beat indices stay
-    right across long runs of missed beats.
+    right across long runs of missed beats. With two interval clusters the median can
+    fall between them, leaving no typical interval to average.
     """
     intervals = np.diff(times)
-    median = np.median(intervals)
-    return float(intervals[np.abs(intervals / median - 1.0) < 0.25].mean())
+    median = float(np.median(intervals))
+    typical = intervals[np.abs(intervals / median - 1.0) < 0.25]
+    return float(typical.mean()) if typical.size else median
 
 
 def _initial_indices(times: np.ndarray) -> np.ndarray:
@@ -131,24 +133,30 @@ def _ranges(times: np.ndarray) -> list[tuple[int, int]]:
 
 
 def _tidy(times: np.ndarray, ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
-    """Merge neighbours that fit one tempo together, then re-place each boundary.
+    """Merge neighbours that fit one tempo together and re-place boundaries until stable.
 
     Greedy splitting can leave a short range of mixed beats beside a tempo change and
     boundaries a few beats off; both are corrected using only the two ranges involved.
+    Moving a boundary can make a new pair mergeable, so the passes repeat until nothing
+    changes, within a fixed number of rounds in case boundary moves alternate.
     """
-    merged = [ranges[0]]
-    for start, stop in ranges[1:]:
-        first = merged[-1][0]
-        if _fit_line(times[first:stop])[3].mean() >= GRID_ACCEPT_FRACTION:
-            merged[-1] = (first, stop)
-        else:
-            merged.append((start, stop))
-    for i in range(1, len(merged)):
-        first, last = merged[i - 1][0], merged[i][1]
-        if last - first >= 2 * GRID_MIN_SPLIT_BEATS:
-            split = _best_split(times, first, last)
-            merged[i - 1], merged[i] = (first, split), (split, last)
-    return merged
+    for _ in range(2 * GRID_MAX_SEGMENTS):
+        merged = [ranges[0]]
+        for start, stop in ranges[1:]:
+            first = merged[-1][0]
+            if _fit_line(times[first:stop])[3].mean() >= GRID_ACCEPT_FRACTION:
+                merged[-1] = (first, stop)
+            else:
+                merged.append((start, stop))
+        for i in range(1, len(merged)):
+            first, last = merged[i - 1][0], merged[i][1]
+            if last - first >= 2 * GRID_MIN_SPLIT_BEATS:
+                split = _best_split(times, first, last)
+                merged[i - 1], merged[i] = (first, split), (split, last)
+        if merged == ranges:
+            break
+        ranges = merged
+    return ranges
 
 
 def _best_split(times: np.ndarray, start: int, stop: int) -> int:

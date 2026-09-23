@@ -166,3 +166,17 @@ def test_four_tempo_sections_each_get_a_segment():
     beats = np.concatenate(beats)
     fit = grid.fit_grid(beats, duration=beats[-1] + 1.0)
     assert [s.bpm for s in fit.segments] == pytest.approx([120.0, 124.0, 128.0, 132.0], abs=0.05)
+
+
+@pytest.mark.parametrize(
+    "beats",
+    [
+        np.array([0.0, 1.0, 2.0, 5.0, 8.0]),
+        np.cumsum(np.tile([0.3, 0.6], 33))[:65],
+    ],
+)
+def test_intervals_far_from_their_median_do_not_crash(beats):
+    # With two interval clusters the median can fall between them, leaving no interval
+    # within 25% of it; the reference period then falls back to the median.
+    fit = grid.fit_grid(beats, duration=beats[-1] + 1.0)
+    assert fit is None or np.all(np.diff(fit.beats) > 0)

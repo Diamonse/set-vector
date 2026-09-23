@@ -129,6 +129,7 @@ The thresholds are recorded extractor parameters. Changing them changes `rhythm_
 ## Limitations
 
 - The grid's absolute phase follows Beat This!'s beat positions. Whether that sits on the kick attack, and whether a global offset is needed, is measured against the user's Rekordbox grids in sub-project 2.
+- A segment is accepted when 90% of its beats lie within 40 ms, so neighbouring sections whose tempos differ by about 0.2 BPM or less can share one segment at an averaged tempo, with the outermost beats up to about 50 ms off.
 - Grid fitting assumes piecewise-constant tempo. Tracks with continuous tempo drift (live drums, rubato) either split into several segments or fail `grid_fit` and fall back.
 - The fallback supplies beats without downbeats, so phrase detection cannot run on fallback-only tracks.
 - Reliability thresholds come from three tracks and must be recalibrated against the user's Rekordbox grids.
