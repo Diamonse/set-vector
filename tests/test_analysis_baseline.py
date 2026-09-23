@@ -1,5 +1,6 @@
 """Deterministic baseline measurements on generated signals."""
 
+from dataclasses import replace
 from importlib.metadata import version
 
 import librosa
@@ -8,6 +9,7 @@ import pytest
 
 import setvector.analysis.baseline as baseline_module
 from setvector.analysis import baseline_identity, extract_baseline
+from setvector.analysis.identity import BEAT_TRIM
 from setvector.domain import AnalysisConfig, AnalysisError, AudioAsset
 from setvector.ingestion import DecodedAudio
 
@@ -131,6 +133,38 @@ def test_series_share_timing_and_labels(decoded_factory):
         assert series.name == name
 
 
+def test_quieter_intro_keeps_its_beats(decoded_factory):
+    # DJ intros are often quieter than the main section; librosa's default beat
+    # trimming used to discard every beat before the louder part began.
+    intro, main = click_train(seconds=8.0), click_train(seconds=8.0)
+    signal = np.concatenate([0.5 * intro, main], axis=1)
+    config = AnalysisConfig(
+        sample_rate=None, frame_length=512, hop_length=128, channel_policy="mono"
+    )
+    result = extract_baseline(decoded_factory(signal, 8_000), config)
+    seconds = [beat.seconds for beat in result.beats]
+    assert seconds[0] < 0.6
+    assert sum(1 for s in seconds if s < 8.0) >= 14
+    assert np.median(np.diff(seconds)) == pytest.approx(0.5, abs=0.03)
+
+
+def test_header_duration_disagreeing_with_decoded_audio_is_warned(decoded_factory):
+    config = AnalysisConfig(
+        sample_rate=None, frame_length=512, hop_length=128, channel_policy="mono"
+    )
+    decoded = decoded_factory(click_train(seconds=2.0), 8_000)
+    assert not any(
+        "decoder reported" in w for w in extract_baseline(decoded, config).diagnostics.warnings
+    )
+    mismatched = DecodedAudio(
+        asset=replace(decoded.asset, duration_seconds=10.7),
+        samples=decoded.samples,
+        sample_rate=decoded.sample_rate,
+    )
+    warnings = extract_baseline(mismatched, config).diagnostics.warnings
+    assert any("decoder reported 10.70 s but 2.00 s of audio decoded" in w for w in warnings)
+
+
 def test_click_train_produces_onsets_tempo_and_ordered_beats(decoded_factory):
     config = AnalysisConfig(
         sample_rate=None, frame_length=512, hop_length=128, channel_policy="mono"
@@ -178,7 +212,12 @@ def test_chunked_tempo_matches_librosa_beat_track(monkeypatch, chunk):
     onset[::43] += 4.0
     timestamps = tuple(float(i) for i in range(onset.size))
     expected_tempo, expected_frames = librosa.beat.beat_track(
-        onset_envelope=onset, sr=22_050, hop_length=512, sparse=True, units="frames"
+        onset_envelope=onset,
+        sr=22_050,
+        hop_length=512,
+        sparse=True,
+        units="frames",
+        trim=BEAT_TRIM,
     )
     monkeypatch.setattr(baseline_module, "_TEMPOGRAM_FRAMES_PER_CHUNK", chunk)
     tempo, beats = baseline_module._estimate_beats(onset, timestamps, 22_050, 512)
@@ -233,8 +272,10 @@ def test_baseline_identity_records_parameters_and_environment():
     assert identity.name == "baseline-v1"
     assert identity.config == config
     assert identity.package_version == version("setvector")
+    assert identity.algorithm_version == 2
     assert dict(identity.parameters) == {
         "bass_cutoff_hz": 250.0,
+        "beat_trim": False,
         "onset_method": "positive_spectral_flux",
         "onset_normalization": "track_peak",
         "resampler": "soxr_hq_when_requested",
