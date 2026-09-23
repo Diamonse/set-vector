@@ -44,7 +44,7 @@ Unknown fields, duplicate keys, and unsupported schema versions are rejected. Th
 ## Analyze audio
 
 ```powershell
-.\.venv\Scripts\setvector.exe analyze "C:\Music	rack.wav" `
+.\.venv\Scripts\setvector.exe analyze "C:\Music\track.wav" `
   --config examples/analysis-config.json `
   --workspace .setvector
 ```

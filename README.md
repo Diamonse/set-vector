@@ -18,7 +18,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install .
 .\.venv\Scripts\setvector.exe --help
 .\.venv\Scripts\setvector.exe config validate examples/analysis-config.json
-.\.venv\Scripts\setvector.exe analyze "C:\Music	rack.wav" `
+.\.venv\Scripts\setvector.exe analyze "C:\Music\track.wav" `
   --config examples/analysis-config.json `
   --workspace .setvector
 .\.venv\Scripts\setvector.exe report <feature-id> --workspace .setvector
