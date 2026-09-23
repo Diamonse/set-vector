@@ -1,5 +1,7 @@
 """Piecewise-constant tempo grids fitted to detected beats."""
 
+import time
+
 import numpy as np
 import pytest
 
@@ -75,3 +77,43 @@ def test_grid_stays_inside_the_audio():
 def test_fewer_than_two_beats_has_no_grid():
     assert grid.fit_grid(np.array([1.0]), duration=5.0) is None
     assert grid.fit_grid(np.array([]), duration=5.0) is None
+
+
+def test_duplicate_beats_have_no_grid():
+    assert grid.fit_grid(np.array([1.0, 1.0]), duration=5.0) is None
+
+
+def test_unsorted_beats_fit_like_sorted_beats():
+    beats = np.array([3.0, 1.0, 2.0, 0.5, 2.5, 1.5])
+    unsorted_fit = grid.fit_grid(beats, duration=5.0)
+    sorted_fit = grid.fit_grid(np.sort(beats), duration=5.0)
+    assert unsorted_fit.segments == sorted_fit.segments
+    np.testing.assert_array_equal(unsorted_fit.beats, sorted_fit.beats)
+    assert unsorted_fit.grid_fit == sorted_fit.grid_fit
+    assert unsorted_fit.segments[0].bpm == pytest.approx(120.0)
+
+
+def test_non_finite_beats_are_ignored():
+    beats = 0.5 + np.arange(40) * 0.5
+    noisy = np.insert(beats, [10, 20, 30], [np.nan, np.inf, -np.inf])
+    fit = grid.fit_grid(noisy, duration=beats[-1] + 1.0)
+    clean = grid.fit_grid(beats, duration=beats[-1] + 1.0)
+    assert fit.segments == clean.segments
+    assert fit.grid_fit == 1.0
+
+
+def test_grid_entirely_outside_the_audio_has_no_grid():
+    beats = 10.0 + np.arange(20) * 0.5
+    assert grid.fit_grid(beats, duration=5.0) is None
+
+
+def test_long_track_with_three_tempos_splits_quickly():
+    first = 0.5 + np.arange(700) * 60.0 / 120.0
+    second = first[-1] + (1 + np.arange(600)) * 60.0 / 124.0
+    third = second[-1] + (1 + np.arange(700)) * 60.0 / 128.0
+    beats = np.concatenate([first, second, third])
+    started = time.perf_counter()
+    fit = grid.fit_grid(beats, duration=third[-1] + 1.0)
+    elapsed = time.perf_counter() - started
+    assert [s.bpm for s in fit.segments] == pytest.approx([120.0, 124.0, 128.0], abs=0.05)
+    assert elapsed < 5.0
