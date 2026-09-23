@@ -97,18 +97,36 @@ def _ranges(times: np.ndarray) -> list[tuple[int, int]]:
         ):
             accepted.append((start, stop))
             continue
-        split = max(
-            range(start + GRID_MIN_SPLIT_BEATS, stop - GRID_MIN_SPLIT_BEATS + 1),
-            key=lambda s: _inliers(times[start:s]) + _inliers(times[s:stop]),
-        )
+        split = _best_split(times, start, stop)
         pending[:0] = [(start, split), (split, stop)]
     return sorted(accepted)
 
 
+def _best_split(times: np.ndarray, start: int, stop: int) -> int:
+    """Return the split that maximizes inliers of both halves, searched coarse-to-fine.
+
+    A coarse stride keeps long tracks cheap; the refinement pass around the best coarse
+    candidate recovers the exact beat. Ties keep the earliest split.
+    """
+
+    def score(split: int) -> int:
+        return _inliers(times[start:split]) + _inliers(times[split:stop])
+
+    lo, hi = start + GRID_MIN_SPLIT_BEATS, stop - GRID_MIN_SPLIT_BEATS
+    step = max(1, (hi - lo) // 64)
+    best = max(range(lo, hi + 1, step), key=score)
+    return max(range(max(lo, best - step), min(hi, best + step) + 1), key=score)
+
+
 def fit_grid(times, duration: float) -> GridFit | None:
-    """Fit segments to sorted beat ``times`` and emit grid beats inside ``[0, duration]``."""
-    times = np.asarray(times, dtype=np.float64)
-    if times.size < 2:
+    """Fit segments to beat ``times`` and emit grid beats inside ``[0, duration]``.
+
+    Times are sorted and de-duplicated and non-finite values dropped. Returns ``None``
+    when fewer than two beats remain or no grid beat falls inside the audio.
+    """
+    times = np.asarray(times, dtype=np.float64).ravel()
+    times = np.unique(times[np.isfinite(times)])
+    if times.size < 2 or not np.median(np.diff(times)) > 0:
         return None
     segments: list[Segment] = []
     inliers = 0
@@ -125,5 +143,7 @@ def fit_grid(times, duration: float) -> GridFit | None:
         segment = Segment(float(emitted[0]), period, int(emitted.size))
         segments.append(segment)
         previous_end = float(segment.times()[-1])
-    beats = np.concatenate([s.times() for s in segments]) if segments else np.empty(0)
+    if not segments:
+        return None
+    beats = np.concatenate([s.times() for s in segments])
     return GridFit(tuple(segments), beats, inliers / times.size)
