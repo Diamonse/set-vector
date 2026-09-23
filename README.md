@@ -221,6 +221,12 @@ better-informed creative decisions
 See the [Architecture](docs/architecture.md),
 [Python Library Architecture](docs/adr/0001-library-first-architecture.md), and
 [Implementation Plan](docs/implementation-plan.md) for the design and build sequence.
+For the planned playlist engine, see the [research synthesis](docs/research/playlist-creation-engine.md),
+[harmonic and transition research](docs/research/harmonic-and-transition-research.md), and
+[evaluation approach](docs/research/playlist-engine-evaluation.md).
+The [analysis-engine extension research](docs/research/analysis-engine-extension.md) and
+[detailed prerequisite plan](docs/superpowers/plans/2026-09-22-playlist-analysis-prerequisites.md)
+map the required analysis and DJ planning work onto the existing Python package.
 
 The first interface will be a Python library and CLI with interactive charts.
 Planned package layout:
