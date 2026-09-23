@@ -38,7 +38,7 @@ Assemble a local listening collection covering the six styles and difficult cros
 
 Define versioned, validated annotations for track metadata, tempo/beat corrections, tonal candidates, entry/exit cues, transition judgments, and relative energy judgments. Preserve estimates beside human corrections; include annotation identity in downstream caches. Start with a file or CLI workflow so reviewed data can feed the planner before automatic cue detection exists. See [Playlist Engine Evaluation](research/playlist-engine-evaluation.md) and the [detailed prerequisite plan](superpowers/plans/2026-09-22-playlist-analysis-prerequisites.md).
 
-Done when annotations round-trip, invalid or out-of-range cue times are rejected, corrected values do not mutate raw feature artifacts, and a held-out listening set is recorded.
+Done when annotations round-trip, invalid or out-of-range cue times are rejected, corrected values do not mutate raw feature artifacts, and a held-out listening set is recorded. The [focused reviewed-annotations plan](superpowers/plans/2026-09-23-reviewed-annotations.md) defines the next feature after the implemented report and supersedes the earlier prerequisite plan's annotation task; pairwise and sequence judgments follow in later work.
 
 ## 5. Library preparation and region summaries
 
