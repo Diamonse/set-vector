@@ -122,6 +122,23 @@ def _facts(bundle: FeatureBundle) -> tuple[tuple[str, str], ...]:
     )
 
 
+def _decoded_duration(asset: AudioAsset, bundle: FeatureBundle) -> float:
+    """Derive duration from analyzed frames rather than the file header, which for MP3s with
+    large ID3 tags and no Xing/Info frame can overstate length by counting tag bytes as audio.
+    """
+    config = bundle.extractor.config
+    rate = config.sample_rate if config.sample_rate is not None else asset.native_sample_rate
+    diagnostics = bundle.measurements.diagnostics
+    hop = config.hop_length
+    frame = config.frame_length
+    if diagnostics.analyzed_frames > 0:
+        decoded_samples = (diagnostics.analyzed_frames - 1) * hop + frame
+        decoded_samples += diagnostics.omitted_tail_samples
+    else:
+        decoded_samples = diagnostics.omitted_tail_samples
+    return decoded_samples / rate
+
+
 def build_report_model(asset: AudioAsset, bundle: FeatureBundle) -> ReportModel:
     """Describe ``bundle`` for display without reading files or recomputing features."""
     if asset.asset_id != bundle.asset_id:
@@ -131,7 +148,7 @@ def build_report_model(asset: AudioAsset, bundle: FeatureBundle) -> ReportModel:
     bass = _median(measurements.bass_power_ratio)
     centroid = _median(measurements.spectral_centroid)
     tempo = measurements.tempo_bpm
-    duration = asset.duration_seconds
+    duration = _decoded_duration(asset, bundle)
     return ReportModel(
         feature_id=bundle.feature_id,
         asset_id=bundle.asset_id,

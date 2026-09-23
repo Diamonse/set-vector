@@ -36,7 +36,8 @@ def test_summary_medians_bands_and_bars(report_inputs):
     assert summary.bass_band == "Light"
     assert summary.centroid_median == pytest.approx(1150.0)
     assert summary.brightness_band == "Dark"
-    assert summary.bar_estimate == round(2.1 * 120 / 240)
+    decoded_duration = (4 * 22_050 + 7) / 44_100
+    assert summary.bar_estimate == round(decoded_duration * 120 / 240)
     assert "not a calibrated judgment" in summary.bass_tip
 
 
@@ -80,7 +81,7 @@ def test_provenance_facts_and_format_line(report_inputs):
     model = build_report_model(asset, bundle)
     facts = dict(model.facts)
     assert facts["Feature ID"] == bundle.feature_id
-    assert facts["Frame / hop"] == "2,048 / 512 samples"
+    assert facts["Frame / hop"] == "22,050 / 22,050 samples"
     assert facts["Channels"] == "Mixed to mono"
     assert "librosa 0.11.0" in facts["Libraries"]
     assert model.format_line == "MP3 · 44.1 kHz · stereo"
@@ -99,6 +100,18 @@ def test_provenance_facts_and_format_line(report_inputs):
 )
 def test_parse_title(tmp_path, stem, expected):
     assert parse_title(str(tmp_path / f"{stem}.mp3")) == expected
+
+
+def test_duration_comes_from_decoded_audio_not_the_header_estimate(report_inputs):
+    asset, bundle = report_inputs(frames=4)
+    model = build_report_model(asset, bundle)
+    assert model.duration_seconds == pytest.approx((4 * 22_050 + 7) / 44_100)
+    assert model.duration_seconds != pytest.approx(asset.duration_seconds)
+
+    empty_asset, empty_bundle = report_inputs(frames=0, beat_frames=())
+    empty_model = build_report_model(empty_asset, empty_bundle)
+    assert empty_model.duration_seconds == pytest.approx(7 / 44_100)
+    assert empty_model.duration_seconds != pytest.approx(empty_asset.duration_seconds)
 
 
 def test_mismatched_asset_is_rejected(report_inputs):
