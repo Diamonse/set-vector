@@ -22,6 +22,12 @@ PARAMETERS = {
 }
 DEPENDENCIES = ("numpy", "scipy", "soundfile", "librosa", "soxr")
 
+# Rhythm grid fitting (see analysis/grid.py).
+GRID_TOLERANCE_SECONDS = 0.04
+GRID_ACCEPT_FRACTION = 0.90
+GRID_MIN_SPLIT_BEATS = 32
+GRID_MAX_SEGMENTS = 8
+
 
 def baseline_identity(config: AnalysisConfig) -> ExtractorIdentity:
     """Describe every input that can change baseline measurements for ``config``."""
