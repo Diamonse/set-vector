@@ -3,7 +3,10 @@
 Frames contain exactly ``frame_length`` samples and start every ``hop_length``
 samples. Nothing is centered or padded; a final partial window is omitted and
 counted. Frames are processed in bounded chunks so full-length tracks do not
-materialize every windowed frame or spectrum at once.
+materialize every windowed frame or spectrum at once. Tempo and beats are
+tracked on a separately normalized positive spectral flux over bins at or
+below ``BEAT_ONSET_BAND_HZ`` (150 Hz), while the stored ``onset_strength``
+series stays full-band.
 """
 
 import numpy as np
@@ -170,7 +173,12 @@ def _estimate_beats(onset: np.ndarray, timestamps, sample_rate: int, hop_length:
 
 
 def extract_baseline(decoded: DecodedAudio, config: AnalysisConfig) -> AnalysisMeasurements:
-    """Measure RMS, centroid, bass ratio, onset strength, tempo, and beats."""
+    """Measure RMS, centroid, bass ratio, onset strength, tempo, and beats.
+
+    Tempo and beats are tracked on a separately normalized positive spectral
+    flux over bins at or below ``BEAT_ONSET_BAND_HZ`` (150 Hz), while the
+    stored ``onset_strength`` series stays full-band.
+    """
     _check_consistency(decoded, config)
     samples, sample_rate = decoded.samples, decoded.sample_rate
     frame_length, hop_length = config.frame_length, config.hop_length
