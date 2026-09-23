@@ -1,7 +1,5 @@
 """Piecewise-constant tempo grids fitted to detected beats."""
 
-import time
-
 import numpy as np
 import pytest
 
@@ -107,13 +105,64 @@ def test_grid_entirely_outside_the_audio_has_no_grid():
     assert grid.fit_grid(beats, duration=5.0) is None
 
 
-def test_long_track_with_three_tempos_splits_quickly():
+def test_long_track_with_three_tempos_splits_with_few_fits(monkeypatch):
     first = 0.5 + np.arange(700) * 60.0 / 120.0
     second = first[-1] + (1 + np.arange(600)) * 60.0 / 124.0
     third = second[-1] + (1 + np.arange(700)) * 60.0 / 128.0
     beats = np.concatenate([first, second, third])
-    started = time.perf_counter()
+    fit_line, calls = grid._fit_line, []
+
+    def counting_fit_line(times):
+        calls.append(times.size)
+        return fit_line(times)
+
+    monkeypatch.setattr(grid, "_fit_line", counting_fit_line)
     fit = grid.fit_grid(beats, duration=third[-1] + 1.0)
-    elapsed = time.perf_counter() - started
     assert [s.bpm for s in fit.segments] == pytest.approx([120.0, 124.0, 128.0], abs=0.05)
-    assert elapsed < 5.0
+    # Measured 888 fits including boundary tidying; an exhaustive split search needs
+    # about 3,900 for the first split alone.
+    assert len(calls) <= 2700
+
+
+@pytest.mark.parametrize("bpm", [128.0, 140.0])
+@pytest.mark.parametrize("count", [92, 400])
+def test_quantized_beats_with_a_long_hole_keep_the_true_tempo(bpm, count):
+    # The median of 20 ms-quantized intervals misreads 128 BPM as 130.43; across a
+    # 32-beat hole that bias would shift the beat count by a whole period.
+    full = quantized_beats(bpm=bpm, count=count)
+    hole = count // 2 - 16
+    beats = np.delete(full, np.arange(hole, hole + 32))
+    fit = grid.fit_grid(beats, duration=full[-1] + 1.0)
+    assert len(fit.segments) == 1
+    assert fit.segments[0].bpm == pytest.approx(bpm, abs=0.01)
+    assert fit.grid_fit == 1.0
+    assert fit.beats.size == full.size
+
+
+def test_gap_at_a_tempo_change_is_covered_by_the_earlier_tempo():
+    slow = 0.5 + np.arange(200) * 60.0 / 120.0
+    fast = slow[-1] + 20.0 + np.arange(200) * 60.0 / 128.0
+    fit = grid.fit_grid(np.concatenate([slow, fast]), duration=fast[-1] + 1.0)
+    assert [s.bpm for s in fit.segments] == pytest.approx([120.0, 128.0], abs=0.05)
+    assert np.all(np.diff(fit.beats) > 0)
+    assert np.diff(fit.beats).max() < 1.5 * max(60.0 / s.bpm for s in fit.segments)
+
+
+def test_dense_detections_do_not_fit_an_implausibly_short_period():
+    rng = np.random.default_rng(4)
+    beats = np.sort(rng.uniform(0, 30, size=600))
+    fit = grid.fit_grid(beats, duration=31.0)
+    assert fit is None or fit.grid_fit < 0.90
+
+
+def test_four_tempo_sections_each_get_a_segment():
+    # The best first split falls between the second and third sections, so neither half
+    # fits one tempo yet; splitting must still continue into both halves.
+    beats, start = [], 0.5
+    for bpm in (120.0, 124.0, 128.0, 132.0):
+        section = start + np.arange(100) * 60.0 / bpm
+        beats.append(section)
+        start = section[-1] + 60.0 / bpm
+    beats = np.concatenate(beats)
+    fit = grid.fit_grid(beats, duration=beats[-1] + 1.0)
+    assert [s.bpm for s in fit.segments] == pytest.approx([120.0, 124.0, 128.0, 132.0], abs=0.05)
