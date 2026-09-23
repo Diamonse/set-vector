@@ -75,6 +75,15 @@ def test_beats_follow_kicks_not_louder_offbeat_hats(decoded_factory):
     assert len(beats) >= 60
     assert on_kick.mean() >= 0.9
 
+    # The stored onset_strength series stays full-band: it should still peak at
+    # the louder off-beat hi-hats, not follow the bass-band beat tracker to the kicks.
+    hats = kicks + 30 / 125
+    timestamps = np.array(result.onset_strength.timestamps)
+    values = np.array(result.onset_strength.values)
+    top_frames = timestamps[np.argsort(values)[-32:]]
+    near_hat = np.min(np.abs(top_frames[:, None] - hats[None, :]), axis=1) <= 0.07
+    assert near_hat.mean() >= 0.8
+
 
 def test_only_full_left_aligned_frames_are_measured(decoded_factory):
     decoded = decoded_factory(np.ones((1, 10), dtype=np.float32), sample_rate=10)
