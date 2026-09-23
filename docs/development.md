@@ -119,6 +119,29 @@ By default, `report` refuses to replace an existing output file; pass `--overwri
 
 The generated page is a single self-contained HTML file: the model data, the audio (when embedded), the vendored [uPlot](https://github.com/leeoniya/uPlot) chart library, and the Inter variable font are all inlined, so it opens with no network access and no other files. A report without audio for a 6-minute track is about 1.2 MB; with audio it is roughly the embedded MP3 size times 1.33 plus about 1.2 MB. uPlot is MIT-licensed and the Inter font is licensed under the SIL Open Font License 1.1; both license texts ship alongside the package under `visualization/assets/LICENSES/`. Because the analyzed track is embedded in the file, share or move a report the way you would the music file itself.
 
+## Report collections
+
+Put SetVector HTML reports in a `reports` subfolder, then build an offline song
+list with navigation back from every report:
+
+```powershell
+$collection = "C:\Reports\Tech House"
+$id = "<feature-id>"
+.\.venv\Scripts\setvector.exe report $id --workspace .setvector `
+  --output (Join-Path $collection "reports\$id.html") --no-audio
+# Repeat the report command for each feature ID, then:
+.\.venv\Scripts\setvector.exe report-index $collection
+```
+
+`report-index` writes `<collection>/index.html` and adds a **Back to song list**
+link near the top of every SetVector report in `<collection>/reports/`. The list
+shows each report's song, duration, estimated BPM, and warning count. It reads
+the metadata already embedded in the reports; it does not analyze audio again
+or modify source music and analysis artifacts. Use `--overwrite` to rebuild an
+existing index after adding reports. Keep `index.html` and its `reports`
+subfolder together so the relative navigation links continue to work. Reports
+remain readable on their own, but the back link needs the collection folder.
+
 ## Python API
 
 ```python

@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from setvector import AnalysisConfig, __version__
-from setvector.application import analyze_track, render_report
+from setvector.application import analyze_track, create_report_index, render_report
 from setvector.domain import InputError, SetVectorError
 from setvector.storage import ArtifactStore, strict_json_loads
 
@@ -84,6 +84,26 @@ def _run_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_report_index(args: argparse.Namespace) -> int:
+    outcome, status = _call(
+        args, lambda: create_report_index(args.collection, overwrite=args.overwrite)
+    )
+    if status is not None:
+        return status
+    print(
+        json.dumps(
+            {
+                "index_path": str(outcome.index_path),
+                "report_count": outcome.report_count,
+                "linked_count": outcome.linked_count,
+            },
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="setvector",
@@ -137,6 +157,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "--overwrite", action="store_true", help="Replace an existing report file"
     )
     report_parser.set_defaults(handler=_run_report, parser=report_parser)
+
+    index_parser = commands.add_parser(
+        "report-index",
+        help="Build a song list for a folder of SetVector HTML reports",
+    )
+    index_parser.add_argument(
+        "collection", type=Path, help="Folder containing a reports subfolder"
+    )
+    index_parser.add_argument(
+        "--overwrite", action="store_true", help="Replace an existing index"
+    )
+    index_parser.set_defaults(handler=_run_report_index, parser=index_parser)
     return parser
 
 
