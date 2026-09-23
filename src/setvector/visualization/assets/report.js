@@ -10,6 +10,13 @@
     const whole = Math.max(0, Math.floor(seconds));
     return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
   };
+  // One decimal place avoids duplicate labels when close-up ticks land under a second apart.
+  const mmssPrecise = (seconds) => {
+    const rounded = Math.round(Math.max(0, seconds) * 10) / 10;
+    const minutes = Math.floor(rounded / 60);
+    const secs = rounded - minutes * 60;
+    return `${minutes}:${secs.toFixed(1).padStart(4, "0")}`;
+  };
 
   function decodeBase64(text) {
     const binary = atob(text);
@@ -178,11 +185,25 @@
   }
 
   // ---- audio ----
+  // Decoding is deferred past first paint so a large embedded MP3 never delays it; the
+  // base64 text is dropped from the DOM once decoded to release the string.
   const audioNode = $("sv-audio");
-  const audioText = audioNode.textContent.trim();
-  const audio = audioText
-    ? new Audio(URL.createObjectURL(new Blob([decodeBase64(audioText)], { type: audioNode.dataset.mime || "audio/mpeg" })))
-    : null;
+  const hasAudioSource = audioNode.textContent.length > 0;
+  let audio = null;
+  let rafId = null;
+
+  function noAudio() {
+    audio = null;
+    $("play").hidden = true;
+    $("play").disabled = false;
+    $("seek-hint").textContent = "No audio embedded. Click the track to move the close-up.";
+  }
+
+  if (hasAudioSource) {
+    $("play").disabled = true;
+  } else {
+    noAudio();
+  }
 
   function placeWindow(anchor) {
     const length = windowLength();
@@ -199,30 +220,59 @@
   function togglePlay() {
     if (!audio) return;
     if (audio.paused) {
-      audio.currentTime = state.position;
+      if (audio.ended || state.position >= duration - 0.05) {
+        state.position = 0;
+        audio.currentTime = 0;
+      }
       audio.play().catch(() => {});
     } else {
       audio.pause();
     }
   }
 
-  function tick() {
-    if (!state.playing) return;
-    state.position = audio.currentTime;
-    if (state.follow) placeWindow(state.position);
-    render();
-    requestAnimationFrame(tick);
+  function startTick() {
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(tick);
   }
 
-  if (audio) {
-    audio.preload = "auto";
-    audio.addEventListener("play", () => { state.playing = true; requestAnimationFrame(tick); render(); });
-    audio.addEventListener("pause", () => { state.playing = false; render(); });
-    audio.addEventListener("ended", () => { state.playing = false; render(); });
-  } else {
-    $("play").hidden = true;
-    $("seek-hint").textContent = "No audio embedded. Click the track to move the close-up.";
+  function tick() {
+    if (!state.playing) { rafId = null; return; }
+    state.position = clamp(audio.currentTime, 0, duration);
+    if (state.follow) placeWindow(state.position);
+    render();
+    rafId = requestAnimationFrame(tick);
   }
+
+  function syncPositionFromAudio() {
+    state.position = clamp(audio.currentTime, 0, duration);
+  }
+
+  function decodeAudio() {
+    const audioText = audioNode.textContent.trim();
+    audioNode.textContent = "";
+    let bytes;
+    try {
+      bytes = decodeBase64(audioText);
+    } catch {
+      noAudio();
+      render();
+      return;
+    }
+    const blob = new Blob([bytes], { type: audioNode.dataset.mime || "audio/mpeg" });
+    audio = new Audio(URL.createObjectURL(blob));
+    audio.preload = "auto";
+    audio.addEventListener("play", () => { state.playing = true; startTick(); render(); });
+    audio.addEventListener("pause", () => { state.playing = false; syncPositionFromAudio(); render(); });
+    audio.addEventListener("ended", () => { state.playing = false; syncPositionFromAudio(); render(); });
+    $("play").disabled = false;
+    render();
+  }
+
+  function afterFirstPaint(fn) {
+    requestAnimationFrame(() => setTimeout(fn, 0));
+  }
+
+  if (hasAudioSource) afterFirstPaint(decodeAudio);
 
   // ---- overview ----
   const overview = $("overview");
@@ -380,7 +430,11 @@
         axes: [
           {
             show: withAxis, stroke: palette.faint, font: `11px ${palette.font}`, size: 28, gap: 4,
-            grid: { show: false }, ticks: { show: false }, values: (u, splits) => splits.map(mmss),
+            grid: { show: false }, ticks: { show: false },
+            values: (u, splits) => {
+              const format = u.scales.x.max - u.scales.x.min < 20 ? mmssPrecise : mmss;
+              return splits.map(format);
+            },
           },
           { show: false },
         ],
@@ -471,7 +525,7 @@
     button.addEventListener("click", () => applyTheme(button.dataset.theme, true));
   });
   document.addEventListener("keydown", (event) => {
-    if (event.code !== "Space" || !audio) return;
+    if (event.code !== "Space" || !audio || event.repeat) return;
     if (event.target.closest && event.target.closest("button, input, select, textarea, summary")) return;
     event.preventDefault();
     togglePlay();
