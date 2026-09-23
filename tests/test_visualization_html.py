@@ -84,3 +84,12 @@ def test_six_minute_report_without_audio_is_small(report_inputs):
     asset, bundle = report_inputs(frames=31_004, beat_frames=range(0, 31_004, 41))
     html = render_report_html(build_report_model(asset, bundle))
     assert len(html.encode("utf-8")) < 2_000_000
+
+
+def test_third_party_notices_are_embedded(page):
+    html, _ = page
+    notices = script_content(html, "sv-notices")
+    assert "The above copyright notice and this permission notice shall be included" in notices
+    assert "SIL Open Font License" in notices
+    for pattern in EXTERNAL:
+        assert not pattern.search(html), pattern.pattern

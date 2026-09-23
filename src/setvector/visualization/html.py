@@ -63,6 +63,27 @@ def _font_css() -> str:
     )
 
 
+def _third_party_notices() -> str:
+    """Full text of the bundled third-party license notices.
+
+    Embedded in a ``<script type="text/plain">`` element rather than an HTML comment,
+    since license text (the Inter OFL, in particular) can contain ``--`` sequences that
+    would otherwise close an HTML comment early.
+    """
+    uplot_license = _asset_text("LICENSES/uPlot-LICENSE.txt")
+    inter_license = _asset_text("LICENSES/Inter-OFL.txt")
+    notices = (
+        "This page bundles third-party components:\n\n"
+        "uPlot 1.6.32\n"
+        "-------------\n"
+        f"{uplot_license}\n\n"
+        "Inter variable font (Fontsource 5.3.0)\n"
+        "---------------------------------------\n"
+        f"{inter_license}\n"
+    )
+    return raw_text(notices, "script")
+
+
 def render_report_html(model: ReportModel, audio: PreviewAudio | None = None) -> str:
     """Return the complete report page; it references nothing outside itself."""
     values = {
@@ -75,5 +96,6 @@ def render_report_html(model: ReportModel, audio: PreviewAudio | None = None) ->
         "AUDIO_DATA": base64.b64encode(audio.data).decode("ascii") if audio else "",
         "UPLOT_JS": raw_text(_asset_text("uPlot.iife.min.js"), "script"),
         "REPORT_JS": raw_text(_asset_text("report.js"), "script"),
+        "THIRD_PARTY_NOTICES": _third_party_notices(),
     }
     return _PLACEHOLDER.sub(lambda match: values[match.group(1)], _asset_text("report.html"))
