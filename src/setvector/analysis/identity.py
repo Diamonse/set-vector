@@ -5,10 +5,13 @@ from importlib.metadata import version
 from setvector.domain import AnalysisConfig, ExtractorIdentity
 
 EXTRACTOR_NAME = "baseline-v1"
-ALGORITHM_VERSION = 1
+ALGORITHM_VERSION = 2
 BASS_CUTOFF_HZ = 250.0
+# librosa's default trimming drops quieter intro and outro beats, where DJs mix.
+BEAT_TRIM = False
 PARAMETERS = {
     "bass_cutoff_hz": BASS_CUTOFF_HZ,
+    "beat_trim": BEAT_TRIM,
     "spectral_window": "hann",
     "onset_method": "positive_spectral_flux",
     "onset_normalization": "track_peak",

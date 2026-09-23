@@ -19,10 +19,11 @@ from setvector.domain import (
 )
 from setvector.ingestion import DecodedAudio
 
-from .identity import BASS_CUTOFF_HZ
+from .identity import BASS_CUTOFF_HZ, BEAT_TRIM
 
 _FRAMES_PER_CHUNK = 256
 _TEMPOGRAM_FRAMES_PER_CHUNK = 2_048
+_DURATION_TOLERANCE_SECONDS = 0.25
 
 
 def _frame_count(sample_count: int, frame_length: int, hop_length: int) -> int:
@@ -140,6 +141,7 @@ def _estimate_beats(onset: np.ndarray, timestamps, sample_rate: int, hop_length:
             bpm=float(bpm.reshape(-1)[0]),
             sparse=True,
             units="frames",
+            trim=BEAT_TRIM,
         )
     except Exception as error:
         raise AnalysisError(f"beat tracking failed: {error}") from error
@@ -168,6 +170,13 @@ def extract_baseline(decoded: DecodedAudio, config: AnalysisConfig) -> AnalysisM
         tuple((start + frame_length) / sample_rate for start in starts),
     )
     warnings: list[str] = []
+    decoded_seconds = sample_count / sample_rate
+    reported_seconds = decoded.asset.duration_seconds
+    if abs(reported_seconds - decoded_seconds) > _DURATION_TOLERANCE_SECONDS:
+        warnings.append(
+            f"decoder reported {reported_seconds:.2f} s but {decoded_seconds:.2f} s of audio "
+            "decoded; timing follows the decoded audio"
+        )
     if frames == 0:
         warnings.append(
             f"audio has {sample_count} samples, shorter than one {frame_length}-sample frame; "

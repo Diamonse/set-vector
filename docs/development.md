@@ -58,13 +58,13 @@ On success, standard output contains one JSON object:
 | `cache_hit` | `true` when an intact stored artifact was reused without decoding the audio |
 | `manifest_path` | Absolute path of the feature manifest |
 
-Warnings, such as a clip shorter than one frame, go to standard error after the JSON. Invalid arguments, configurations, paths, and unsupported audio exit with code 2. Decode, extraction, and artifact-integrity failures exit with code 1. Neither prints a traceback.
+Warnings, such as a clip shorter than one frame or a decoder-reported length that differs from the decoded audio, go to standard error after the JSON. Invalid arguments, configurations, paths, and unsupported audio exit with code 2. Decode, extraction, and artifact-integrity failures exit with code 1. Neither prints a traceback.
 
-Moving or renaming a file reuses its features because identity comes from content, not path. Changing the audio bytes, configuration, SetVector version, or a pinned dependency creates a new feature ID. A corrupt or incomplete stored artifact is reported and never silently overwritten; delete that feature directory to recompute it.
+Moving or renaming a file reuses its features because identity comes from content, not path. Changing the audio bytes, configuration, SetVector version, extractor algorithm version, or a pinned dependency creates a new feature ID. A corrupt or incomplete stored artifact is reported and never silently overwritten; delete that feature directory to recompute it.
 
 ### Supported audio
 
-SoundFile's bundled libsndfile decides support from file content, not the extension: WAV, FLAC, OGG, AIFF, and MP3 are supported. M4A/AAC needs a separate decoder and is not yet supported. Samples are decoded as `float32` without peak or loudness normalization. A track is loaded fully into memory, while frame measurements and tempo estimation are processed in bounded chunks. On a 6-minute stereo 44.1 kHz track with the example configuration, analysis takes about 4 to 5 seconds and peaks below 500 MB, including about 210 MB of library imports.
+SoundFile's bundled libsndfile decides support from file content, not the extension: WAV, FLAC, OGG, AIFF, and MP3 are supported. M4A/AAC needs a separate decoder and is not yet supported. Samples are decoded as `float32` without peak or loudness normalization. A track is loaded fully into memory, while frame measurements and tempo estimation are processed in bounded chunks. On a 6-minute stereo 44.1 kHz track with the example configuration, analysis takes about 4 to 5 seconds and peaks below 500 MB, including about 210 MB of library imports. For MP3s without a Xing/Info header, the decoder's reported length is an estimate that can include tag data such as album art; all timing uses the decoded audio, and a warning appears when the two differ by more than 0.25 s.
 
 ### Measurements
 
@@ -77,7 +77,7 @@ Frames are left-aligned, contain exactly `frame_length` samples, and start every
 | `bass_power_ratio` | `ratio` | Spectral power at or below 250 Hz divided by total power; missing for silent frames |
 | `onset_strength` | `normalized_flux` | Positive spectral flux divided by the track's peak flux |
 
-Tempo and beats come from librosa's beat tracker applied to the onset envelope, and beat times match feature frame timestamps. The tempo is a candidate estimate, not a confidence-rated pulse: the tracker reports a tempo for any onset envelope that is not constant, including steady tones and noise. Onset strength is normalized per track, so it cannot be compared across tracks.
+Tempo and beats come from librosa's beat tracker applied to the onset envelope, and beat times match feature frame timestamps. Beats are kept across the whole track, including quieter intros and outros; librosa's default trimming of weak leading and trailing beats is disabled. The tempo is a candidate estimate, not a confidence-rated pulse: the tracker reports a tempo for any onset envelope that is not constant, including steady tones and noise. Onset strength is normalized per track, so it cannot be compared across tracks.
 
 ### Workspace layout
 
