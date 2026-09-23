@@ -4,9 +4,9 @@
 
 **Goal:** Give every analyzed track a fitted beat grid with real downbeats, stored as a separate rhythm artifact, using Beat This! as a required detector and a bass-band fix of SetVector's own tracker as the fallback.
 
-**Architecture:** `analyze_track` keeps producing the baseline feature artifact and additionally produces `rhythm/<rhythm_id>/rhythm.json`. `analysis/beat_this.py` is the only PyTorch module and loads a bundled, hash-verified checkpoint. `analysis/grid.py` fits piecewise-constant tempo grids. `analysis/rhythm.py` scores candidates and selects `beat_this`, `setvector_fallback`, or `none`. Reports draw bar lines from the rhythm artifact's downbeats.
+**Architecture:** `analyze_track` keeps producing the baseline feature artifact and additionally produces `rhythm/<rhythm_id>/rhythm.json`. `analysis/beat_this/` holds Beat This! inference code vendored from upstream 1.1.0; it is the only PyTorch code and loads bundled, hash-verified `.npz` weights. `analysis/grid.py` fits piecewise-constant tempo grids. `analysis/rhythm.py` scores candidates and selects `beat_this`, `setvector_fallback`, or `none`. Reports draw bar lines from the rhythm artifact's downbeats.
 
-**Tech Stack:** Python 3.11+, NumPy, librosa, Beat This! 1.1.0 on CPU PyTorch, hatchling with a custom build hook, pytest, Ruff.
+**Tech Stack:** Python 3.11+, NumPy, librosa, vendored Beat This! 1.1.0 inference on CPU PyTorch (no torchaudio, no `beat-this` package), hatchling with a custom build hook, pytest, Ruff.
 
 **Spec:** [Rhythm Engine Design](../specs/2026-09-23-rhythm-engine-design.md)
 
@@ -18,17 +18,20 @@
 - Commands are PowerShell from the repository root with the project venv: `.\.venv\Scripts\python.exe`. Abbreviated below as `py`, meaning `.\.venv\Scripts\python.exe`.
 - Commit messages follow Conventional Commits. **Do not add any trailer** (no `Co-authored-by`, no assistant attribution) — `AGENTS.md` forbids them.
 - After each task: `py -m pytest -q` and `py -m ruff check .` and `py -m ruff format --check .` must pass before committing, unless the task says otherwise.
-- Never commit `src/setvector/models/beat_this-final0.ckpt` (it is Git-ignored from Task 2 on).
+- Never commit `src/setvector/models/beat_this-final0.npz` or any `.ckpt` (Git-ignored from Task 2 on).
+- The upstream Beat This! source is at `C:\Users\aryan\OneDrive\Documents\GitHub\beat_this` (commit `b95c8ab`, version 1.1.0). Copy from it; do not install it into the project venv.
 
 ## File map
 
 | File | Status | Responsibility |
 |---|---|---|
-| `pyproject.toml`, `requirements-dev.txt` | modify | Pin Beat This!/PyTorch; include checkpoint in builds; build hook |
-| `hatch_build.py` | create | Refuse builds without the verified checkpoint |
-| `scripts/fetch_model.py` | create | Download and verify the checkpoint into the package |
-| `.gitignore` | modify | Ignore the checkpoint and partial downloads |
-| `src/setvector/models/__init__.py`, `checkpoint.py`, `LICENSE-beat-this` | create | Checkpoint identity (no SetVector imports) and license |
+| `pyproject.toml`, `requirements-dev.txt` | modify | Pin PyTorch and model helpers; include weights in builds; build hook; Ruff exclusion |
+| `hatch_build.py` | create | Refuse builds without the verified weights |
+| `scripts/fetch_model.py` | create | Download the checkpoint, convert it to `.npz`, verify both |
+| `scripts/make_beat_this_reference.py` | create | Upstream parity reference (runs in a throwaway venv) and the shared drum pattern |
+| `.gitignore` | modify | Ignore weights, checkpoints, and partial downloads |
+| `src/setvector/models/__init__.py`, `weights.py`, `LICENSE-beat-this` | create | Weights identity (standard library only) and license |
+| `tests/data/beat_this_reference.npz` | create | Upstream logits and peak frames for the parity test |
 | `src/setvector/domain/errors.py`, `domain/__init__.py`, `setvector/__init__.py` | modify | `InstallationError`; export rhythm types |
 | `src/setvector/analysis/identity.py` | modify | Baseline v3 parameters; rhythm constants and `rhythm_identity` |
 | `src/setvector/analysis/baseline.py` | modify | Bass-band beat onset envelope |
@@ -38,7 +41,9 @@
 | `src/setvector/domain/rhythm.py` | create | `GridSegment`, `CandidateQuality`, `RhythmAnalysis` |
 | `src/setvector/storage/canonical.py`, `storage/__init__.py` | modify | `compute_rhythm_id`; exports |
 | `src/setvector/storage/rhythm.py` | create | `RhythmStore` |
-| `src/setvector/analysis/beat_this.py` | create | Checkpoint verification, detection, peak refinement |
+| `src/setvector/analysis/beat_this/__init__.py` | create | Weights verification, detection, peak refinement (no module-level torch import) |
+| `src/setvector/analysis/beat_this/_inference.py` | create | Vendored log-mel front end, chunking, peak picking, weight loading |
+| `src/setvector/analysis/beat_this/_model.py`, `_roformer.py`, `_utils.py` | create | Upstream model files (imports changed only) and one helper |
 | `src/setvector/analysis/rhythm.py`, `analysis/__init__.py` | create/modify | Candidate scoring and source selection |
 | `src/setvector/application/analyze.py`, `application/report.py` | modify | Rhythm stage; report input |
 | `src/setvector/cli/__init__.py` | modify | Rhythm fields in `analyze` output |
@@ -49,7 +54,7 @@
 
 ---
 
-### Task 1: Pin Beat This! and CPU PyTorch
+### Task 1: Pin CPU PyTorch and the model helpers
 
 **Files:**
 - Modify: `pyproject.toml` (the `dependencies` list)
@@ -59,7 +64,6 @@
 
 ```toml
 dependencies = [
-    "beat-this==1.1.0",
     "einops==0.8.2",
     "librosa==0.11.0",
     "numpy==2.4.6",
@@ -68,22 +72,19 @@ dependencies = [
     "soundfile==0.14.0",
     "soxr==1.1.0",
     "torch==2.14.0",
-    "torchaudio==2.11.0",
 ]
 ```
 
-These versions ran Beat This! together in the spike (torch was the `+cpu` build; `==2.14.0` accepts it). On Windows and macOS the PyPI `torch` wheel is CPU-only. On Linux use `--extra-index-url https://download.pytorch.org/whl/cpu` to avoid the CUDA build.
+These versions ran the vendored model in the second spike (torch was the `+cpu` build; `==2.14.0` accepts it). `beat-this` and `torchaudio` are deliberately absent: Task 8 vendors the inference code and replaces torchaudio's mel spectrogram. On Windows and macOS the PyPI `torch` wheel is CPU-only. On Linux use `--extra-index-url https://download.pytorch.org/whl/cpu` to avoid the CUDA build.
 
 - [ ] **Step 2: Add the same pins to `requirements-dev.txt`**
 
 Add these lines in alphabetical position:
 
 ```text
-beat-this==1.1.0
 einops==0.8.2
 rotary-embedding-torch==0.9.1
 torch==2.14.0
-torchaudio==2.11.0
 ```
 
 - [ ] **Step 3: Install and check**
@@ -92,11 +93,11 @@ Run:
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m pip check
-.\.venv\Scripts\python.exe -c "import torch, torchaudio, beat_this, einops, rotary_embedding_torch; print(torch.__version__, torch.cuda.is_available())"
+.\.venv\Scripts\python.exe -c "import torch, einops, rotary_embedding_torch; print(torch.__version__, torch.cuda.is_available())"
 ```
-Expected: `pip check` prints `No broken requirements found.`; the last line prints `2.14.0... False` on this Windows machine.
+Expected: `pip check` prints `No broken requirements found.`; the last line prints `2.14.0+cpu False` on this Windows machine.
 
-If `pip check` reports a torch/torchaudio conflict, STOP and report it with the exact output. Do not pick other versions by guesswork.
+If `pip check` reports a conflict, STOP and report it with the exact output. Do not pick other versions by guesswork.
 
 - [ ] **Step 4: Pin the new transitive dependencies**
 
@@ -111,52 +112,79 @@ Expected: all existing tests pass (nothing uses the new packages yet).
 
 ```powershell
 git add pyproject.toml requirements-dev.txt
-git commit -m "build: require Beat This! with CPU PyTorch"
+git commit -m "build: require CPU PyTorch for beat tracking"
 ```
 
 ---
 
-### Task 2: Bundle the verified checkpoint
+### Task 2: Bundle the verified weights
 
 **Files:**
 - Create: `src/setvector/models/__init__.py`
-- Create: `src/setvector/models/checkpoint.py`
+- Create: `src/setvector/models/weights.py`
 - Create: `src/setvector/models/LICENSE-beat-this`
 - Create: `scripts/fetch_model.py`
 - Create: `hatch_build.py`
 - Modify: `.gitignore`, `pyproject.toml`
-- Test: `tests/test_model_checkpoint.py`
+- Test: `tests/test_model_weights.py`
+
+The published `final0` checkpoint is a PyTorch Lightning pickle. `scripts/fetch_model.py` downloads it, checks its SHA-256, and converts the model tensors to an uncompressed `.npz`, which is the only file SetVector ships and loads (with `allow_pickle=False`). The pinned weights hash covers the `.npz` member names and bytes rather than the file bytes, so it does not depend on zip timestamps or member order, and the build hook can compute it without NumPy. Both hashes below were measured in the second spike.
 
 - [ ] **Step 1: Write the failing tests**
 
-`tests/test_model_checkpoint.py`:
+`tests/test_model_weights.py`:
 
 ```python
-"""The bundled Beat This! checkpoint is present and matches its pinned hash."""
+"""The bundled Beat This! weights are present and match their pinned hash."""
 
 import hashlib
+import zipfile
 
-from setvector.models import checkpoint
+from setvector.models import weights
 
 
-def test_bundled_checkpoint_matches_pinned_hash():
-    assert checkpoint.PATH.is_file(), "missing checkpoint: run python scripts/fetch_model.py"
-    assert checkpoint.sha256_file(checkpoint.PATH) == checkpoint.SHA256
+def test_bundled_weights_match_pinned_hash():
+    assert weights.PATH.is_file(), "missing weights: run python scripts/fetch_model.py"
+    assert weights.weights_sha256(weights.PATH) == weights.SHA256
 
 
 def test_sha256_file_reads_large_files_in_blocks(tmp_path):
     data = b"a" * (3 * 2**20 + 5)
     path = tmp_path / "blob.bin"
     path.write_bytes(data)
-    assert checkpoint.sha256_file(path) == hashlib.sha256(data).hexdigest()
+    assert weights.sha256_file(path) == hashlib.sha256(data).hexdigest()
+
+
+def _archive(path, members):
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, data, date_time in members:
+            archive.writestr(zipfile.ZipInfo(name, date_time=date_time), data)
+    return path
+
+
+def test_weights_hash_ignores_member_order_and_timestamps(tmp_path):
+    first = _archive(
+        tmp_path / "a.npz",
+        [("x.npy", b"one", (1980, 1, 1, 0, 0, 0)), ("y.npy", b"two", (1980, 1, 1, 0, 0, 0))],
+    )
+    second = _archive(
+        tmp_path / "b.npz",
+        [("y.npy", b"two", (2024, 5, 6, 7, 8, 10)), ("x.npy", b"one", (2021, 1, 1, 0, 0, 0))],
+    )
+    changed = _archive(
+        tmp_path / "c.npz",
+        [("x.npy", b"one", (1980, 1, 1, 0, 0, 0)), ("y.npy", b"TWO", (1980, 1, 1, 0, 0, 0))],
+    )
+    assert weights.weights_sha256(first) == weights.weights_sha256(second)
+    assert weights.weights_sha256(first) != weights.weights_sha256(changed)
 ```
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `py -m pytest tests/test_model_checkpoint.py -q`
+Run: `py -m pytest tests/test_model_weights.py -q`
 Expected: FAIL with `ModuleNotFoundError: No module named 'setvector.models'`.
 
-- [ ] **Step 3: Create the checkpoint identity module**
+- [ ] **Step 3: Create the weights identity module**
 
 `src/setvector/models/__init__.py`:
 
@@ -164,31 +192,50 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'setvector.models'`.
 """Model files bundled with SetVector."""
 ```
 
-`src/setvector/models/checkpoint.py`:
+`src/setvector/models/weights.py`:
 
 ```python
-"""Identity of the bundled Beat This! checkpoint.
+"""Identity of the bundled Beat This! weights.
 
-This module imports nothing from SetVector so the build hook and the fetch script
-can load it with ``runpy`` before the package is installed.
+This module uses only the standard library so the build hook and the fetch script can
+load it with ``runpy`` before SetVector or NumPy is installed.
 """
 
 import hashlib
+import zipfile
 from pathlib import Path
 
 NAME = "final0"
-FILE_NAME = "beat_this-final0.ckpt"
-SHA256 = "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331"
-URL = "https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt"
+UPSTREAM_VERSION = "1.1.0"
+UPSTREAM_COMMIT = "b95c8ab"
+SOURCE_URL = "https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt"
+SOURCE_SHA256 = "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331"
+FILE_NAME = "beat_this-final0.npz"
+SHA256 = "c023aa1a8f9ce435c0639568c4478314765f54304588319fbd0022a4992893a7"
 PATH = Path(__file__).resolve().parent / FILE_NAME
 
 
 def sha256_file(path: Path) -> str:
-    """Return the lowercase SHA-256 of ``path``, read in 1 MiB blocks."""
+    """Return the lowercase SHA-256 of the bytes of ``path``, read in 1 MiB blocks."""
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:
         for block in iter(lambda: stream.read(1 << 20), b""):
             digest.update(block)
+    return digest.hexdigest()
+
+
+def weights_sha256(path: Path) -> str:
+    """Return a SHA-256 over the sorted member names and bytes of the ``.npz`` at ``path``.
+
+    Unlike a file hash, it ignores zip timestamps, compression, and member order.
+    """
+    digest = hashlib.sha256()
+    with zipfile.ZipFile(path) as archive:
+        for name in sorted(archive.namelist()):
+            digest.update(name.encode() + b"\0")
+            with archive.open(name) as member:
+                for block in iter(lambda: member.read(1 << 20), b""):
+                    digest.update(block)
     return digest.hexdigest()
 ```
 
@@ -197,11 +244,14 @@ def sha256_file(path: Path) -> str:
 `scripts/fetch_model.py`:
 
 ```python
-"""Download the Beat This! checkpoint into the package and verify its SHA-256.
+"""Download the Beat This! checkpoint, convert it to ``.npz``, and verify both hashes.
 
-Run once in a source checkout before installing or building SetVector:
+Run once in a source checkout with the project venv, which provides PyTorch and NumPy:
 
     python scripts/fetch_model.py
+
+This is the only code that unpickles the checkpoint (with ``weights_only=True``).
+SetVector itself loads the converted ``.npz`` with ``allow_pickle=False``.
 """
 
 import runpy
@@ -211,30 +261,62 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CHECKPOINT = runpy.run_path(str(ROOT / "src" / "setvector" / "models" / "checkpoint.py"))
+WEIGHTS = runpy.run_path(str(ROOT / "src" / "setvector" / "models" / "weights.py"))
+
+
+def download(url: str, directory: Path) -> Path:
+    """Stream ``url`` into a temporary ``.part`` file in ``directory`` and return its path."""
+    with tempfile.NamedTemporaryFile(dir=directory, suffix=".ckpt.part", delete=False) as part:
+        with urllib.request.urlopen(url, timeout=60) as response:
+            while block := response.read(1 << 20):
+                part.write(block)
+    return Path(part.name)
+
+
+def convert(checkpoint: Path, target: Path) -> None:
+    """Write the checkpoint's model tensors, without their ``model.`` prefix, to ``target``."""
+    import numpy as np
+    import torch
+
+    state = torch.load(checkpoint, map_location="cpu", weights_only=True)["state_dict"]
+    arrays = {
+        name.removeprefix("model."): tensor.numpy()
+        for name, tensor in state.items()
+        if name.startswith("model.")
+    }
+    with target.open("wb") as stream:  # a file object stops NumPy appending ".npz"
+        np.savez(stream, **arrays)
 
 
 def main() -> int:
-    target, expected = CHECKPOINT["PATH"], CHECKPOINT["SHA256"]
-    sha256_file = CHECKPOINT["sha256_file"]
-    if target.is_file() and sha256_file(target) == expected:
-        print(f"checkpoint already present: {target}")
+    target, expected = WEIGHTS["PATH"], WEIGHTS["SHA256"]
+    if target.is_file() and WEIGHTS["weights_sha256"](target) == expected:
+        print(f"weights already present: {target}")
         return 0
-    with tempfile.NamedTemporaryFile(dir=target.parent, suffix=".part", delete=False) as part:
-        temporary = Path(part.name)
-        with urllib.request.urlopen(CHECKPOINT["URL"], timeout=60) as response:
-            while block := response.read(1 << 20):
-                part.write(block)
-    actual = sha256_file(temporary)
-    if actual != expected:
-        temporary.unlink()
-        print(
-            f"error: downloaded checkpoint has SHA-256 {actual}, expected {expected}",
-            file=sys.stderr,
-        )
-        return 1
-    temporary.replace(target)
-    print(f"checkpoint verified: {target}")
+    checkpoint = download(WEIGHTS["SOURCE_URL"], target.parent)
+    partial = target.with_name(target.name + ".part")
+    try:
+        actual = WEIGHTS["sha256_file"](checkpoint)
+        if actual != WEIGHTS["SOURCE_SHA256"]:
+            print(
+                f"error: downloaded checkpoint has SHA-256 {actual}, "
+                f"expected {WEIGHTS['SOURCE_SHA256']}",
+                file=sys.stderr,
+            )
+            return 1
+        convert(checkpoint, partial)
+        actual = WEIGHTS["weights_sha256"](partial)
+        if actual != expected:
+            print(
+                f"error: converted weights have SHA-256 {actual}, expected {expected}",
+                file=sys.stderr,
+            )
+            return 1
+        partial.replace(target)
+    finally:
+        checkpoint.unlink(missing_ok=True)
+        partial.unlink(missing_ok=True)
+    print(f"weights verified: {target}")
     return 0
 
 
@@ -242,42 +324,45 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 5: Ignore the checkpoint in Git**
+- [ ] **Step 5: Ignore the weights in Git**
 
 Append to `.gitignore`:
 
 ```text
 
-# Bundled model downloaded by scripts/fetch_model.py
+# Model weights written by scripts/fetch_model.py
+src/setvector/models/*.npz
 src/setvector/models/*.ckpt
 src/setvector/models/*.part
 ```
 
-- [ ] **Step 6: Fetch the checkpoint and run the tests**
+- [ ] **Step 6: Fetch the weights and run the tests**
 
 Run:
 ```powershell
 .\.venv\Scripts\python.exe scripts/fetch_model.py
-py -m pytest tests/test_model_checkpoint.py -q
+py -m pytest tests/test_model_weights.py -q
 git status --short
+Get-ChildItem src\setvector\models
 ```
-Expected: `checkpoint verified: ...\src\setvector\models\beat_this-final0.ckpt`; 2 passed; `git status` does not list the `.ckpt`.
+Expected: `weights verified: ...\src\setvector\models\beat_this-final0.npz`; 3 passed; `git status` does not list the `.npz`; the models folder holds `beat_this-final0.npz` (81,064,498 bytes) and no `.ckpt` or `.part` file.
+
+If the checkpoint hash fails, the upstream file changed: STOP and report the printed hash. If only the converted-weights hash fails, report it together with `py -c "import numpy, torch; print(numpy.__version__, torch.__version__)"`.
 
 - [ ] **Step 7: Add the Beat This! license**
 
-Copy the installed license verbatim:
+Copy the upstream license verbatim from the local clone:
 ```powershell
-$license = .\.venv\Scripts\python.exe -c "import importlib.metadata as m; print(next(f.locate() for f in m.distribution('beat-this').files if f.name == 'LICENSE'))"
-Copy-Item $license src\setvector\models\LICENSE-beat-this
+Copy-Item C:\Users\aryan\OneDrive\Documents\GitHub\beat_this\LICENSE src\setvector\models\LICENSE-beat-this
 ```
-Open the file and check it is the MIT license naming the Beat This! authors.
+Open the file and check it is the MIT license naming the Institute of Computational Perception, JKU Linz. It covers both the weights and the code vendored in Task 8.
 
 - [ ] **Step 8: Add the build hook**
 
 `hatch_build.py` (repository root):
 
 ```python
-"""Refuse to build SetVector without the verified Beat This! checkpoint."""
+"""Refuse to build SetVector without the verified Beat This! weights."""
 
 import runpy
 from pathlib import Path
@@ -285,23 +370,23 @@ from pathlib import Path
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
 
-class CheckpointHook(BuildHookInterface):
-    """Fail the build when the bundled checkpoint is missing or altered."""
+class WeightsHook(BuildHookInterface):
+    """Fail the build when the bundled weights are missing or altered."""
 
     def initialize(self, version, build_data):
-        checkpoint = runpy.run_path(
-            str(Path(self.root) / "src" / "setvector" / "models" / "checkpoint.py")
+        weights = runpy.run_path(
+            str(Path(self.root) / "src" / "setvector" / "models" / "weights.py")
         )
-        path = checkpoint["PATH"]
+        path = weights["PATH"]
         if not path.is_file():
             raise RuntimeError(f"missing {path}; run: python scripts/fetch_model.py")
-        if checkpoint["sha256_file"](path) != checkpoint["SHA256"]:
+        if weights["weights_sha256"](path) != weights["SHA256"]:
             raise RuntimeError(
                 f"{path} does not match its pinned SHA-256; rerun scripts/fetch_model.py"
             )
 ```
 
-- [ ] **Step 9: Wire the hook, the Git-ignored checkpoint, and the license into `pyproject.toml`**
+- [ ] **Step 9: Wire the hook, the Git-ignored weights, and the license into `pyproject.toml`**
 
 Change `license-files` to:
 
@@ -317,32 +402,32 @@ Add after `[project.scripts]`:
 
 ```toml
 [tool.hatch.build]
-# The checkpoint is Git-ignored; hatch skips ignored files unless listed as artifacts.
-artifacts = ["src/setvector/models/*.ckpt"]
+# The weights are Git-ignored; hatch skips ignored files unless listed as artifacts.
+artifacts = ["src/setvector/models/*.npz"]
 
 [tool.hatch.build.hooks.custom]
 ```
 
 Add `"/hatch_build.py"` and `"/scripts"` to the `[tool.hatch.build.targets.sdist] include` list.
 
-- [ ] **Step 10: Verify the wheel contains the checkpoint and the build fails without it**
+- [ ] **Step 10: Verify the wheel contains the weights and the build fails without them**
 
 Run:
 ```powershell
 py -m build --no-isolation
-py -m zipfile -l (Get-ChildItem dist\*.whl | Sort-Object LastWriteTime | Select-Object -Last 1).FullName | Select-String "ckpt|LICENSE-beat-this"
-Rename-Item src\setvector\models\beat_this-final0.ckpt held.ckpt.bak
+py -m zipfile -l (Get-ChildItem dist\*.whl | Sort-Object LastWriteTime | Select-Object -Last 1).FullName | Select-String "npz|LICENSE-beat-this"
+Rename-Item src\setvector\models\beat_this-final0.npz held.npz.bak
 py -m build --no-isolation --wheel; "exit=$LASTEXITCODE"
-Rename-Item src\setvector\models\held.ckpt.bak beat_this-final0.ckpt
+Rename-Item src\setvector\models\held.npz.bak beat_this-final0.npz
 ```
-Expected: the listing shows `setvector/models/beat_this-final0.ckpt` (about 81 MB) and `LICENSE-beat-this` (if the checkpoint appears under `src/setvector/...` or is absent, stop and report the listing); the second build fails with `missing ...beat_this-final0.ckpt; run: python scripts/fetch_model.py` and `exit=1`. Then re-run `py -m pip install --no-build-isolation -e .` so the editable install is current. Delete `dist\` afterwards.
+Expected: the listing shows `setvector/models/beat_this-final0.npz` (about 81 MB) and `LICENSE-beat-this` (if the weights appear under `src/setvector/...` or are absent, stop and report the listing); the second build fails with `missing ...beat_this-final0.npz; run: python scripts/fetch_model.py` and `exit=1`. Then re-run `py -m pip install --no-build-isolation -e .` so the editable install is current. Delete `dist\` afterwards.
 
 - [ ] **Step 11: Full checks and commit**
 
 ```powershell
 py -m pytest -q; py -m ruff check .; py -m ruff format --check .
-git add .gitignore pyproject.toml hatch_build.py scripts/fetch_model.py src/setvector/models/__init__.py src/setvector/models/checkpoint.py src/setvector/models/LICENSE-beat-this tests/test_model_checkpoint.py
-git commit -m "build: bundle the verified Beat This! checkpoint"
+git add .gitignore pyproject.toml hatch_build.py scripts/fetch_model.py src/setvector/models/__init__.py src/setvector/models/weights.py src/setvector/models/LICENSE-beat-this tests/test_model_weights.py
+git commit -m "build: bundle verified Beat This! weights as npz"
 ```
 
 ---
@@ -876,8 +961,8 @@ def rhythm_factory():
             algorithm_version=1,
             package_version="0.1.0a1",
             config=bundle.extractor.config,
-            parameters={"checkpoint": "final0"},
-            dependency_versions={"beat-this": "1.1.0", "torch": "2.14.0"},
+            parameters={"model": "final0"},
+            dependency_versions={"torch": "2.14.0"},
         )
         rhythm_id = compute_rhythm_id(bundle.feature_id, extractor)
         if source == "none":
@@ -1018,7 +1103,7 @@ def test_rhythm_id_depends_on_feature_and_every_extractor_input(report_inputs, r
     base = compute_rhythm_id(bundle.feature_id, rhythm.extractor)
     assert base == rhythm.rhythm_id
     assert compute_rhythm_id("b" * 64, rhythm.extractor) != base
-    changed = replace(rhythm.extractor, parameters={"checkpoint": "final1"})
+    changed = replace(rhythm.extractor, parameters={"model": "final1"})
     assert compute_rhythm_id(bundle.feature_id, changed) != base
 ```
 
@@ -1549,32 +1634,349 @@ git commit -m "feat(storage): store rhythm artifacts atomically"
 
 ---
 
-### Task 8: Beat This! detector wrapper
+### Task 8: Vendor the Beat This! detector
 
 **Files:**
-- Create: `src/setvector/analysis/beat_this.py`
-- Modify: `tests/conftest.py` (marker and autouse stub)
+- Create: `src/setvector/analysis/beat_this/_model.py`, `_roformer.py` (generated from upstream in Step 1)
+- Create: `src/setvector/analysis/beat_this/_utils.py`, `_inference.py`, `__init__.py`
+- Create: `scripts/make_beat_this_reference.py`, `tests/data/beat_this_reference.npz`
+- Modify: `pyproject.toml` (Ruff exclusion), `tests/conftest.py` (marker and autouse stub)
 - Test: `tests/test_analysis_beat_this.py`
 
-Measured before writing this plan: on the drum pattern below, the real model matched all 64 true beats within 40 ms and 16 of its 17 downbeats were within 40 ms of a true downbeat, in 2 s on CPU.
+Measured before writing this plan with exactly the code below: on the 44.1 kHz reference pattern the vendored logits were within 2.5e-5 of upstream `beat-this==1.1.0` and every peak time was identical; on a 6 min pattern they were within 5.4e-5, again with identical peaks, in 12 s on CPU. On the 22.05 kHz pattern, all 64 true beats were within 40 ms and 16 of 17 downbeats were within 40 ms of a true downbeat.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Generate the vendored model files from the local upstream clone**
 
-`tests/test_analysis_beat_this.py`:
+Run from the repository root:
+
+```powershell
+New-Item -ItemType Directory -Force src\setvector\analysis\beat_this | Out-Null
+@'
+from pathlib import Path
+
+UPSTREAM = Path(r"C:\Users\aryan\OneDrive\Documents\GitHub\beat_this\beat_this")
+TARGET = Path("src/setvector/analysis/beat_this")
+HEADER = (
+    "# Vendored from Beat This! 1.1.0 (https://github.com/CPJKU/beat_this, commit b95c8ab),\n"
+    "# file beat_this/model/{name}. MIT license: see setvector/models/LICENSE-beat-this.\n"
+    "# Unchanged except for imports; keep it that way so the weights load and diffs stay small.\n\n"
+)
+IMPORTS = {
+    "from beat_this.model import roformer\n": "from . import _roformer as roformer\n",
+    "from beat_this.utils import replace_state_dict_key\n": "from ._utils import replace_state_dict_key\n",
+}
+for name, target in (("roformer.py", "_roformer.py"), ("beat_tracker.py", "_model.py")):
+    text = (UPSTREAM / "model" / name).read_text(encoding="utf-8")
+    for old, new in IMPORTS.items():
+        text = text.replace(old, new)
+    assert "beat_this." not in text, f"unreplaced upstream import in {name}"
+    (TARGET / target).write_text(HEADER.format(name=name) + text, encoding="utf-8", newline="\n")
+    print(f"wrote {TARGET / target}")
+'@ | py -
+```
+
+Expected: two `wrote ...` lines. Check that nothing else changed from upstream:
+
+```powershell
+git diff --no-index --ignore-cr-at-eol --stat C:\Users\aryan\OneDrive\Documents\GitHub\beat_this\beat_this\model\beat_tracker.py src\setvector\analysis\beat_this\_model.py
+git diff --no-index --ignore-cr-at-eol --stat C:\Users\aryan\OneDrive\Documents\GitHub\beat_this\beat_this\model\roformer.py src\setvector\analysis\beat_this\_roformer.py
+```
+Expected: `_model.py` differs by the 4 header lines and 2 import lines; `_roformer.py` by the 4 header lines only.
+
+- [ ] **Step 2: Exclude the verbatim upstream files from Ruff**
+
+In `pyproject.toml`, add to `[tool.ruff]`:
+
+```toml
+# Vendored verbatim from Beat This!; keep them diffable against upstream.
+extend-exclude = [
+    "src/setvector/analysis/beat_this/_model.py",
+    "src/setvector/analysis/beat_this/_roformer.py",
+]
+```
+
+- [ ] **Step 3: Add the remaining vendored modules**
+
+`src/setvector/analysis/beat_this/_utils.py`:
 
 ```python
-"""Beat This! runs only from the verified bundled checkpoint."""
+# Vendored from Beat This! 1.1.0 (https://github.com/CPJKU/beat_this, commit b95c8ab),
+# function replace_state_dict_key from beat_this/utils.py. MIT license: see
+# setvector/models/LICENSE-beat-this.
+
+
+def replace_state_dict_key(state_dict: dict, old: str, new: str):
+    """Replaces `old` in all keys of `state_dict` with `new`."""
+    keys = list(state_dict.keys())  # take snapshot of the keys
+    for key in keys:
+        if old in key:
+            state_dict[key.replace(old, new)] = state_dict.pop(key)
+    return state_dict
+```
+
+`src/setvector/analysis/beat_this/_inference.py`:
+
+```python
+"""Beat This! inference, vendored from upstream 1.1.0 (commit b95c8ab) under the MIT license.
+
+Adapted from ``beat_this/inference.py``, ``preprocessing.py``, and ``model/postprocessor.py``
+(see ``setvector/models/LICENSE-beat-this``). The log-mel front end uses ``torch.stft`` and
+librosa's filterbank instead of torchaudio, weights arrive as NumPy arrays instead of a
+pickled checkpoint, peak picking uses SciPy instead of PyTorch, and there is no download path.
+"""
+
+from functools import cache
+
+import librosa
+import numpy as np
+import soxr
+import torch
+import torch.nn.functional as F
+from scipy.ndimage import maximum_filter1d
+
+from ._model import BeatThis
+
+FPS = 50
+SAMPLE_RATE = 22_050
+N_FFT = 1024
+HOP_LENGTH = 441
+F_MIN = 30.0
+F_MAX = 11_000.0
+N_MELS = 128
+CHUNK_FRAMES = 1500
+BORDER_FRAMES = 6
+PEAK_WINDOW_FRAMES = 7
+
+
+def load_model(arrays: dict[str, np.ndarray]) -> BeatThis:
+    """Build the default-sized model, as ``final0`` was trained, and load ``arrays`` strictly."""
+    model = BeatThis()
+    model.load_state_dict({name: torch.from_numpy(a) for name, a in arrays.items()}, strict=True)
+    return model.eval()
+
+
+@cache
+def _mel_filterbank() -> torch.Tensor:
+    """Slaney-scale triangular filters without area normalization, shape ``(513, 128)``."""
+    bank = librosa.filters.mel(
+        sr=SAMPLE_RATE, n_fft=N_FFT, n_mels=N_MELS, fmin=F_MIN, fmax=F_MAX, htk=False, norm=None
+    )
+    return torch.from_numpy(bank.T.astype(np.float32))
+
+
+def log_mel(samples: np.ndarray, sample_rate: int) -> torch.Tensor:
+    """Return the ``(frames, 128)`` log-mel spectrogram of mono ``samples`` at 50 frames/s."""
+    samples = np.asarray(samples, dtype=np.float32)
+    if sample_rate != SAMPLE_RATE:
+        samples = soxr.resample(samples, in_rate=sample_rate, out_rate=SAMPLE_RATE)
+    magnitude = torch.stft(
+        torch.from_numpy(np.ascontiguousarray(samples)),
+        n_fft=N_FFT,
+        hop_length=HOP_LENGTH,
+        window=torch.hann_window(N_FFT),
+        center=True,
+        pad_mode="reflect",
+        normalized=True,  # torchaudio's normalized="frame_length"
+        onesided=True,
+        return_complex=True,
+    ).abs()
+    return torch.log1p(1000 * (magnitude.T @ _mel_filterbank()))
+
+
+def frame_logits(model: BeatThis, spect: torch.Tensor) -> tuple[np.ndarray, np.ndarray]:
+    """Return per-frame beat and downbeat logits for a whole ``(frames, 128)`` spectrogram.
+
+    The model sees 1,500-frame chunks overlapping by ``BORDER_FRAMES``. Border predictions
+    are discarded and the earlier chunk wins each overlap, as upstream's
+    ``split_predict_aggregate(overlap_mode="keep_first")``. Chunks run one at a time: batching
+    them was no faster on CPU and doubled peak memory.
+    """
+    size = len(spect)
+    step = CHUNK_FRAMES - 2 * BORDER_FRAMES
+    starts = np.arange(-BORDER_FRAMES, size - BORDER_FRAMES, step)
+    if size > step:
+        starts[-1] = size - (CHUNK_FRAMES - BORDER_FRAMES)
+    beat = torch.full((size,), -1000.0)
+    downbeat = torch.full((size,), -1000.0)
+    with torch.inference_mode():
+        for start in starts[::-1]:  # later chunks first, so earlier ones overwrite overlaps
+            chunk = F.pad(
+                spect[max(start, 0) : min(start + CHUNK_FRAMES, size)],
+                (0, 0, max(0, -start), max(0, min(BORDER_FRAMES, start + CHUNK_FRAMES - size))),
+            )
+            prediction = model(chunk.unsqueeze(0))
+            keep = slice(start + BORDER_FRAMES, start + CHUNK_FRAMES - BORDER_FRAMES)
+            beat[keep] = prediction["beat"][0, BORDER_FRAMES:-BORDER_FRAMES]
+            downbeat[keep] = prediction["downbeat"][0, BORDER_FRAMES:-BORDER_FRAMES]
+    return beat.numpy(), downbeat.numpy()
+
+
+def _peak_frames(logits: np.ndarray) -> np.ndarray:
+    """Frames that are the maximum within ±3 frames with probability above 0.5.
+
+    Adjacent peak frames are merged into their mean frame, as upstream's ``deduplicate_peaks``.
+    """
+    peaks = np.flatnonzero(
+        (logits == maximum_filter1d(logits, PEAK_WINDOW_FRAMES, mode="constant", cval=-np.inf))
+        & (logits > 0)
+    )
+    if peaks.size == 0:
+        return peaks.astype(np.float64)
+    groups = np.split(peaks, np.flatnonzero(np.diff(peaks) > 1) + 1)
+    return np.array([group.mean() for group in groups])
+
+
+def pick_peaks(beat: np.ndarray, downbeat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Upstream's minimal postprocessor: beat and downbeat times in seconds.
+
+    Each downbeat moves to its nearest beat, and duplicates are removed.
+    """
+    beats = _peak_frames(beat) / FPS
+    downbeats = _peak_frames(downbeat) / FPS
+    if beats.size and downbeats.size:
+        downbeats = np.unique(beats[np.abs(beats[None, :] - downbeats[:, None]).argmin(axis=1)])
+    return beats, downbeats
+```
+
+`src/setvector/analysis/beat_this/__init__.py`:
+
+```python
+"""Beat This! beat and downbeat detection from the bundled weights.
+
+This package holds the only PyTorch code in SetVector, vendored from Beat This! 1.1.0. This
+module imports nothing from PyTorch at import time. The weights load only from the package
+after their SHA-256 matches, and there is no download path.
+"""
+
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
-import pytest
 
-from setvector.analysis import beat_this
-from setvector.domain import InstallationError
-from setvector.models import checkpoint
+from setvector.domain import AnalysisError, InstallationError
+from setvector.models import weights
+
+FPS = 50
+
+
+@dataclass(frozen=True, slots=True)
+class Detection:
+    """Beat and downbeat times in seconds from one detector run."""
+
+    beats: np.ndarray
+    downbeats: np.ndarray
+
+
+def verify_weights(path: Path | None = None) -> Path:
+    """Return the bundled weights path after checking it exists and matches its hash."""
+    path = weights.PATH if path is None else Path(path)
+    if not path.is_file():
+        raise InstallationError(
+            f"the Beat This! weights are missing: {path}. Reinstall SetVector, or in a "
+            "source checkout run: python scripts/fetch_model.py"
+        )
+    try:
+        actual = weights.weights_sha256(path)
+    except Exception as error:
+        raise InstallationError(
+            f"the Beat This! weights at {path} are unreadable ({error}). Reinstall SetVector, "
+            "or rerun scripts/fetch_model.py"
+        ) from error
+    if actual != weights.SHA256:
+        raise InstallationError(
+            f"the Beat This! weights at {path} have SHA-256 {actual}, expected "
+            f"{weights.SHA256}. Reinstall SetVector, or rerun scripts/fetch_model.py"
+        )
+    return path
+
+
+@lru_cache(maxsize=1)
+def _load(path: str):
+    verified = verify_weights(Path(path))
+    try:
+        from . import _inference
+
+        with np.load(verified, allow_pickle=False) as data:
+            arrays = {name: data[name] for name in data.files}
+        return _inference.load_model(arrays)
+    except Exception as error:
+        raise InstallationError(f"the Beat This! model could not be loaded: {error}") from error
+
+
+def load_model():
+    """Return the verified bundled model, loaded once per process."""
+    return _load(str(weights.PATH))
+
+
+def refine_peak_times(times, activation, fps: int = FPS) -> np.ndarray:
+    """Move each peak-frame time to the vertex of a parabola through its neighbours.
+
+    Times whose frame is at an edge or is not a strict local maximum are unchanged.
+    """
+    activation = np.asarray(activation, dtype=np.float64)
+    refined = np.array(times, dtype=np.float64)
+    for i, time in enumerate(refined):
+        frame = int(round(time * fps))
+        if not 0 < frame < activation.size - 1:
+            continue
+        left, peak, right = activation[frame - 1 : frame + 2]
+        if peak <= left or peak <= right:
+            continue
+        offset = 0.5 * (left - right) / (left - 2 * peak + right)
+        refined[i] = (frame + float(np.clip(offset, -0.5, 0.5))) / fps
+    return refined
+
+
+def detect(samples: np.ndarray, sample_rate: int) -> Detection:
+    """Run Beat This! on mono samples; return refined beats and its downbeats."""
+    model = load_model()
+    from . import _inference
+
+    try:
+        spect = _inference.log_mel(samples, sample_rate)
+        beat_logits, downbeat_logits = _inference.frame_logits(model, spect)
+    except Exception as error:
+        raise AnalysisError(f"Beat This! detection failed: {error}") from error
+    beats, downbeats = _inference.pick_peaks(beat_logits, downbeat_logits)
+    return Detection(beats=refine_peak_times(beats, beat_logits), downbeats=downbeats)
+```
+
+- [ ] **Step 4: Create the reference script and record the upstream reference**
+
+`scripts/make_beat_this_reference.py`:
+
+```python
+r"""Record upstream Beat This! 1.1.0 output for the vendored-model parity test.
+
+Importing this file needs only NumPy: the tests load ``drum_pattern`` from it with ``runpy``.
+Running it needs upstream Beat This!, which must never enter the project venv. Use a
+throwaway venv from the repository root:
+
+    py -3.11 -m venv .venv-upstream
+    $upstream = ".venv-upstream\Scripts\python.exe"
+    & $upstream -m pip install beat-this==1.1.0 torch==2.14.0 torchaudio==2.11.0
+    & $upstream scripts\make_beat_this_reference.py
+    Remove-Item -Recurse .venv-upstream
+
+Upstream downloads the ``final0`` checkpoint into its own torch hub cache on first use.
+"""
+
+import sys
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+REFERENCE = ROOT / "tests" / "data" / "beat_this_reference.npz"
+REFERENCE_SAMPLE_RATE = 44_100
 
 
 def drum_pattern(sample_rate=22_050, bpm=120.0, bars=16, start=0.5):
-    """Kick on every beat, snare on 2 and 4, off-beat hats, a bass note and crash on bar 1."""
+    """Kick on every beat, snare on 2 and 4, off-beat hats, a bass note and crash on bar 1.
+
+    Returns float32 samples, the true beat times, and the true downbeat times.
+    """
     period = 60.0 / bpm
     size = int(sample_rate * (start + bars * 4 * period + 1))
     signal = np.zeros(size)
@@ -1608,6 +2010,66 @@ def drum_pattern(sample_rate=22_050, bpm=120.0, bars=16, start=0.5):
     return signal.astype(np.float32), beats, beats[::4]
 
 
+def main() -> int:
+    from beat_this.inference import Audio2Frames
+    from beat_this.model.postprocessor import Postprocessor
+
+    samples, _, _ = drum_pattern(sample_rate=REFERENCE_SAMPLE_RATE)
+    beat, downbeat = Audio2Frames(checkpoint_path="final0", device="cpu")(
+        samples, REFERENCE_SAMPLE_RATE
+    )
+    beats, downbeats = Postprocessor(type="minimal", fps=50)(beat, downbeat)
+    REFERENCE.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(
+        REFERENCE,
+        beat_logits=beat.numpy(),
+        downbeat_logits=downbeat.numpy(),
+        beats=np.asarray(beats, dtype=np.float64),
+        downbeats=np.asarray(downbeats, dtype=np.float64),
+    )
+    print(f"wrote {REFERENCE} ({beat.shape[0]} frames, {len(beats)} beats)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+Record the reference in a throwaway venv, exactly as its docstring says:
+
+```powershell
+py -3.11 -m venv .venv-upstream
+$upstream = ".venv-upstream\Scripts\python.exe"
+& $upstream -m pip install beat-this==1.1.0 torch==2.14.0 torchaudio==2.11.0
+& $upstream scripts\make_beat_this_reference.py
+Remove-Item -Recurse -Force .venv-upstream
+```
+Expected: `wrote ...\tests\data\beat_this_reference.npz (1676 frames, 66 beats)`; the file is about 15 KB.
+
+- [ ] **Step 5: Write the tests**
+
+`tests/test_analysis_beat_this.py`:
+
+```python
+"""Vendored Beat This! runs only from the verified bundled weights and matches upstream."""
+
+import runpy
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from setvector.analysis import beat_this
+from setvector.domain import InstallationError
+from setvector.models import weights
+
+ROOT = Path(__file__).resolve().parents[1]
+REFERENCE = ROOT / "tests" / "data" / "beat_this_reference.npz"
+_SCRIPT = runpy.run_path(str(ROOT / "scripts" / "make_beat_this_reference.py"))
+drum_pattern = _SCRIPT["drum_pattern"]
+REFERENCE_SAMPLE_RATE = _SCRIPT["REFERENCE_SAMPLE_RATE"]
+
+
 def nearest(values, reference):
     return np.min(np.abs(np.asarray(values)[:, None] - np.asarray(reference)[None, :]), axis=1)
 
@@ -1627,19 +2089,57 @@ def test_refinement_leaves_edges_and_flat_peaks_alone():
     np.testing.assert_array_equal(beat_this.refine_peak_times(times, activation), times)
 
 
+def test_importing_the_detector_does_not_import_torch():
+    import subprocess
+    import sys
+
+    code = "import sys, setvector.analysis.beat_this; print('torch' in sys.modules)"
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "False"
+
+
+def test_missing_weights_are_an_installation_error(tmp_path):
+    with pytest.raises(InstallationError, match="fetch_model"):
+        beat_this.verify_weights(tmp_path / "missing.npz")
+
+
+def test_corrupt_weights_are_an_installation_error(tmp_path):
+    corrupt = tmp_path / "corrupt.npz"
+    corrupt.write_bytes(b"not the model")
+    with pytest.raises(InstallationError, match="unreadable"):
+        beat_this.verify_weights(corrupt)
+
+
+def test_altered_weights_are_an_installation_error(tmp_path):
+    altered = tmp_path / "altered.npz"
+    np.savez(altered, weight=np.zeros(3, np.float32))
+    with pytest.raises(InstallationError, match="SHA-256"):
+        beat_this.verify_weights(altered)
+
+
 @pytest.mark.real_model
-def test_missing_checkpoint_is_an_installation_error(monkeypatch, tmp_path):
-    monkeypatch.setattr(checkpoint, "PATH", tmp_path / "missing.ckpt")
+def test_detect_refuses_missing_weights(monkeypatch, tmp_path):
+    monkeypatch.setattr(weights, "PATH", tmp_path / "missing.npz")
     with pytest.raises(InstallationError, match="fetch_model"):
         beat_this.detect(np.zeros(22_050, np.float32), 22_050)
 
 
-def test_altered_checkpoint_is_an_installation_error(monkeypatch, tmp_path):
-    altered = tmp_path / "altered.ckpt"
-    altered.write_bytes(b"not the model")
-    monkeypatch.setattr(checkpoint, "PATH", altered)
-    with pytest.raises(InstallationError, match="SHA-256"):
-        beat_this.verify_checkpoint()
+@pytest.mark.real_model
+def test_vendored_model_matches_upstream_reference():
+    from setvector.analysis.beat_this import _inference
+
+    with np.load(REFERENCE, allow_pickle=False) as reference:
+        expected = {name: reference[name] for name in reference.files}
+    samples, _, _ = drum_pattern(sample_rate=REFERENCE_SAMPLE_RATE)
+    spect = _inference.log_mel(samples, REFERENCE_SAMPLE_RATE)
+    beat, downbeat = _inference.frame_logits(beat_this.load_model(), spect)
+    np.testing.assert_allclose(beat, expected["beat_logits"], atol=1e-3)
+    np.testing.assert_allclose(downbeat, expected["downbeat_logits"], atol=1e-3)
+    beats, downbeats = _inference.pick_peaks(beat, downbeat)
+    np.testing.assert_array_equal(beats, expected["beats"])
+    np.testing.assert_array_equal(downbeats, expected["downbeats"])
 
 
 @pytest.mark.real_model
@@ -1651,14 +2151,12 @@ def test_bundled_model_finds_beats_and_downbeats_of_a_drum_pattern():
     assert np.mean(nearest(detection.downbeats, downbeats) <= 0.04) >= 0.8
 
 
-def test_other_tests_get_the_stub(monkeypatch):
+def test_other_tests_get_the_stub():
     detection = beat_this.detect(np.zeros(10, np.float32), 22_050)
     assert detection.beats.size == 0 and detection.downbeats.size == 0
 ```
 
-- [ ] **Step 2: Register the marker and the stub in `tests/conftest.py`**
-
-Append:
+Append to `tests/conftest.py`:
 
 ```python
 def pytest_configure(config):
@@ -1682,115 +2180,17 @@ def stub_beat_this(request, monkeypatch):
 
 Subprocess tests (`test_cli.py`, `test_offline_analysis.py`) are not affected by this stub and run the real model.
 
-- [ ] **Step 3: Run to verify they fail**
+- [ ] **Step 6: Run the detector tests**
 
-Run: `py -m pytest tests/test_analysis_beat_this.py -q`
-Expected: errors — `ImportError: cannot import name 'beat_this'` (the autouse fixture fails the same way for every test until Step 4).
+Run: `py -m pytest tests/test_analysis_beat_this.py tests/test_model_weights.py -q`
+Expected: 13 passed (the real-model tests take about 10 s together). If the parity test fails, report the largest logit difference and the first differing peak; do not loosen the tolerance or regenerate the reference with the vendored code.
 
-- [ ] **Step 4: Implement `src/setvector/analysis/beat_this.py`**
-
-```python
-"""Beat This! beat and downbeat detection from the bundled checkpoint.
-
-This is the only module that imports PyTorch or Beat This!, and it does so lazily.
-The checkpoint loads only from the package after its SHA-256 matches, so Beat This!'s
-download fallback (used when a checkpoint path does not exist) is never reached.
-"""
-
-from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
-
-import numpy as np
-
-from setvector.domain import AnalysisError, InstallationError
-from setvector.models import checkpoint
-
-FPS = 50
-
-
-@dataclass(frozen=True, slots=True)
-class Detection:
-    """Beat and downbeat times in seconds from one detector run."""
-
-    beats: np.ndarray
-    downbeats: np.ndarray
-
-
-def verify_checkpoint(path: Path | None = None) -> Path:
-    """Return the bundled checkpoint path after checking it exists and matches its hash."""
-    path = checkpoint.PATH if path is None else path
-    if not path.is_file():
-        raise InstallationError(
-            f"the Beat This! checkpoint is missing: {path}. Reinstall SetVector, or in a "
-            "source checkout run: python scripts/fetch_model.py"
-        )
-    actual = checkpoint.sha256_file(path)
-    if actual != checkpoint.SHA256:
-        raise InstallationError(
-            f"the Beat This! checkpoint at {path} has SHA-256 {actual}, expected "
-            f"{checkpoint.SHA256}. Reinstall SetVector, or rerun scripts/fetch_model.py"
-        )
-    return path
-
-
-@lru_cache(maxsize=1)
-def _frames_model(path: str):
-    from beat_this.inference import Audio2Frames
-
-    return Audio2Frames(checkpoint_path=path, device="cpu")
-
-
-def refine_peak_times(times, activation, fps: int = FPS) -> np.ndarray:
-    """Move each peak-frame time to the vertex of a parabola through its neighbours.
-
-    Times whose frame is at an edge or is not a strict local maximum are unchanged.
-    """
-    activation = np.asarray(activation, dtype=np.float64)
-    refined = np.array(times, dtype=np.float64)
-    for i, time in enumerate(refined):
-        frame = int(round(time * fps))
-        if not 0 < frame < activation.size - 1:
-            continue
-        left, peak, right = activation[frame - 1 : frame + 2]
-        if peak <= left or peak <= right:
-            continue
-        offset = 0.5 * (left - right) / (left - 2 * peak + right)
-        refined[i] = (frame + float(np.clip(offset, -0.5, 0.5))) / fps
-    return refined
-
-
-def detect(samples: np.ndarray, sample_rate: int) -> Detection:
-    """Run Beat This! on mono samples; return refined beats and its downbeats."""
-    path = verify_checkpoint()
-    try:
-        from beat_this.model.postprocessor import Postprocessor
-    except ImportError as error:
-        raise InstallationError(f"Beat This! is not installed correctly: {error}") from error
-    try:
-        model = _frames_model(str(path))
-        beat_logits, downbeat_logits = model(np.asarray(samples, dtype=np.float32), sample_rate)
-        beats, downbeats = Postprocessor(type="minimal", fps=FPS)(beat_logits, downbeat_logits)
-        activation = beat_logits.detach().cpu().numpy()
-    except Exception as error:
-        raise AnalysisError(f"Beat This! detection failed: {error}") from error
-    return Detection(
-        beats=refine_peak_times(beats, activation),
-        downbeats=np.asarray(downbeats, dtype=np.float64),
-    )
-```
-
-- [ ] **Step 5: Run the wrapper tests**
-
-Run: `py -m pytest tests/test_analysis_beat_this.py -q`
-Expected: 6 passed (the real-model test takes a few seconds). If the drum-pattern test fails, report the printed numbers; do not loosen the thresholds.
-
-- [ ] **Step 6: Full checks and commit**
+- [ ] **Step 7: Full checks and commit**
 
 ```powershell
 py -m pytest -q; py -m ruff check .; py -m ruff format --check .
-git add src/setvector/analysis/beat_this.py tests/conftest.py tests/test_analysis_beat_this.py
-git commit -m "feat(analysis): detect beats with the bundled Beat This! model"
+git add pyproject.toml scripts/make_beat_this_reference.py src/setvector/analysis/beat_this tests/conftest.py tests/data/beat_this_reference.npz tests/test_analysis_beat_this.py
+git commit -m "feat(analysis): vendor Beat This! inference with upstream parity test"
 ```
 
 ---
@@ -1888,6 +2288,30 @@ def test_missing_downbeat_keeps_counting_bars(context):
     assert max(rhythm.bar_positions) == 4
 
 
+def bar_lengths(positions):
+    starts = [i for i, position in enumerate(positions) if position == 1]
+    return set(np.diff(starts).tolist())
+
+
+def test_a_spurious_downbeat_does_not_break_bars(context):
+    detection = regular()
+    spurious = np.sort(np.append(detection.downbeats, detection.beats[41]))
+    rhythm = run(context(), Detection(beats=detection.beats, downbeats=spurious))
+    assert rhythm.source == "beat_this"
+    assert bar_lengths(rhythm.bar_positions) == {4}
+
+
+def test_a_sustained_bar_shift_is_followed(context):
+    beats = regular().beats
+    # One 2-beat bar: downbeats at beats 2, 6, ..., 50, then 52, 56, ...
+    shifted = np.concatenate([beats[2:51:4], beats[52::4]])
+    rhythm = run(context(), Detection(beats=beats, downbeats=shifted))
+    assert rhythm.source == "beat_this"
+    downbeat_indices = [i for i, position in enumerate(rhythm.bar_positions) if position == 1]
+    assert {46, 50, 52, 56} <= set(downbeat_indices)
+    assert bar_lengths(rhythm.bar_positions) == {2, 4}
+
+
 def test_irregular_beat_this_falls_back_to_regular_baseline_beats(context):
     rng = np.random.default_rng(0)
     erratic = np.sort(rng.uniform(0, 59, 60))
@@ -1931,12 +2355,22 @@ def test_rhythm_identity_records_model_thresholds_and_environment():
     identity = rhythm_identity(baseline_identity(config))
     assert identity.name == "rhythm-v1"
     assert identity.config == config
-    assert identity.parameters["checkpoint_sha256"] == (
-        "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331"
+    assert identity.parameters["weights_sha256"] == (
+        "c023aa1a8f9ce435c0639568c4478314765f54304588319fbd0022a4992893a7"
     )
+    assert identity.parameters["upstream"] == "beat-this 1.1.0 (b95c8ab)"
     assert identity.parameters["min_grid_fit"] == 0.9
+    assert identity.parameters["bar_phase_confirm"] == 4
     assert identity.dependency_versions["torch"] == version("torch")
-    assert set(identity.dependency_versions) == {"beat-this", "numpy", "soxr", "torch"}
+    assert set(identity.dependency_versions) == {
+        "einops",
+        "librosa",
+        "numpy",
+        "rotary-embedding-torch",
+        "scipy",
+        "soxr",
+        "torch",
+    }
 ```
 
 (Reformat with `py -m ruff format tests/test_analysis_rhythm.py` after pasting.)
@@ -1948,7 +2382,7 @@ Expected: collection error — `ImportError: cannot import name 'extract_rhythm'
 
 - [ ] **Step 3: Add rhythm constants and `rhythm_identity` to `identity.py`**
 
-Add `from setvector.models import checkpoint` and `from setvector.domain import AnalysisConfig, ExtractorIdentity` (extend the existing import). Append:
+Add `from setvector.models import weights` and `from setvector.domain import AnalysisConfig, ExtractorIdentity` (extend the existing import). Append:
 
 ```python
 # Rhythm candidate acceptance (see analysis/rhythm.py). Provisional until measured
@@ -1960,10 +2394,12 @@ MAX_INTERVAL_CV = 0.15
 MIN_GRID_FIT = 0.90
 MIN_BAR_REGULARITY = 0.75
 BAR_LENGTHS = (3, 4)
+BAR_PHASE_CONFIRM = 4
 MIN_DETECTION_SECONDS = 1.0
 RHYTHM_PARAMETERS = {
-    "checkpoint": checkpoint.NAME,
-    "checkpoint_sha256": checkpoint.SHA256,
+    "model": weights.NAME,
+    "upstream": f"beat-this {weights.UPSTREAM_VERSION} ({weights.UPSTREAM_COMMIT})",
+    "weights_sha256": weights.SHA256,
     "postprocessor": "minimal",
     "peak_refinement": "parabolic",
     "grid_tolerance_seconds": GRID_TOLERANCE_SECONDS,
@@ -1975,9 +2411,18 @@ RHYTHM_PARAMETERS = {
     "min_grid_fit": MIN_GRID_FIT,
     "min_bar_regularity": MIN_BAR_REGULARITY,
     "bar_lengths": ",".join(map(str, BAR_LENGTHS)),
+    "bar_phase_confirm": BAR_PHASE_CONFIRM,
     "min_detection_seconds": MIN_DETECTION_SECONDS,
 }
-RHYTHM_DEPENDENCIES = ("beat-this", "numpy", "soxr", "torch")
+RHYTHM_DEPENDENCIES = (
+    "einops",
+    "librosa",
+    "numpy",
+    "rotary-embedding-torch",
+    "scipy",
+    "soxr",
+    "torch",
+)
 
 
 def rhythm_identity(baseline: ExtractorIdentity) -> ExtractorIdentity:
@@ -2021,6 +2466,7 @@ from setvector.ingestion import DecodedAudio
 from . import beat_this, grid
 from .identity import (
     BAR_LENGTHS,
+    BAR_PHASE_CONFIRM,
     MAX_INTERVAL_CV,
     MIN_BAR_REGULARITY,
     MIN_BEATS,
@@ -2067,14 +2513,33 @@ def _bar_stats(beats: np.ndarray, downbeats: np.ndarray) -> tuple[int | None, fl
 
 
 def _bar_positions(grid_beats: np.ndarray, downbeats: np.ndarray, modal: int) -> tuple[int, ...]:
-    """Number grid beats within bars; missed downbeats keep counting in ``modal`` bars."""
-    marked = set(_nearest(grid_beats, downbeats).tolist())
-    first = min(marked)
-    positions = [(modal - (first - i) % modal) % modal + 1 for i in range(first)]
-    count = 0
-    for i in range(first, grid_beats.size):
-        count = 1 if i in marked or count >= modal else count + 1
-        positions.append(count)
+    """Number grid beats within bars of ``modal`` beats, following confirmed bar phases.
+
+    Each downbeat's nearest grid beat index ``i`` votes for phase ``i % modal``. A phase takes
+    effect only where ``BAR_PHASE_CONFIRM`` consecutive downbeats share it, so a spurious or
+    missed downbeat changes nothing, while a sustained shift starts a new phase at the first
+    downbeat of its run. The first confirmed phase also numbers the pickup beats.
+    """
+    indices = np.unique(_nearest(grid_beats, downbeats))
+    phases = indices % modal
+    run_starts = np.flatnonzero(np.r_[True, phases[1:] != phases[:-1]])
+    run_lengths = np.diff(np.r_[run_starts, phases.size])
+    confirmed = [
+        (int(indices[start]), int(phases[start]))
+        for start, length in zip(run_starts, run_lengths, strict=True)
+        if length >= BAR_PHASE_CONFIRM
+    ]
+    if not confirmed:
+        confirmed = [(0, int(np.bincount(phases, minlength=modal).argmax()))]
+    changes = [(0, confirmed[0][1])]
+    for index, phase in confirmed[1:]:
+        if phase != changes[-1][1]:
+            changes.append((index, phase))
+    positions, current = [], 0
+    for i in range(grid_beats.size):
+        while current + 1 < len(changes) and i >= changes[current + 1][0]:
+            current += 1
+        positions.append((i - changes[current][1]) % modal + 1)
     return tuple(positions)
 
 
@@ -2188,7 +2653,7 @@ __all__ = ["baseline_identity", "extract_baseline", "extract_rhythm", "rhythm_id
 - [ ] **Step 6: Run the rhythm tests**
 
 Run: `py -m pytest tests/test_analysis_rhythm.py -q`
-Expected: 7 passed. `detected_beats` must stay strictly increasing: if a test fails in `RhythmAnalysis` validation with `detected_beats`, sort and de-duplicate in `_evaluate` (`np.unique`) rather than changing the domain rule.
+Expected: 9 passed. `detected_beats` must stay strictly increasing: if a test fails in `RhythmAnalysis` validation with `detected_beats`, sort and de-duplicate in `_evaluate` (`np.unique`) rather than changing the domain rule.
 
 - [ ] **Step 7: Full checks and commit**
 
@@ -2627,7 +3092,7 @@ Expected: 2 passed. This runs the real model with sockets blocked.
 Replace the sentence `Future learned models must load from explicit local artifacts.` with:
 
 ```markdown
-Learned models load only from explicit, hash-verified local artifacts. Beat and downbeat detection uses the Beat This! checkpoint bundled with the package and CPU PyTorch; neither downloads anything at run time.
+Learned models load only from explicit, hash-verified local artifacts. Beat and downbeat detection runs Beat This! inference code vendored into the package, on CPU PyTorch, with weights bundled as a hash-verified `.npz` that loads without pickle; nothing is downloaded at run time.
 ```
 
 - [ ] **Step 3: Update `docs/research/analysis-engine-extension.md`**
@@ -2635,7 +3100,7 @@ Learned models load only from explicit, hash-verified local artifacts. Beat and 
 Replace `If tested, require an explicit local checkpoint, record its hash, and keep PyTorch and weights outside core dependencies.` with:
 
 ```markdown
-SetVector now bundles its `final0` checkpoint, verifies its SHA-256 before loading, and treats PyTorch as a core dependency; see the [Rhythm Engine Design](../superpowers/specs/2026-09-23-rhythm-engine-design.md).
+SetVector now vendors Beat This!'s inference code, bundles its `final0` weights as a hash-verified `.npz`, and treats PyTorch as a core dependency; see the [Rhythm Engine Design](../superpowers/specs/2026-09-23-rhythm-engine-design.md).
 ```
 
 - [ ] **Step 4: Update `docs/development.md`**
@@ -2653,9 +3118,9 @@ py -3.11 -m venv .venv
 Replace the runtime-dependency sentence with:
 
 ```markdown
-`requirements-dev.txt` pins development, build, and runtime dependencies. The runtime dependencies (Beat This!, PyTorch, torchaudio, NumPy, SciPy, SoundFile, librosa, soxr, and Beat This!'s helpers) are pinned exactly in `pyproject.toml` because their versions are part of every artifact's identity.
+`requirements-dev.txt` pins development, build, and runtime dependencies. The runtime dependencies (PyTorch, einops, rotary-embedding-torch, NumPy, SciPy, SoundFile, librosa, and soxr) are pinned exactly in `pyproject.toml` because their versions are part of every artifact's identity.
 
-`scripts/fetch_model.py` downloads the 81 MB Beat This! checkpoint into `src/setvector/models/` once and verifies its SHA-256. Git ignores it; builds fail without it, and wheels include it. CPU PyTorch adds about 550 MB to an environment on Windows. On Linux, install with `--extra-index-url https://download.pytorch.org/whl/cpu`, because the default PyPI build of PyTorch includes several gigabytes of CUDA libraries.
+`src/setvector/analysis/beat_this/` vendors Beat This! 1.1.0's inference code; the `beat-this` package and torchaudio are not installed. `scripts/fetch_model.py` downloads the Beat This! `final0` checkpoint once, verifies its SHA-256, converts it to `src/setvector/models/beat_this-final0.npz` (81 MB), verifies that file's hash, and deletes the checkpoint. It needs PyTorch and NumPy, so run it after installing `requirements-dev.txt`. Git ignores the `.npz`; builds fail without it, and wheels include it. `tests/data/beat_this_reference.npz` holds upstream's output for the parity test; regenerate it only with `scripts/make_beat_this_reference.py`, in the throwaway environment its docstring describes. CPU PyTorch adds about 550 MB to an environment on Windows. On Linux, install with `--extra-index-url https://download.pytorch.org/whl/cpu`, because the default PyPI build of PyTorch includes several gigabytes of CUDA libraries.
 ```
 
 In **Workspace layout**, add the rhythm artifact to the tree and a sentence after the NPZ paragraph:
@@ -2674,7 +3139,14 @@ In **Workspace layout**, add the rhythm artifact to the tree and a sentence afte
 
 - [ ] **Step 5: Update `README.md` Getting Started**
 
-Change the first paragraph's list to end with `...onset strength, and a beat grid with downbeats detected by the bundled Beat This! model.` Insert `.\.venv\Scripts\python.exe scripts/fetch_model.py` before `pip install .` in the PowerShell block, and extend the paragraph after it:
+Change the first paragraph's list to end with `...onset strength, and a beat grid with downbeats detected by the bundled Beat This! model.` In the PowerShell block, insert these two lines before `pip install .`, because the fetch script converts the checkpoint with PyTorch and NumPy:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install torch==2.14.0 numpy==2.4.6
+.\.venv\Scripts\python.exe scripts/fetch_model.py
+```
+
+Then extend the paragraph after the block:
 
 ```markdown
 `analyze` prints the asset ID, feature ID, cache status, and manifest path, plus the beat grid's rhythm ID, source, reliability, and downbeat count.
