@@ -90,6 +90,35 @@ Tempo and beats come from librosa's beat tracker applied to the onset envelope, 
 
 JSON files hold identities, configuration, beats, and diagnostics. The NPZ file holds dense arrays and validity masks and is loaded without pickle support. Artifacts are written to a temporary sibling directory, verified, and published with one rename. The source audio is never copied or modified.
 
+## Report
+
+```powershell
+.\.venv\Scripts\setvector.exe report <feature-id> --workspace .setvector
+```
+
+| Option | Meaning |
+|---|---|
+| `feature_id` | Feature ID printed by `analyze` |
+| `--workspace` | Directory holding analysis artifacts (required) |
+| `--output` | HTML file to write; defaults to `<workspace>/reports/<feature-id>.html` |
+| `--audio` | Current path of the analyzed audio file, if it moved since `analyze` ran |
+| `--no-audio` | Build the report without a player; mutually exclusive with `--audio` |
+| `--overwrite` | Replace an existing report file |
+
+`report` never reanalyzes audio; it renders the stored feature artifact. On success, standard output contains one JSON object:
+
+| Field | Meaning |
+|---|---|
+| `audio` | `"embedded"` when a player was included, `"none"` otherwise |
+| `feature_id` | Feature ID the report was built from |
+| `report_path` | Absolute path of the written HTML file |
+
+Unless `--no-audio` is given, `report` reads the audio file at `--audio`, or otherwise the path recorded at analysis time, and hashes its bytes. The report is refused if that hash does not match the analyzed asset; the error suggests passing `--audio <path>` to the moved file or `--no-audio` to skip the player. A matching MP3 file is embedded unchanged; any other supported format is decoded from the verified bytes and re-encoded to MP3 in memory, without touching the source file.
+
+By default, `report` refuses to replace an existing output file; pass `--overwrite` to replace it. Invalid arguments, an unknown or malformed feature ID, both `--audio` and `--no-audio`, an existing output without `--overwrite`, missing audio at the recorded path, and audio content that does not match the analyzed asset all exit with code 2. Corrupt stored artifacts and decode, encode, or write failures exit with code 1. Neither prints a traceback, and a failed run leaves no partial report file.
+
+The generated page is a single self-contained HTML file: the model data, the audio (when embedded), the vendored [uPlot](https://github.com/leeoniya/uPlot) chart library, and the Inter variable font are all inlined, so it opens with no network access and no other files. A report without audio for a 6-minute track is about 1.2 MB; with audio it is roughly the embedded MP3 size times 1.33 plus about 1.2 MB. uPlot is MIT-licensed and the Inter font is licensed under the SIL Open Font License 1.1; both license texts ship alongside the package under `visualization/assets/LICENSES/`. Because the analyzed track is embedded in the file, share or move a report the way you would the music file itself.
+
 ## Python API
 
 ```python

@@ -28,6 +28,8 @@ Render raw feature curves with aligned time axes, units, beat estimates where av
 
 Done when a report opens locally without a network connection and can be regenerated from saved artifacts without reanalyzing audio. Inspect it on a representative real track and on silence.
 
+Implemented as `setvector report`, a self-contained page with an embedded player, overview, and four synchronized feature lanes. Energy scoring and downbeat detection are not part of this step.
+
 ## 4. Energy experiment and calibration
 
 Define the listening collection and annotations. Implement an explicitly named within-track baseline, then a separate calibration-fit operation and cross-track model. Persist transforms, population identity, weights, smoothing, contributions, and quality states.

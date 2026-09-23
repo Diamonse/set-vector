@@ -21,14 +21,17 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\setvector.exe analyze "C:\Music	rack.wav" `
   --config examples/analysis-config.json `
   --workspace .setvector
+.\.venv\Scripts\setvector.exe report <feature-id> --workspace .setvector
 ```
 
 `config validate` prints the configuration and its stable identifier as JSON.
 `analyze` prints the asset ID, feature ID, cache status, and manifest path of the
-saved feature artifact. Analysis runs entirely on your machine: no GPT model, API
-key, cloud service, telemetry, or network connection is used after installation.
-For an editable installation, tests, and Python API examples, see
-[Development](docs/development.md).
+saved feature artifact. `report` renders that feature ID into a single offline
+HTML page with the analyzed track embedded, so share or move it the way you
+would the music file itself. Analysis runs entirely on your machine: no GPT
+model, API key, cloud service, telemetry, or network connection is used after
+installation. For an editable installation, tests, and Python API examples,
+see [Development](docs/development.md).
 
 ## Why SetVector?
 
