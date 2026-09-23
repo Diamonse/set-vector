@@ -78,3 +78,16 @@ def test_analyze_and_cache_work_with_network_sockets_blocked(
     assert second.returncode == 0, second.stderr
     assert json.loads(second.stdout)["cache_hit"] is True
     assert "network access attempted" not in first.stderr + second.stderr
+
+    feature_id = json.loads(first.stdout)["feature_id"]
+    report = subprocess.run(
+        [sys.executable, "-m", "setvector", "report", feature_id, "--workspace", str(workspace)],
+        cwd=tmp_path,
+        env=offline_environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert report.returncode == 0, report.stderr
+    assert json.loads(report.stdout)["audio"] == "embedded"
+    assert "network access attempted" not in report.stderr

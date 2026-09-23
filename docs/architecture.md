@@ -67,12 +67,12 @@ Use ordinary functions and typed data objects first. Add interchangeable interfa
 | Music features | librosa | Provides feature and beat-analysis building blocks; interpretation and quality handling remain SetVector's responsibility |
 | Decoding | SoundFile through a decoder adapter | Array-oriented audio I/O; verify requested formats on each supported platform |
 | CLI | Standard-library `argparse` initially | Small dependency surface; consider Typer if command ergonomics justify it |
-| Reports | Plotly HTML export | Interactive reports that can be opened locally; bundle JavaScript for offline use |
+| Reports | Inlined uPlot plus custom canvas code | A small self-contained page (about 1 MB plus audio) with the approved scrubber, bar-based zoom, and audio sync; vendored assets keep reports offline |
 | Contracts | Dataclasses plus explicit boundary validation | Keep public types small; validate shapes, units, versions, and finite values |
 | Persistence | JSON metadata plus NumPy array artifacts | Inspectable metadata without putting dense time series in JSON |
 | Development | pytest, Ruff, and a reproducible dependency environment | Meaningful numerical and integration checks; pin a tested environment when scaffolding |
 
-The choice of librosa is based on its documented [feature APIs](https://librosa.org/doc/0.11.0/feature.html) and [beat tracker](https://librosa.org/doc/0.11.0/generated/librosa.beat.beat_track.html). SoundFile documents [audio I/O and block reads](https://python-soundfile.readthedocs.io/en/latest/). Plotly supports [standalone interactive HTML](https://plotly.com/python/interactive-html-export/). The [Python Packaging guide](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/) explains the import isolation provided by a `src` layout.
+The choice of librosa is based on its documented [feature APIs](https://librosa.org/doc/0.11.0/feature.html) and [beat tracker](https://librosa.org/doc/0.11.0/generated/librosa.beat.beat_track.html). SoundFile documents [audio I/O and block reads](https://python-soundfile.readthedocs.io/en/latest/). uPlot documents its small, dependency-free [canvas charting API](https://github.com/leeoniya/uPlot). The [Python Packaging guide](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/) explains the import isolation provided by a `src` layout.
 
 Select the Python version and dependency pins after a clean installation check on the target OS. Add a separate decoder backend if the required audio formats need it; report unsupported codecs clearly.
 
