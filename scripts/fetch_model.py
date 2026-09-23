@@ -23,9 +23,17 @@ def main() -> int:
         return 0
     with tempfile.NamedTemporaryFile(dir=target.parent, suffix=".part", delete=False) as part:
         temporary = Path(part.name)
-        with urllib.request.urlopen(CHECKPOINT["URL"], timeout=60) as response:
-            while block := response.read(1 << 20):
-                part.write(block)
+        try:
+            with urllib.request.urlopen(CHECKPOINT["URL"], timeout=60) as response:
+                while block := response.read(1 << 20):
+                    part.write(block)
+        except BaseException as error:
+            part.close()
+            temporary.unlink(missing_ok=True)
+            if isinstance(error, OSError):
+                print(f"error: cannot download the checkpoint: {error}", file=sys.stderr)
+                return 1
+            raise
     actual = sha256_file(temporary)
     if actual != expected:
         temporary.unlink()
