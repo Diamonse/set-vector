@@ -227,6 +227,8 @@ For the planned playlist engine, see the [research synthesis](docs/research/play
 The [analysis-engine extension research](docs/research/analysis-engine-extension.md) and
 [detailed prerequisite plan](docs/superpowers/plans/2026-09-22-playlist-analysis-prerequisites.md)
 map the required analysis and DJ planning work onto the existing Python package.
+For an installable Windows and macOS app around the offline analyzer, see the
+[standalone desktop integration research](<reports/SetVector standalone analysis integration.md>).
 
 The first interface will be a Python library and CLI with interactive charts.
 Planned package layout:
