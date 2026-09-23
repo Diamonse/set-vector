@@ -228,7 +228,10 @@ def main() -> int:
     actual = sha256_file(temporary)
     if actual != expected:
         temporary.unlink()
-        print(f"error: downloaded checkpoint has SHA-256 {actual}, expected {expected}", file=sys.stderr)
+        print(
+            f"error: downloaded checkpoint has SHA-256 {actual}, expected {expected}",
+            file=sys.stderr,
+        )
         return 1
     temporary.replace(target)
     print(f"checkpoint verified: {target}")
@@ -293,7 +296,9 @@ class CheckpointHook(BuildHookInterface):
         if not path.is_file():
             raise RuntimeError(f"missing {path}; run: python scripts/fetch_model.py")
         if checkpoint["sha256_file"](path) != checkpoint["SHA256"]:
-            raise RuntimeError(f"{path} does not match its pinned SHA-256; rerun scripts/fetch_model.py")
+            raise RuntimeError(
+                f"{path} does not match its pinned SHA-256; rerun scripts/fetch_model.py"
+            )
 ```
 
 - [ ] **Step 9: Wire the hook, the Git-ignored checkpoint, and the license into `pyproject.toml`**
@@ -793,7 +798,11 @@ def _ranges(times: np.ndarray) -> list[tuple[int, int]]:
         start, stop = pending.pop(0)
         keep = _fit_line(times[start:stop])[3]
         room = len(accepted) + len(pending) + 2 <= GRID_MAX_SEGMENTS
-        if keep.mean() >= GRID_ACCEPT_FRACTION or stop - start < 2 * GRID_MIN_SPLIT_BEATS or not room:
+        if (
+            keep.mean() >= GRID_ACCEPT_FRACTION
+            or stop - start < 2 * GRID_MIN_SPLIT_BEATS
+            or not room
+        ):
             accepted.append((start, stop))
             continue
         split = max(
@@ -902,7 +911,11 @@ def rhythm_factory():
             bar_positions=positions,
             detected_beats=beats,
             tempo_bpm=max(segments, key=lambda s: s.beat_count).bpm,
-            quality={source: CandidateQuality(len(beats), 0.01, 1.0, len(segments), 4 if bars else None, 1.0 if bars else None)},
+            quality={
+                source: CandidateQuality(
+                    len(beats), 0.01, 1.0, len(segments), 4 if bars else None, 1.0 if bars else None
+                )
+            },
             reliable=True,
             reasons=(),
         )
@@ -1824,12 +1837,8 @@ def context(tmp_path, report_inputs):
     def build(baseline_beats=()):
         _, bundle = report_inputs(frames=240)
         timestamps = bundle.measurements.rms.timestamps  # 0.25 + 0.5 * i
-        beats = tuple(
-            BeatPosition(frame_index=i, seconds=timestamps[i]) for i in baseline_beats
-        )
-        measurements = replace(
-            bundle.measurements, tempo_bpm=120.0 if beats else None, beats=beats
-        )
+        beats = tuple(BeatPosition(frame_index=i, seconds=timestamps[i]) for i in baseline_beats)
+        measurements = replace(bundle.measurements, tempo_bpm=120.0 if beats else None, beats=beats)
         bundle = replace(bundle, measurements=measurements)
         asset = AudioAsset(
             asset_id=bundle.asset_id,
@@ -1841,7 +1850,9 @@ def context(tmp_path, report_inputs):
             format="WAV",
             subtype="FLOAT",
         )
-        decoded = DecodedAudio(asset=asset, samples=np.zeros((1, 60_000), np.float32), sample_rate=1_000)
+        decoded = DecodedAudio(
+            asset=asset, samples=np.zeros((1, 60_000), np.float32), sample_rate=1_000
+        )
         extractor = rhythm_identity(bundle.extractor)
         return decoded, bundle, extractor, compute_rhythm_id(bundle.feature_id, extractor)
 
@@ -1914,7 +1925,9 @@ def test_short_audio_skips_the_detector(context):
 
 
 def test_rhythm_identity_records_model_thresholds_and_environment():
-    config = AnalysisConfig(sample_rate=None, frame_length=2048, hop_length=512, channel_policy="mono")
+    config = AnalysisConfig(
+        sample_rate=None, frame_length=2048, hop_length=512, channel_policy="mono"
+    )
     identity = rhythm_identity(baseline_identity(config))
     assert identity.name == "rhythm-v1"
     assert identity.config == config
@@ -2081,9 +2094,7 @@ def _evaluate(name, detected, downbeats, duration) -> _Candidate:
     if detected.size < MIN_BEATS:
         reasons.append(f"{name}: {detected.size} beats, fewer than {MIN_BEATS}")
     if quality.interval_cv is None or quality.interval_cv > MAX_INTERVAL_CV:
-        reasons.append(
-            f"{name}: beat intervals vary too much (CV {_fmt(quality.interval_cv)})"
-        )
+        reasons.append(f"{name}: beat intervals vary too much (CV {_fmt(quality.interval_cv)})")
     if quality.grid_fit is None or quality.grid_fit < MIN_GRID_FIT:
         reasons.append(f"{name}: only {_fmt(quality.grid_fit)} of beats fit a steady grid")
     if downbeats is not None:
