@@ -1,5 +1,6 @@
 """Browser-playable previews of exactly the analyzed audio."""
 
+import dataclasses
 import io
 
 import numpy as np
@@ -40,6 +41,49 @@ def test_other_formats_become_mp3_of_the_same_length(
     assert decoded.shape[1] == expected_channels
     assert decoded.shape[0] / decoded_rate == pytest.approx(1.0, abs=1152 / expected_rate)
     assert path.read_bytes() == source_bytes
+
+
+def test_mp3_with_a_different_layer_is_transcoded(tmp_path):
+    path = tmp_path / "track.mp3"
+    sf.write(path, tone(44_100, 1.0, 2), 44_100, format="MP3", subtype="MPEG_LAYER_III")
+    asset = inspect_audio(path)
+    assert asset.format == "MP3" and asset.subtype == "MPEG_LAYER_III"
+    # Only the exact MP3/MPEG_LAYER_III combination passes through unchanged; simulate an
+    # asset recorded for a different MPEG layer to drive the transcode branch for real.
+    other_layer = dataclasses.replace(asset, subtype="MPEG_LAYER_II")
+    source_bytes = path.read_bytes()
+    preview = load_preview(path, other_layer)
+    assert preview.data != source_bytes
+    decoded, decoded_rate = sf.read(io.BytesIO(preview.data), always_2d=True)
+    assert decoded_rate == 44_100
+    assert decoded.shape[1] == 2
+    assert path.read_bytes() == source_bytes
+
+
+def test_memory_error_during_decode_is_a_decode_error(tmp_path, monkeypatch):
+    path = tmp_path / "track.wav"
+    sf.write(path, tone(8_000, 0.5, 1), 8_000)
+    asset = inspect_audio(path)
+
+    def failing_read(*args, **kwargs):
+        raise MemoryError()
+
+    monkeypatch.setattr(sf, "read", failing_read)
+    with pytest.raises(DecodeError, match="memory"):
+        load_preview(path, asset)
+
+
+def test_memory_error_during_encode_is_a_decode_error(tmp_path, monkeypatch):
+    path = tmp_path / "track.wav"
+    sf.write(path, tone(8_000, 0.5, 1), 8_000)
+    asset = inspect_audio(path)
+
+    def failing_write(*args, **kwargs):
+        raise MemoryError()
+
+    monkeypatch.setattr(sf, "write", failing_write)
+    with pytest.raises(DecodeError, match="memory"):
+        load_preview(path, asset)
 
 
 def test_missing_and_mismatched_files_are_input_errors(tmp_path):

@@ -40,7 +40,7 @@ def load_preview(path: str | Path, asset: AudioAsset) -> PreviewAudio:
             f"{resolved} is not the audio that was analyzed; "
             f"its content differs from asset {asset.asset_id}"
         )
-    if asset.format == "MP3":
+    if asset.format == "MP3" and asset.subtype == "MPEG_LAYER_III":
         return PreviewAudio("audio/mpeg", data)
     return PreviewAudio("audio/mpeg", _encode_mp3(data, resolved))
 
@@ -50,6 +50,8 @@ def _encode_mp3(data: bytes, source: Path) -> bytes:
         samples, rate = soundfile.read(io.BytesIO(data), dtype="float32", always_2d=True)
     except (soundfile.SoundFileError, RuntimeError) as error:
         raise DecodeError(f"cannot decode audio file {source}: {error}") from error
+    except MemoryError as error:
+        raise DecodeError(f"cannot decode audio file {source}: out of memory") from error
     if samples.shape[1] > 2:
         samples = samples.mean(axis=1, keepdims=True, dtype=np.float32)
     target = rate if rate in _MP3_RATES else next((r for r in _MP3_RATES if r >= rate), 48_000)
@@ -60,4 +62,6 @@ def _encode_mp3(data: bytes, source: Path) -> bytes:
         soundfile.write(buffer, samples, target, format="MP3", subtype="MPEG_LAYER_III")
     except (soundfile.SoundFileError, RuntimeError, ValueError) as error:
         raise DecodeError(f"cannot encode an MP3 preview of {source}: {error}") from error
+    except MemoryError as error:
+        raise DecodeError(f"cannot encode an MP3 preview of {source}: out of memory") from error
     return buffer.getvalue()

@@ -29,6 +29,8 @@ def embedded_audio(path):
 
 def test_default_report_embeds_verified_audio(monkeypatch, analyzed):
     store, outcome = analyzed
+    monkeypatch.setattr("setvector.ingestion.audio.decode_audio", unexpected)
+    monkeypatch.setattr("setvector.analysis.baseline.extract_baseline", unexpected)
     monkeypatch.setattr("setvector.application.analyze.decode_audio", unexpected)
     monkeypatch.setattr("setvector.application.analyze.extract_baseline", unexpected)
     result = render_report(outcome.features.feature_id, store)
@@ -71,6 +73,15 @@ def test_existing_report_requires_overwrite(analyzed):
     with pytest.raises(InputError, match="--overwrite"):
         render_report(feature_id, store, include_audio=False)
     assert render_report(feature_id, store, include_audio=False, overwrite=True) == first
+
+
+def test_existing_report_is_checked_before_loading_audio(monkeypatch, analyzed):
+    store, outcome = analyzed
+    feature_id = outcome.features.feature_id
+    render_report(feature_id, store, include_audio=False)
+    monkeypatch.setattr("setvector.application.report.load_preview", unexpected)
+    with pytest.raises(InputError, match="--overwrite"):
+        render_report(feature_id, store)
 
 
 def test_audio_path_and_no_audio_conflict(analyzed, tone_path):
