@@ -23,3 +23,7 @@ class AnalysisError(SetVectorError):
 
 class ArtifactError(SetVectorError):
     """A local artifact is incomplete, corrupt, or incompatible."""
+
+
+class InstallationError(SetVectorError):
+    """A required part of the SetVector installation is missing or altered."""
