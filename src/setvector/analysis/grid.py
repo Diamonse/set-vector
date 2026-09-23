@@ -133,14 +133,15 @@ def _ranges(times: np.ndarray) -> list[tuple[int, int]]:
 
 
 def _tidy(times: np.ndarray, ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
-    """Merge neighbours that fit one tempo together and re-place boundaries until stable.
+    """Merge neighbours that fit one tempo together and re-place boundaries.
 
     Greedy splitting can leave a short range of mixed beats beside a tempo change and
     boundaries a few beats off; both are corrected using only the two ranges involved.
-    Moving a boundary can make a new pair mergeable, so the passes repeat until nothing
-    changes, within a fixed number of rounds in case boundary moves alternate.
+    Moving a boundary can make a new pair mergeable, so the passes repeat while merges
+    happen; boundary moves alone never need another round, and on unfittable input
+    they can alternate between two placements indefinitely.
     """
-    for _ in range(2 * GRID_MAX_SEGMENTS):
+    for round_ in range(GRID_MAX_SEGMENTS):
         merged = [ranges[0]]
         for start, stop in ranges[1:]:
             first = merged[-1][0]
@@ -148,13 +149,13 @@ def _tidy(times: np.ndarray, ranges: list[tuple[int, int]]) -> list[tuple[int, i
                 merged[-1] = (first, stop)
             else:
                 merged.append((start, stop))
+        if round_ and len(merged) == len(ranges):
+            break
         for i in range(1, len(merged)):
             first, last = merged[i - 1][0], merged[i][1]
             if last - first >= 2 * GRID_MIN_SPLIT_BEATS:
                 split = _best_split(times, first, last)
                 merged[i - 1], merged[i] = (first, split), (split, last)
-        if merged == ranges:
-            break
         ranges = merged
     return ranges
 
