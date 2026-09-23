@@ -33,6 +33,11 @@ model, API key, cloud service, telemetry, or network connection is used after
 installation. For an editable installation, tests, and Python API examples,
 see [Development](docs/development.md).
 
+To browse several HTML reports together, place them in a `reports` subfolder and
+run `setvector report-index <collection-folder>`. It creates `index.html` and
+adds a link from each report back to the song list. See
+[Report collections](docs/development.md#report-collections).
+
 ## Why SetVector?
 
 Most DJ software provides useful technical information such as BPM, key, waveform structure, and beat grids.
