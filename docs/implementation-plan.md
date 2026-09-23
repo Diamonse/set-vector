@@ -34,7 +34,7 @@ Done when a report opens without a network connection, regenerates from saved ar
 
 Assemble a local listening collection covering the six styles and difficult cross-style transitions. Include originals and remixes, vocal and percussive sections, and stable and changing pulse. Keep audio outside the repository unless redistribution is permitted. Split development and evaluation by whole track, with related remixes kept together where possible.
 
-Define versioned, validated annotations for track metadata, tempo/beat corrections, tonal candidates, entry/exit cues, transition judgments, and relative energy judgments. Preserve estimates beside human corrections; include annotation identity in downstream caches. Start with a file or CLI workflow so reviewed data can feed the planner before automatic cue detection exists. See [Playlist Engine Evaluation](research/playlist-engine-evaluation.md).
+Define versioned, validated annotations for track metadata, tempo/beat corrections, tonal candidates, entry/exit cues, transition judgments, and relative energy judgments. Preserve estimates beside human corrections; include annotation identity in downstream caches. Start with a file or CLI workflow so reviewed data can feed the planner before automatic cue detection exists. See [Playlist Engine Evaluation](research/playlist-engine-evaluation.md) and the [detailed prerequisite plan](superpowers/plans/2026-09-22-playlist-analysis-prerequisites.md).
 
 Done when annotations round-trip, invalid or out-of-range cue times are rejected, corrected values do not mutate raw feature artifacts, and a held-out listening set is recorded.
 
@@ -64,7 +64,7 @@ Done when both selection policies produce valid, reviewable 1–3 hour plans fro
 
 ## 8. Rhythm, harmony, and cue analysis
 
-Add separately versioned analysis outputs for tempo alternatives and pulse stability, beat phase, downbeat/meter candidates, time-local chroma/key candidates with ambiguity, and candidate section boundaries. Evaluate whether vocal/percussive activity improves cue choices. Preserve unknown states, estimator strength, source timing, and user corrections. A detected section boundary is not automatically a verified phrase or drop. Avoid hard genre rules for Bollywood or BollyHouse; evaluate their actual tracks and transition regions. See [Harmonic and Transition Research](research/harmonic-and-transition-research.md).
+Add separately versioned analysis outputs for tempo alternatives and pulse stability, beat phase, downbeat/meter candidates, time-local chroma/key candidates with ambiguity, and candidate section boundaries. Evaluate whether vocal/percussive activity improves cue choices. Preserve unknown states, estimator strength, source timing, and user corrections. A detected section boundary is not automatically a verified phrase or drop. Avoid hard genre rules for Bollywood or BollyHouse; evaluate their actual tracks and transition regions. See [Harmonic and Transition Research](research/harmonic-and-transition-research.md) and [analysis-engine extension research](research/analysis-engine-extension.md).
 
 The current feature bundle and artifact reader require exactly four scalar series and one-dimensional arrays. Introduce compatible versioned contracts or separate derived artifacts for chroma and other new measurements without silently changing old cache semantics.
 
