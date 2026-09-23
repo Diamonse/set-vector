@@ -146,7 +146,7 @@ Suggested local workspace layout:
   calibration/<profile-id>.json
   energy/<energy-id>/manifest.json
   energy/<energy-id>/arrays.npz
-  reports/<report-id>.html
+  reports/<feature-id>.html
 ```
 
 Original music stays at user-selected paths. The workspace is separate from the source repository. Reports and derived artifacts should be excluded from version control unless deliberately included as small public examples.
