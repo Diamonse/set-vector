@@ -37,8 +37,8 @@ setvector report <feature-id> --workspace <directory>
 
 The audio source is `--audio` when given, otherwise the `observed_path` recorded in the stored `asset.json`. The file's SHA-256 must equal the artifact's `asset_id`; a different file is rejected rather than embedded under the wrong analysis.
 
-- MP3 content is embedded byte-for-byte.
-- Other decodable content (WAV, FLAC, AIFF, OGG) is decoded at its native rate and channel count and encoded in memory to MP3 with SoundFile, so it plays in every current browser. The source file is never modified.
+- Content already encoded as MP3/MPEG Layer III is embedded byte-for-byte.
+- Everything else (WAV, FLAC, AIFF, OGG, and MP3 files using a different MPEG layer) is decoded from the verified bytes and encoded in memory to MP3 with SoundFile, so it plays in every current browser. The sample rate is resampled only when it is not one of the rates MP3 supports, to the next legal rate up to a maximum of 48 kHz; audio with more than two channels is downmixed to mono, and stereo or mono sources keep their channel count. The source file is never modified.
 - `--no-audio` produces a report without a player. It is the explicit choice when the audio is unavailable.
 
 Reports with audio carry the music and are as large as the MP3 plus about a third for base64 encoding. The documentation notes this before sharing.
