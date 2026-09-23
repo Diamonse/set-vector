@@ -35,7 +35,7 @@ def _call(args: argparse.Namespace, action):
         print(f"setvector: error: {error}", file=sys.stderr)
         return None, 1
     except KeyboardInterrupt:
-        print("setvector: interrupted; completed artifacts were kept", file=sys.stderr)
+        print("setvector: interrupted", file=sys.stderr)
         return None, 130
 
 
