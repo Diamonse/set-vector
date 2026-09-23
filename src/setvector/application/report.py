@@ -35,6 +35,14 @@ def render_report(
     if audio is not None and not include_audio:
         raise InputError("choose either an audio path or no audio, not both")
     asset, bundle = store.load_stored(feature_id)
+    target = (
+        Path(output) if output is not None else store.workspace / "reports" / f"{feature_id}.html"
+    )
+    resolved_target = target.resolve()
+    if resolved_target.exists() and not overwrite:
+        raise InputError(
+            f"report already exists: {resolved_target}; pass --overwrite to replace it"
+        )
     preview = None
     if include_audio:
         source = Path(audio) if audio is not None else Path(asset.observed_path)
@@ -45,8 +53,5 @@ def render_report(
                 f"{error}. Pass --audio <path> to the analyzed file, or --no-audio."
             ) from error
     html = render_report_html(build_report_model(asset, bundle), preview)
-    target = (
-        Path(output) if output is not None else store.workspace / "reports" / f"{feature_id}.html"
-    )
     path = write_report(target, html, overwrite=overwrite)
     return ReportOutcome(path, bundle.feature_id, preview is not None)
