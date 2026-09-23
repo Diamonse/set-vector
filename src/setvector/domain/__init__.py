@@ -15,10 +15,12 @@ from .errors import (
     ArtifactError,
     DecodeError,
     InputError,
+    InstallationError,
     SetVectorError,
     UnsupportedAudioError,
 )
 from .features import FeatureSeries
+from .rhythm import CandidateQuality, GridSegment, RhythmAnalysis
 
 __all__ = [
     "AnalysisConfig",
@@ -28,12 +30,16 @@ __all__ = [
     "ArtifactError",
     "AudioAsset",
     "BeatPosition",
+    "CandidateQuality",
     "DecodeError",
     "ExtractorIdentity",
     "FeatureBundle",
     "FeatureSeries",
+    "GridSegment",
     "InputError",
+    "InstallationError",
     "JsonScalar",
+    "RhythmAnalysis",
     "SetVectorError",
     "UnsupportedAudioError",
 ]

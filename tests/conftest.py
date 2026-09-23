@@ -13,11 +13,14 @@ from setvector.domain import (
     AnalysisMeasurements,
     AudioAsset,
     BeatPosition,
+    CandidateQuality,
     ExtractorIdentity,
     FeatureBundle,
     FeatureSeries,
+    GridSegment,
+    RhythmAnalysis,
 )
-from setvector.storage import compute_feature_id
+from setvector.storage import compute_feature_id, compute_rhythm_id
 
 SAMPLE_RATE = 8_000
 
@@ -138,5 +141,67 @@ def report_inputs(tmp_path):
             measurements=measurements,
         )
         return asset, bundle
+
+    return build
+
+
+@pytest.fixture
+def rhythm_factory():
+    """Build a valid RhythmAnalysis for a stored FeatureBundle."""
+
+    def build(bundle, source="beat_this", segments=None):
+        extractor = ExtractorIdentity(
+            name="rhythm-v1",
+            algorithm_version=1,
+            package_version="0.1.0a1",
+            config=bundle.extractor.config,
+            parameters={"checkpoint": "final0"},
+            dependency_versions={"beat-this": "1.1.0", "torch": "2.14.0"},
+        )
+        rhythm_id = compute_rhythm_id(bundle.feature_id, extractor)
+        if source == "none":
+            return RhythmAnalysis(
+                rhythm_id=rhythm_id,
+                asset_id=bundle.asset_id,
+                feature_id=bundle.feature_id,
+                extractor=extractor,
+                source="none",
+                grid_segments=(),
+                beats=(),
+                bar_positions=(),
+                detected_beats=(),
+                tempo_bpm=None,
+                quality={"beat_this": CandidateQuality(3, None, None, 0, None, None)},
+                reliable=False,
+                reasons=("beat_this: 3 beats, fewer than 32",),
+            )
+        bars = source == "beat_this"
+        segments = segments or (GridSegment(0.5, 120.0, 8, 1 if bars else None),)
+        beats = tuple(t for segment in segments for t in segment.times())
+        positions = tuple((i % 4) + 1 for i in range(len(beats))) if bars else (None,) * len(beats)
+        return RhythmAnalysis(
+            rhythm_id=rhythm_id,
+            asset_id=bundle.asset_id,
+            feature_id=bundle.feature_id,
+            extractor=extractor,
+            source=source,
+            grid_segments=segments,
+            beats=beats,
+            bar_positions=positions,
+            detected_beats=beats,
+            tempo_bpm=max(segments, key=lambda s: s.beat_count).bpm,
+            quality={
+                source: CandidateQuality(
+                    len(beats),
+                    0.01,
+                    1.0,
+                    len(segments),
+                    4 if bars else None,
+                    1.0 if bars else None,
+                )
+            },
+            reliable=True,
+            reasons=(),
+        )
 
     return build
