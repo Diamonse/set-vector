@@ -93,3 +93,19 @@ def test_audio_path_and_no_audio_conflict(analyzed, tone_path):
 def test_unknown_feature_is_an_input_error(tmp_path):
     with pytest.raises(InputError, match="no feature artifact"):
         render_report("f" * 64, ArtifactStore(tmp_path))
+
+
+def test_report_uses_the_stored_rhythm(monkeypatch, analyzed):
+    store, outcome = analyzed
+    captured = {}
+    import setvector.application.report as report_module
+
+    real_build = report_module.build_report_model
+
+    def spy(asset, bundle, rhythm=None):
+        captured["rhythm"] = rhythm
+        return real_build(asset, bundle, rhythm)
+
+    monkeypatch.setattr(report_module, "build_report_model", spy)
+    render_report(outcome.features.feature_id, store, include_audio=False)
+    assert captured["rhythm"] == outcome.rhythm

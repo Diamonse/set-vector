@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from setvector.visualization import build_report_model
-from setvector.visualization.model import parse_title
+from setvector.visualization.model import NO_RHYTHM_WARNING, parse_title
 
 
 def decode(text, dtype):
@@ -65,7 +65,7 @@ def test_empty_series_are_supported(report_inputs):
     asset, bundle = report_inputs(frames=0, beat_frames=(), warnings=("too short",))
     model = build_report_model(asset, bundle)
     assert decode(model.timestamps, "<f8").size == 0
-    assert model.warnings == ("too short",)
+    assert model.warnings == ("too short", NO_RHYTHM_WARNING)
 
 
 def test_model_is_strict_json(report_inputs):
@@ -118,3 +118,35 @@ def test_mismatched_asset_is_rejected(report_inputs):
     asset, bundle = report_inputs()
     with pytest.raises(ValueError, match="asset_id"):
         build_report_model(replace(asset, asset_id="b" * 64), bundle)
+
+
+def test_reliable_rhythm_supplies_beats_downbeats_and_tempo(report_inputs, rhythm_factory):
+    asset, bundle = report_inputs(frames=40)
+    rhythm = rhythm_factory(bundle)
+    model = build_report_model(asset, bundle, rhythm)
+    assert model.beats == rhythm.beats
+    assert model.downbeats == rhythm.downbeats
+    assert model.tempo_bpm == rhythm.tempo_bpm
+    assert not any("beat grid" in w or "rhythm" in w for w in model.warnings)
+
+
+def test_unreliable_rhythm_keeps_baseline_beats_and_says_why(report_inputs, rhythm_factory):
+    asset, bundle = report_inputs(frames=40)
+    model = build_report_model(asset, bundle, rhythm_factory(bundle, source="none"))
+    assert model.beats == tuple(b.seconds for b in bundle.measurements.beats)
+    assert model.downbeats == ()
+    assert any(w.startswith("No reliable beat grid: beat_this: 3 beats") for w in model.warnings)
+
+
+def test_missing_rhythm_keeps_baseline_beats_with_a_warning(report_inputs):
+    asset, bundle = report_inputs(frames=40)
+    model = build_report_model(asset, bundle)
+    assert model.downbeats == ()
+    assert any("No rhythm analysis" in w for w in model.warnings)
+
+
+def test_rhythm_from_another_feature_is_rejected(report_inputs, rhythm_factory):
+    asset, bundle = report_inputs(frames=40)
+    foreign = replace(rhythm_factory(bundle), feature_id="b" * 64)
+    with pytest.raises(ValueError, match="feature_id"):
+        build_report_model(asset, bundle, foreign)

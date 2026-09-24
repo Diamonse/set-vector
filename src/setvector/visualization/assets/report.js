@@ -371,9 +371,9 @@
     ctx.rect(left, top, width, height);
     ctx.clip();
     ctx.strokeStyle = palette.muted;
-    model.beats.forEach((beat, index) => {
+    model.beats.forEach((beat) => {
       if (beat < min || beat > max) return;
-      const bar = barLines ? barLines.has(beat) : index % 4 === 0;
+      const bar = barLines !== null && barLines.has(beat);
       ctx.globalAlpha = bar ? 0.5 : 0.2;
       ctx.lineWidth = (bar ? 1.4 : 1) * uPlot.pxRatio;
       const x = Math.round(u.valToPos(beat, "x", true)) + 0.5;
