@@ -26,7 +26,7 @@ _NAV_STYLE = """<style id="setvector-index-nav-style">
 """
 _NAV_LINK = (
     '<a class="back-to-list" data-setvector-index-nav="1" href="../index.html">'
-    '← Back to song list</a>\n    '
+    "← Back to song list</a>\n    "
 )
 
 
