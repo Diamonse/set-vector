@@ -38,8 +38,8 @@ Repository = "https://github.com/Diamonse/set-vector"
 setvector = "setvector.cli:main"
 
 [tool.hatch.build]
-# The checkpoint is Git-ignored; hatch skips ignored files unless listed as artifacts.
-artifacts = ["src/setvector/models/*.ckpt"]
+# The weights are Git-ignored; hatch skips ignored files unless listed as artifacts.
+artifacts = ["src/setvector/models/*.npz"]
 
 [tool.hatch.build.hooks.custom]
 
