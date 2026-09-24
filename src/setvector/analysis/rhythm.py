@@ -111,7 +111,9 @@ def _bar_positions(grid_beats: np.ndarray, downbeats: np.ndarray, modal: int) ->
 def _evaluate(name, detected, downbeats, duration) -> _Candidate:
     detected = np.asarray(detected, dtype=np.float64)
     fit = grid.fit_grid(detected, duration)
-    modal, regularity = (None, None) if downbeats is None else _bar_stats(detected, downbeats)
+    # The fitted grid fills in missed beats, so a missed beat does not shorten its bar.
+    bar_beats = detected if fit is None else fit.beats
+    modal, regularity = (None, None) if downbeats is None else _bar_stats(bar_beats, downbeats)
     quality = CandidateQuality(
         beat_count=int(detected.size),
         interval_cv=_interval_cv(detected),
