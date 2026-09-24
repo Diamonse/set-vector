@@ -49,15 +49,25 @@ def _run_analyze(args: argparse.Namespace) -> int:
     )
     if status is not None:
         return status
+    rhythm = outcome.rhythm
     result = {
         "asset_id": outcome.asset.asset_id,
         "feature_id": outcome.features.feature_id,
         "cache_hit": outcome.cache_hit,
         "manifest_path": str(outcome.manifest_path),
+        "rhythm_id": rhythm.rhythm_id,
+        "rhythm_source": rhythm.source,
+        "rhythm_reliable": rhythm.reliable,
+        "downbeat_count": len(rhythm.downbeats),
     }
     print(json.dumps(result, sort_keys=True, ensure_ascii=False))
     for warning in outcome.features.measurements.diagnostics.warnings:
         print(f"setvector: warning: {warning}", file=sys.stderr)
+    if not rhythm.reliable:
+        print(
+            f"setvector: warning: no reliable beat grid: {'; '.join(rhythm.reasons)}",
+            file=sys.stderr,
+        )
     return 0
 
 
@@ -100,7 +110,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     analyze_parser = commands.add_parser(
         "analyze",
-        help="Extract baseline features from a local audio file",
+        help="Extract baseline features and a beat grid from a local audio file",
         description="Extract baseline features locally and print their identifiers as JSON.",
     )
     analyze_parser.add_argument("audio", type=Path, help="Path to the audio file")

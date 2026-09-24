@@ -106,7 +106,18 @@ def test_analyze_cli_emits_machine_json_and_reuses_cache(tmp_path, tone_path, co
     first = run_cli(*arguments, "--workspace", str(workspace), cwd=tmp_path)
     assert first.returncode == 0, first.stderr
     output = json.loads(first.stdout)
-    assert set(output) == {"asset_id", "feature_id", "cache_hit", "manifest_path"}
+    assert set(output) == {
+        "asset_id",
+        "feature_id",
+        "cache_hit",
+        "manifest_path",
+        "rhythm_id",
+        "rhythm_source",
+        "rhythm_reliable",
+        "downbeat_count",
+    }
+    assert output["rhythm_source"] in ("beat_this", "setvector_fallback", "none")
+    assert isinstance(output["rhythm_reliable"], bool)
     assert output["cache_hit"] is False
     manifest = Path(output["manifest_path"])
     assert manifest.is_absolute() and manifest.is_file()

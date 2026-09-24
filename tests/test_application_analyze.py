@@ -1,12 +1,13 @@
 """Cache-first orchestration of inspection, decoding, extraction, and storage."""
 
+import shutil
 from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
 from setvector.application import AnalysisOutcome, analyze_track
 from setvector.domain import ArtifactError
-from setvector.storage import ArtifactStore
+from setvector.storage import ArtifactStore, RhythmStore
 
 
 def unexpected_call(*args, **kwargs):
@@ -34,6 +35,7 @@ def test_cache_hit_does_not_decode_or_extract(monkeypatch, tmp_path, tone_path, 
     analyze_track(tone_path, config, store)
     monkeypatch.setattr("setvector.application.analyze.decode_audio", unexpected_call)
     monkeypatch.setattr("setvector.application.analyze.extract_baseline", unexpected_call)
+    monkeypatch.setattr("setvector.application.analyze.extract_rhythm", unexpected_call)
     assert analyze_track(tone_path, config, store).cache_hit
 
 
@@ -72,3 +74,47 @@ def test_corrupt_existing_artifact_is_not_recomputed(tmp_path, tone_path, config
     with pytest.raises(ArtifactError, match="corrupt"):
         analyze_track(tone_path, config, store)
     assert outcome.manifest_path.read_text(encoding="utf-8") == "{broken"
+
+
+def counting(function, calls):
+    def wrapper(*args, **kwargs):
+        calls.append(function.__name__)
+        return function(*args, **kwargs)
+
+    return wrapper
+
+
+def test_analyze_writes_then_reuses_rhythm(tmp_path, tone_path, config):
+    store = ArtifactStore(tmp_path / "workspace")
+    first = analyze_track(tone_path, config, store)
+    second = analyze_track(tone_path, config, store)
+    assert not first.rhythm_cache_hit and second.rhythm_cache_hit
+    assert second.rhythm == first.rhythm
+    assert first.rhythm.feature_id == first.features.feature_id
+    assert first.rhythm_path == RhythmStore(store.workspace).path(first.rhythm.rhythm_id)
+    assert first.rhythm_path.is_file()
+    # The stubbed detector finds nothing and a 3 s tone has too few baseline beats.
+    assert first.rhythm.source == "none"
+
+
+def test_missing_rhythm_is_recomputed_without_rerunning_baseline(
+    monkeypatch, tmp_path, tone_path, config
+):
+    store = ArtifactStore(tmp_path / "workspace")
+    first = analyze_track(tone_path, config, store)
+    shutil.rmtree(first.rhythm_path.parent)
+    monkeypatch.setattr("setvector.application.analyze.extract_baseline", unexpected_call)
+    second = analyze_track(tone_path, config, store)
+    assert second.cache_hit and not second.rhythm_cache_hit
+    assert second.rhythm == first.rhythm
+
+
+def test_both_stages_missing_decode_once(monkeypatch, tmp_path, tone_path, config):
+    import setvector.application.analyze as analyze_module
+
+    calls = []
+    monkeypatch.setattr(
+        analyze_module, "decode_audio", counting(analyze_module.decode_audio, calls)
+    )
+    analyze_track(tone_path, config, ArtifactStore(tmp_path / "workspace"))
+    assert calls == ["decode_audio"]
