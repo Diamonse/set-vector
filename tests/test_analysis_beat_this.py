@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from setvector.analysis import beat_this
-from setvector.domain import InstallationError
+from setvector.domain import AnalysisError, InstallationError
 from setvector.models import weights
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,6 +94,7 @@ def test_bundled_model_finds_beats_and_downbeats_of_a_drum_pattern():
     samples, beats, downbeats = drum_pattern()
     detection = beat_this.detect(samples, 22_050)
     assert np.mean(nearest(beats, detection.beats) <= 0.04) >= 0.95
+    assert abs(len(detection.beats) - len(beats)) <= 3
     assert abs(len(detection.downbeats) - len(downbeats)) <= 2
     assert np.mean(nearest(detection.downbeats, downbeats) <= 0.04) >= 0.8
 
@@ -101,3 +102,9 @@ def test_bundled_model_finds_beats_and_downbeats_of_a_drum_pattern():
 def test_other_tests_get_the_stub():
     detection = beat_this.detect(np.zeros(10, np.float32), 22_050)
     assert detection.beats.size == 0 and detection.downbeats.size == 0
+
+
+@pytest.mark.real_model
+def test_multichannel_samples_are_a_clear_error():
+    with pytest.raises(AnalysisError, match="mono"):
+        beat_this.detect(np.zeros((2, 22_050), np.float32), 22_050)

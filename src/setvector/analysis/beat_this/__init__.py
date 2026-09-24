@@ -87,6 +87,8 @@ def refine_peak_times(times, activation, fps: int = FPS) -> np.ndarray:
 
 def detect(samples: np.ndarray, sample_rate: int) -> Detection:
     """Run Beat This! on mono samples; return refined beats and its downbeats."""
+    if np.ndim(samples) != 1:
+        raise AnalysisError(f"Beat This! needs mono samples, got shape {np.shape(samples)}")
     model = load_model()
     from . import _inference
 
