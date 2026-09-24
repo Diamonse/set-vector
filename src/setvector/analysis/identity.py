@@ -1,8 +1,8 @@
 """Identity of the baseline extractor and the environment that runs it."""
 
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
-from setvector.domain import AnalysisConfig, ExtractorIdentity
+from setvector.domain import AnalysisConfig, ExtractorIdentity, InstallationError
 from setvector.models import weights
 
 EXTRACTOR_NAME = "baseline-v1"
@@ -85,6 +85,17 @@ RHYTHM_DEPENDENCIES = (
 )
 
 
+def _dependency_version(name: str) -> str:
+    """Return the installed version of ``name``, or raise ``InstallationError`` when absent."""
+    try:
+        return version(name)
+    except PackageNotFoundError as error:
+        raise InstallationError(
+            f"the rhythm engine needs the '{name}' package, which is not installed. "
+            "Reinstall SetVector with its runtime dependencies."
+        ) from error
+
+
 def rhythm_identity(baseline: ExtractorIdentity) -> ExtractorIdentity:
     """Describe every input that can change the rhythm derived from ``baseline`` features."""
     return ExtractorIdentity(
@@ -93,5 +104,5 @@ def rhythm_identity(baseline: ExtractorIdentity) -> ExtractorIdentity:
         package_version=version("setvector"),
         config=baseline.config,
         parameters=RHYTHM_PARAMETERS,
-        dependency_versions={name: version(name) for name in RHYTHM_DEPENDENCIES},
+        dependency_versions={name: _dependency_version(name) for name in RHYTHM_DEPENDENCIES},
     )
