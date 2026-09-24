@@ -24,6 +24,10 @@ NO_RHYTHM_WARNING = (
     "No rhythm analysis matches this installation, so beats come from the baseline tracker "
     "and bar lines are not shown. Run analyze again to add one."
 )
+NO_DOWNBEATS_WARNING = (
+    "The beat grid comes from SetVector's own tracker, which does not detect downbeats, "
+    "so bar lines are not shown."
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +176,8 @@ def build_report_model(
         )
     else:
         beats, downbeats, tempo = rhythm.beats, rhythm.downbeats, rhythm.tempo_bpm
+        if not downbeats:
+            warnings += (NO_DOWNBEATS_WARNING,)
     duration = _decoded_duration(asset, bundle)
     return ReportModel(
         feature_id=bundle.feature_id,

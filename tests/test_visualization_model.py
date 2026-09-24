@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from setvector.visualization import build_report_model
-from setvector.visualization.model import NO_RHYTHM_WARNING, parse_title
+from setvector.visualization.model import NO_DOWNBEATS_WARNING, NO_RHYTHM_WARNING, parse_title
 
 
 def decode(text, dtype):
@@ -150,3 +150,12 @@ def test_rhythm_from_another_feature_is_rejected(report_inputs, rhythm_factory):
     foreign = replace(rhythm_factory(bundle), feature_id="b" * 64)
     with pytest.raises(ValueError, match="feature_id"):
         build_report_model(asset, bundle, foreign)
+
+
+def test_fallback_grid_without_downbeats_explains_missing_bars(report_inputs, rhythm_factory):
+    asset, bundle = report_inputs(frames=40)
+    rhythm = rhythm_factory(bundle, source="setvector_fallback")
+    model = build_report_model(asset, bundle, rhythm)
+    assert model.beats == rhythm.beats
+    assert model.downbeats == ()
+    assert NO_DOWNBEATS_WARNING in model.warnings
