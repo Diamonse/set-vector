@@ -115,9 +115,9 @@ def without(detection, missing):
     "missing",
     [
         pytest.param(list(range(50, 54)), id="four-beat gap"),
-        # Isolated off-downbeat misses in separate bars; bar regularity is measured on
-        # detected beats, so each miss shortens one bar.
-        pytest.param([11, 25, 39, 53, 67, 81], id="six single misses"),
+        # Two of these misses are downbeats. Bars are measured on the fitted grid, which
+        # fills missed beats in, so where the misses fall does not matter.
+        pytest.param([10, 25, 40, 55, 70, 85], id="six single misses"),
     ],
 )
 def test_missed_beats_do_not_fail_the_interval_check(context, missing):
