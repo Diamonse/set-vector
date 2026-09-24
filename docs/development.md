@@ -9,13 +9,16 @@ Run these commands from the repository root in PowerShell:
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe scripts/fetch_model.py
 .\.venv\Scripts\python.exe -m pip install --no-build-isolation -e .
 .\.venv\Scripts\setvector.exe --help
 ```
 
 Using the virtual environment's executables directly avoids changing PowerShell's execution policy. On macOS or Linux, create the environment with `python3 -m venv .venv` and use `.venv/bin/python` and `.venv/bin/setvector` for the equivalent commands.
 
-`requirements-dev.txt` pins development, build, and runtime dependencies. The runtime dependencies (NumPy, SciPy, SoundFile, librosa, and soxr) are pinned exactly in `pyproject.toml` because their versions are part of every feature artifact's identity.
+`requirements-dev.txt` pins development, build, and runtime dependencies. The runtime dependencies (PyTorch, einops, rotary-embedding-torch, NumPy, SciPy, SoundFile, librosa, and soxr) are pinned exactly in `pyproject.toml` because their versions are part of every artifact's identity.
+
+`src/setvector/analysis/beat_this/` vendors Beat This! 1.1.0's inference code; the `beat-this` package and torchaudio are not installed. `scripts/fetch_model.py` downloads the Beat This! `final0` checkpoint once, verifies its SHA-256, converts it to `src/setvector/models/beat_this-final0.npz` (81 MB), verifies that file's hash, and deletes the checkpoint. It needs PyTorch and NumPy, so run it after installing `requirements-dev.txt`. Git ignores the `.npz`; builds fail without it, and wheels include it. `tests/data/beat_this_reference.npz` holds upstream's output for the parity test; regenerate it only with `scripts/make_beat_this_reference.py`, in the throwaway environment its docstring describes. CPU PyTorch adds about 550 MB to an environment on Windows. On Linux, install with `--extra-index-url https://download.pytorch.org/whl/cpu`, because the default PyPI build of PyTorch includes several gigabytes of CUDA libraries.
 
 Installing the package downloads wheels from a package index. After installation, analysis needs no network access, GPT model, API key, cloud service, or telemetry. An air-gapped wheel bundle is future distribution work.
 
@@ -86,9 +89,12 @@ Tempo and beats come from librosa's beat tracker applied to the onset envelope, 
   assets/<asset-id>/asset.json
   features/<feature-id>/manifest.json
   features/<feature-id>/arrays.npz
+  rhythm/<rhythm-id>/rhythm.json
 ```
 
 JSON files hold identities, configuration, beats, and diagnostics. The NPZ file holds dense arrays and validity masks and is loaded without pickle support. Artifacts are written to a temporary sibling directory, verified, and published with one rename. The source audio is never copied or modified.
+
+`rhythm.json` holds the chosen beat grid (constant-tempo segments, grid beats, and their bar positions), the detector's raw beats, each candidate's quality measurements, and the reasons any candidate was rejected. Its source is `beat_this`, `setvector_fallback` (beats without bars), or `none`.
 
 ## Report
 

@@ -26,8 +26,11 @@ def offline_environment(tmp_path):
     blocker = tmp_path / "network_blocker"
     blocker.mkdir()
     (blocker / "sitecustomize.py").write_text(BLOCKER, encoding="utf-8")
+    torch_home = tmp_path / "torch home"
+    torch_home.mkdir()
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(blocker)
+    environment["TORCH_HOME"] = str(torch_home)
     return environment
 
 
@@ -91,3 +94,7 @@ def test_analyze_and_cache_work_with_network_sockets_blocked(
     assert report.returncode == 0, report.stderr
     assert json.loads(report.stdout)["audio"] == "embedded"
     assert "network access attempted" not in report.stderr
+
+    assert json.loads(first.stdout)["rhythm_source"] in ("beat_this", "setvector_fallback", "none")
+    assert json.loads(second.stdout)["rhythm_id"] == json.loads(first.stdout)["rhythm_id"]
+    assert list((tmp_path / "torch home").iterdir()) == []

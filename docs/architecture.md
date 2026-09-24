@@ -18,7 +18,7 @@ Start with one installable Python package with explicit module boundaries. CLI a
 
 SetVector's core workflow runs without GPT access, API keys, hosted inference, telemetry, or network requests. Audio decoding, numerical feature extraction, calibration, energy scoring, caching, and visualization use local code and local files. Once the Python package and its dependencies are installed, normal use must work with network access blocked.
 
-Interactive reports must embed their JavaScript so they open without a CDN. Future learned models must load from explicit local artifacts. Any hosted integration must be an optional adapter that is absent from the core dependency graph and cannot change the offline command behavior.
+Interactive reports must embed their JavaScript so they open without a CDN. Learned models load only from explicit, hash-verified local artifacts. Beat and downbeat detection runs Beat This! inference code vendored into the package, on CPU PyTorch, with weights bundled as a hash-verified `.npz` that loads without pickle; nothing is downloaded at run time. Any hosted integration must be an optional adapter that is absent from the core dependency graph and cannot change the offline command behavior.
 
 Installation may use a package index. A fully air-gapped installer or wheel bundle is a separate distribution task; runtime analysis cannot depend on it.
 
