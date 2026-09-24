@@ -155,8 +155,8 @@ def rhythm_factory():
             algorithm_version=1,
             package_version="0.1.0a1",
             config=bundle.extractor.config,
-            parameters={"checkpoint": "final0"},
-            dependency_versions={"beat-this": "1.1.0", "torch": "2.14.0"},
+            parameters={"model": "final0"},
+            dependency_versions={"torch": "2.14.0"},
         )
         rhythm_id = compute_rhythm_id(bundle.feature_id, extractor)
         if source == "none":

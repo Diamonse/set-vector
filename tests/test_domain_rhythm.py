@@ -86,7 +86,7 @@ def test_rhythm_id_depends_on_feature_and_every_extractor_input(report_inputs, r
     base = compute_rhythm_id(bundle.feature_id, rhythm.extractor)
     assert base == rhythm.rhythm_id
     assert compute_rhythm_id("b" * 64, rhythm.extractor) != base
-    changed = replace(rhythm.extractor, parameters={"checkpoint": "final1"})
+    changed = replace(rhythm.extractor, parameters={"model": "final1"})
     assert compute_rhythm_id(bundle.feature_id, changed) != base
 
 
