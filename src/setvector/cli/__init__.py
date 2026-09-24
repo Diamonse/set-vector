@@ -172,12 +172,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "report-index",
         help="Build a song list for a folder of SetVector HTML reports",
     )
-    index_parser.add_argument(
-        "collection", type=Path, help="Folder containing a reports subfolder"
-    )
-    index_parser.add_argument(
-        "--overwrite", action="store_true", help="Replace an existing index"
-    )
+    index_parser.add_argument("collection", type=Path, help="Folder containing a reports subfolder")
+    index_parser.add_argument("--overwrite", action="store_true", help="Replace an existing index")
     index_parser.set_defaults(handler=_run_report_index, parser=index_parser)
     return parser
 
