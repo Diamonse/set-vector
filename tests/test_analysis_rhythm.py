@@ -102,6 +102,51 @@ def test_a_sustained_bar_shift_is_followed(context):
     assert bar_lengths(rhythm.bar_positions) == {2, 4}
 
 
+def without(detection, missing):
+    """Drop the beats at ``missing`` indices, and any downbeat among them."""
+    missed = detection.beats[missing]
+    return Detection(
+        beats=np.delete(detection.beats, missing),
+        downbeats=np.setdiff1d(detection.downbeats, missed),
+    )
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        pytest.param(list(range(50, 54)), id="four-beat gap"),
+        # Isolated off-downbeat misses in separate bars; bar regularity is measured on
+        # detected beats, so each miss shortens one bar.
+        pytest.param([11, 25, 39, 53, 67, 81], id="six single misses"),
+    ],
+)
+def test_missed_beats_do_not_fail_the_interval_check(context, missing):
+    rhythm = run(context(), without(regular(), missing))
+    assert rhythm.source == "beat_this" and rhythm.reliable and rhythm.reasons == ()
+    assert rhythm.tempo_bpm == pytest.approx(124.0, abs=0.01)
+    assert rhythm.quality["beat_this"].interval_cv < 0.05
+
+
+def test_off_beat_extra_detections_fail_the_interval_check(context):
+    detection = regular()
+    rng = np.random.default_rng(0)
+    chosen = np.sort(rng.choice(detection.beats.size - 1, 30, replace=False))
+    extra = np.sort(np.append(detection.beats, detection.beats[chosen] + PERIOD / 2))
+    rhythm = run(context(), Detection(beats=extra, downbeats=detection.downbeats))
+    assert rhythm.source == "none"
+    assert any(reason.startswith("beat_this: beat intervals vary") for reason in rhythm.reasons)
+
+
+@pytest.mark.parametrize("downbeats", [[], [5]], ids=["none", "one"])
+def test_too_few_downbeats_reads_as_no_bars(context, downbeats):
+    detection = regular()
+    downbeats = detection.beats[downbeats]
+    rhythm = run(context(), Detection(beats=detection.beats, downbeats=downbeats))
+    assert rhythm.source == "none"
+    assert "beat_this: no bars detected" in rhythm.reasons
+    assert not any("None" in reason for reason in rhythm.reasons)
+
+
 def test_irregular_beat_this_falls_back_to_regular_baseline_beats(context):
     rng = np.random.default_rng(0)
     erratic = np.sort(rng.uniform(0, 59, 60))
@@ -110,6 +155,7 @@ def test_irregular_beat_this_falls_back_to_regular_baseline_beats(context):
     assert rhythm.downbeats == () and set(rhythm.bar_positions) == {None}
     assert rhythm.tempo_bpm == pytest.approx(120.0, abs=0.01)
     assert any(reason.startswith("beat_this:") for reason in rhythm.reasons)
+    assert any(reason.startswith("beat_this: beat intervals vary") for reason in rhythm.reasons)
     assert set(rhythm.quality) == {"beat_this", "setvector_fallback"}
 
 
@@ -150,6 +196,7 @@ def test_rhythm_identity_records_model_thresholds_and_environment():
     )
     assert identity.parameters["upstream"] == "beat-this 1.1.0 (b95c8ab)"
     assert identity.parameters["min_grid_fit"] == 0.9
+    assert identity.parameters["interval_gap_ratio"] == 1.5
     assert identity.parameters["bar_phase_confirm"] == 4
     assert identity.dependency_versions["torch"] == version("torch")
     assert set(identity.dependency_versions) == {

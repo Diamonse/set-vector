@@ -48,6 +48,8 @@ RHYTHM_EXTRACTOR_NAME = "rhythm-v1"
 RHYTHM_ALGORITHM_VERSION = 1
 MIN_BEATS = 32
 MAX_INTERVAL_CV = 0.15
+# Longer intervals are missed-beat gaps, which grid_fit measures instead.
+INTERVAL_GAP_RATIO = 1.5
 MIN_GRID_FIT = 0.90
 MIN_BAR_REGULARITY = 0.75
 BAR_LENGTHS = (3, 4)
@@ -65,6 +67,7 @@ RHYTHM_PARAMETERS = {
     "grid_max_segments": GRID_MAX_SEGMENTS,
     "min_beats": MIN_BEATS,
     "max_interval_cv": MAX_INTERVAL_CV,
+    "interval_gap_ratio": INTERVAL_GAP_RATIO,
     "min_grid_fit": MIN_GRID_FIT,
     "min_bar_regularity": MIN_BAR_REGULARITY,
     "bar_lengths": ",".join(map(str, BAR_LENGTHS)),

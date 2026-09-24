@@ -23,6 +23,7 @@ from . import beat_this, grid
 from .identity import (
     BAR_LENGTHS,
     BAR_PHASE_CONFIRM,
+    INTERVAL_GAP_RATIO,
     MAX_INTERVAL_CV,
     MIN_BAR_REGULARITY,
     MIN_BEATS,
@@ -48,7 +49,15 @@ def _fmt(value: float | None) -> str:
 
 
 def _interval_cv(beats: np.ndarray) -> float | None:
+    """Coefficient of variation of the intervals shorter than ``INTERVAL_GAP_RATIO`` medians.
+
+    Longer intervals are gaps from missed beats, which ``grid_fit`` already measures;
+    extra detections and erratic spacing still shorten intervals and raise the CV.
+    """
     intervals = np.diff(beats)
+    if intervals.size < 2:
+        return None
+    intervals = intervals[intervals < INTERVAL_GAP_RATIO * np.median(intervals)]
     if intervals.size < 2 or intervals.mean() <= 0:
         return None
     return float(intervals.std() / intervals.mean())
@@ -119,7 +128,9 @@ def _evaluate(name, detected, downbeats, duration) -> _Candidate:
     if quality.grid_fit is None or quality.grid_fit < MIN_GRID_FIT:
         reasons.append(f"{name}: only {_fmt(quality.grid_fit)} of beats fit a steady grid")
     if downbeats is not None:
-        if modal not in BAR_LENGTHS:
+        if modal is None:
+            reasons.append(f"{name}: no bars detected")
+        elif modal not in BAR_LENGTHS:
             reasons.append(f"{name}: usual bar length is {modal} beats, not 3 or 4")
         elif regularity < MIN_BAR_REGULARITY:
             reasons.append(f"{name}: only {regularity:.2f} of bars have {modal} beats")
