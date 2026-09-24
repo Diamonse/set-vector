@@ -31,6 +31,7 @@ analysis-workspace/
 .idea/
 .ipynb_checkpoints/
 
-# Bundled model downloaded by scripts/fetch_model.py
+# Model weights written by scripts/fetch_model.py
+src/setvector/models/*.npz
 src/setvector/models/*.ckpt
 src/setvector/models/*.part
