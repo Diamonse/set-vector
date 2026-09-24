@@ -65,29 +65,33 @@ Downbeats are the beats with `bar_positions == 1`, derived rather than stored tw
 
 | File | Responsibility |
 |---|---|
-| `domain/rhythm.py` | `RhythmAnalysis` and `RhythmQuality` with strict validation (sorted finite beats inside the decoded duration, matching lengths, bar positions all known or all `null`, source/reliability consistency) and `to_dict`/`from_dict`. |
+| `domain/rhythm.py` | `RhythmAnalysis` and `CandidateQuality` with strict validation (sorted, strictly increasing, nonnegative finite beats, matching lengths, bar positions all known or all `null`, source/reliability consistency) and `to_dict`/`from_dict`. Clipping beats to the decoded duration is `fit_grid`'s job, not a domain check. |
 | `analysis/beat_this/__init__.py` | Public detector API with no PyTorch import at module level: `Detection`, `detect(samples, sample_rate)`, `verify_weights`, and `refine_peak_times`. `detect` verifies and loads the bundled weights once per process, gets frame logits from `_inference`, picks peaks with Beat This!'s minimal rule, and refines each beat by parabolic interpolation of the beat activation around its peak frame (offset clamped to ±0.5 frame; no refinement at the track edges or when the peak is not a strict local maximum). |
 | `analysis/beat_this/_inference.py` | Vendored inference: log-mel front end (22,050 Hz after soxr resampling, 1024-point FFT, hop 441, 128 Slaney mel bands from 30 Hz to 11 kHz, `log1p(1000·x)`), upstream's 1,500-frame chunking with 6-frame borders run one chunk at a time, minimal peak picking, and weight loading from the `.npz`. It never downloads or unpickles anything. |
-| `analysis/beat_this/_model.py`, `_roformer.py` | Upstream `beat_tracker.py` and `roformer.py`, unchanged except for imports and a provenance header, so the weight names load strictly and diffs against upstream stay readable. Excluded from Ruff. |
+| `analysis/beat_this/_model.py`, `_roformer.py`, `_utils.py` | Upstream `beat_tracker.py` and `roformer.py`, and the `replace_state_dict_key` helper from `utils.py`, unchanged except for imports and a provenance header, so the weight names load strictly and diffs against upstream stay readable. `_model.py` and `_roformer.py` are excluded from Ruff; `_utils.py` is short enough to pass unmodified. |
 | `analysis/grid.py` | Pure NumPy grid fitting, described below. No knowledge of detectors. |
-| `analysis/rhythm.py` | `extract_rhythm(decoded, baseline_bundle, runner=beat_this.detect) -> RhythmAnalysis`. It fits a grid to each candidate, scores candidates, selects the source, and assigns bar positions to grid beats. The injectable runner keeps most tests free of PyTorch. |
+| `analysis/rhythm.py` | `extract_rhythm(decoded, bundle, extractor, rhythm_id, runner=None) -> RhythmAnalysis`, defaulting `runner` to `beat_this.detect`. It fits a grid to each candidate, scores candidates, selects the source, and assigns bar positions to grid beats. The injectable runner keeps most tests free of PyTorch. Beat This! only runs when the decoded audio is at least `MIN_DETECTION_SECONDS` (1 s) long; shorter audio is treated as having no detected beats. A downbeat farther than half the median grid-beat interval from the nearest grid beat is dropped rather than assigned to it. |
 | `analysis/identity.py` | Adds `rhythm_identity(baseline_extractor)` next to `baseline_identity`. |
 | `storage/publish.py` | Shared atomic publish-and-verify helper extracted from `ArtifactStore._publish`, used by both stores. |
-| `storage/rhythm.py` | `RhythmStore` with `load`, `load_stored`, `save`, and the same corruption and conflict handling as `ArtifactStore`. |
+| `storage/rhythm.py` | `RhythmStore` with `path`, `load`, `save`, and the same corruption and conflict handling as `ArtifactStore`. |
 | `models/weights.py` | Weights identity using only the standard library: source checkpoint URL and SHA-256, converted file name, and `weights_sha256`, a SHA-256 over the sorted `.npz` member names and their bytes. |
 | `models/beat_this-final0.npz` | Bundled weights (81 MB), converted from the `final0` checkpoint. |
 | `models/LICENSE-beat-this` | Beat This! MIT license, covering the weights and the code vendored in `analysis/beat_this/`. |
 
 ## Grid fitting
 
-`fit_grid(beat_times) -> GridFit` turns detected beats into constant-tempo segments:
+`fit_grid(times, duration) -> GridFit | None` turns detected beat times into constant-tempo segments inside `[0, duration]`:
 
-1. **Index beats.** With the reference period `p` equal to the median inter-beat interval, beat `i` gets index `k_i = k_{i-1} + round((t_i - t_{i-1}) / p)`, so a missed beat leaves a gap in the indices instead of stretching the tempo.
-2. **Fit a line.** Least squares of time against index, then refit up to five times excluding beats more than 40 ms from the line. The slope is the beat period; `bpm = 60 / slope`.
-3. **Accept or split.** A segment is accepted when at least 90% of its beats are within 40 ms. Otherwise it is split at the beat index that maximizes the combined inlier count of the two refitted halves, provided each half has at least 32 beats, and each half is processed again. Splitting stops at 8 segments.
-4. **Generate grid beats.** Each segment emits beats at `start_seconds + n × 60 / bpm` from its first to its last indexed beat, which also fills beats the detector missed. Where two segments meet, the later segment starts at the first grid beat after the earlier one's last.
+1. **Clean the input.** Drop non-finite times, sort, and de-duplicate. Return `None` when fewer than two times remain.
+2. **Reference period.** The mean of the inter-beat intervals within 25% of the median interval, or the median itself when none qualify. Averaging the typical intervals avoids the bias a frame-quantized median has toward a whole frame.
+3. **Index beats.** Beat 0 gets index 0. Each following beat's index is `round((t - anchor_time) / period)` steps past the last beat that landed within 25% of a whole period of its own index (the anchor). A beat far from a whole period still gets an index but does not become the anchor, so it cannot shift later indices.
+4. **Fit a robust line.** Least squares of time against index, then up to five refits that drop beats more than 40 ms from the fitted line and recompute indices before each refit. A period no longer than twice the tolerance (80 ms) is treated as explaining no beats.
+5. **Accept or split.** A range of beats is accepted once at least 90% of its beats are inliers of its fitted line, once it holds fewer than 64 beats, or once splitting would exceed 8 segments. Otherwise it is split at the beat index that minimizes the two halves' combined squared residual (each residual capped at the 40 ms tolerance), found coarse-to-fine: a stride of `(range length) // 64` first, then a beat-by-beat refinement around the best coarse candidate, with at least 32 beats kept on each side. Both halves are queued for the same treatment.
+6. **Tidy.** Merge each pair of neighbouring accepted ranges whose union still clears the 90% threshold as one line, then re-place the boundary between every surviving pair with the same split search. Repeat while a round produces a merge.
+7. **Emit segments.** Refit each tidied range; a range with no inliers is dropped. A segment starts at its line's first grid beat at or after 0.0 seconds and more than half a period past the previous segment's last beat, and holds beats up to the last one at or before `duration`; a range with no beat in that window is also dropped. `grid_fit` is the total inlier count of the emitted segments' line fits, divided by the number of cleaned input beats.
+8. **Close detection gaps.** Every segment but the last keeps adding its own beats, at its own period, while the next one would still start more than half a period later, so consecutive segments cover the audio between detection gaps with no hole.
 
-`grid_fit` is the fraction of all detected beats within 40 ms of their segment's grid.
+Returns `None` when no segment survives, which also covers no grid beat falling inside the audio.
 
 ## Source selection
 
