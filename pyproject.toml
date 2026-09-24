@@ -68,6 +68,11 @@ addopts = "--import-mode=importlib"
 target-version = "py311"
 line-length = 100
 src = ["src"]
+# Vendored verbatim from Beat This!; keep them diffable against upstream.
+extend-exclude = [
+    "src/setvector/analysis/beat_this/_model.py",
+    "src/setvector/analysis/beat_this/_roformer.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
