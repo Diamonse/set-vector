@@ -9,7 +9,11 @@ description = "Audio analysis and energy-aware DJ set planning."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0 AND MIT AND OFL-1.1"
-license-files = ["LICENSE", "src/setvector/visualization/assets/LICENSES/*"]
+license-files = [
+    "LICENSE",
+    "src/setvector/visualization/assets/LICENSES/*",
+    "src/setvector/models/LICENSE-beat-this",
+]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Programming Language :: Python :: 3",
@@ -17,11 +21,14 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Analysis",
 ]
 dependencies = [
+    "einops==0.8.2",
     "librosa==0.11.0",
     "numpy==2.4.6",
+    "rotary-embedding-torch==0.9.1",
     "scipy==1.17.1",
     "soundfile==0.14.0",
     "soxr==1.1.0",
+    "torch==2.14.0",
 ]
 
 [project.urls]
@@ -29,6 +36,12 @@ Repository = "https://github.com/Diamonse/set-vector"
 
 [project.scripts]
 setvector = "setvector.cli:main"
+
+[tool.hatch.build]
+# The weights are Git-ignored; hatch skips ignored files unless listed as artifacts.
+artifacts = ["src/setvector/models/*.npz"]
+
+[tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/setvector"]
@@ -43,6 +56,8 @@ include = [
     "/LICENSE",
     "/pyproject.toml",
     "/requirements-dev.txt",
+    "/hatch_build.py",
+    "/scripts",
 ]
 
 [tool.pytest.ini_options]
@@ -53,6 +68,11 @@ addopts = "--import-mode=importlib"
 target-version = "py311"
 line-length = 100
 src = ["src"]
+# Vendored verbatim from Beat This!; keep them diffable against upstream.
+extend-exclude = [
+    "src/setvector/analysis/beat_this/_model.py",
+    "src/setvector/analysis/beat_this/_roformer.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

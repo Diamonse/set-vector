@@ -40,3 +40,9 @@ def compute_feature_id(asset_id: str, extractor: ExtractorIdentity) -> str:
     """SHA-256 of the asset identity and every extractor input, excluding paths."""
     payload = {"asset_id": asset_id, "extractor": extractor.to_dict()}
     return hashlib.sha256(canonical_json(payload)).hexdigest()
+
+
+def compute_rhythm_id(feature_id: str, extractor: ExtractorIdentity) -> str:
+    """SHA-256 of the baseline feature identity and every rhythm extractor input."""
+    payload = {"feature_id": feature_id, "extractor": extractor.to_dict()}
+    return hashlib.sha256(canonical_json(payload)).hexdigest()
