@@ -36,6 +36,12 @@ model, API key, cloud service, telemetry, or network connection is used after
 installation. For an editable installation, tests, and Python API examples,
 see [Development](docs/development.md).
 
+Beat and downbeat detection uses the bundled Beat This! `final0` model; its
+authors state that some of its training data was copyrighted. On Linux,
+install PyTorch with `--extra-index-url https://download.pytorch.org/whl/cpu`
+first, because a plain `pip install torch` there selects the much larger CUDA
+build.
+
 ## Why SetVector?
 
 Most DJ software provides useful technical information such as BPM, key, waveform structure, and beat grids.
