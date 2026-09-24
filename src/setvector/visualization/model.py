@@ -21,8 +21,9 @@ BRIGHTNESS_TIP = (
     "Fixed ranges for readability, not a calibrated judgment."
 )
 NO_RHYTHM_WARNING = (
-    "No rhythm analysis matches this installation, so beats come from the baseline tracker "
-    "and bar lines are not shown. Run analyze again to add one."
+    "No rhythm analysis matches this feature artifact under the installed SetVector, so "
+    "beats come from the baseline tracker and bar lines are not shown. Run analyze again: "
+    "it produces a new feature ID whose report includes bar lines."
 )
 NO_DOWNBEATS_WARNING = (
     "The beat grid comes from SetVector's own tracker, which does not detect downbeats, "
