@@ -205,3 +205,22 @@ def rhythm_factory():
         )
 
     return build
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "real_model: run the bundled Beat This! model instead of the test stub"
+    )
+
+
+@pytest.fixture(autouse=True)
+def stub_beat_this(request, monkeypatch):
+    """Keep tests fast: Beat This! finds nothing unless a test is marked real_model."""
+    if request.node.get_closest_marker("real_model"):
+        return
+    from setvector.analysis import beat_this
+
+    def detect(samples, sample_rate):
+        return beat_this.Detection(beats=np.empty(0), downbeats=np.empty(0))
+
+    monkeypatch.setattr(beat_this, "detect", detect)
