@@ -3,7 +3,10 @@
 Frames contain exactly ``frame_length`` samples and start every ``hop_length``
 samples. Nothing is centered or padded; a final partial window is omitted and
 counted. Frames are processed in bounded chunks so full-length tracks do not
-materialize every windowed frame or spectrum at once.
+materialize every windowed frame or spectrum at once. Tempo and beats are
+tracked on a separately normalized positive spectral flux over bins at or
+below ``BEAT_ONSET_BAND_HZ`` (150 Hz), while the stored ``onset_strength``
+series stays full-band.
 """
 
 import numpy as np
@@ -19,7 +22,7 @@ from setvector.domain import (
 )
 from setvector.ingestion import DecodedAudio
 
-from .identity import BASS_CUTOFF_HZ, BEAT_TRIM
+from .identity import BASS_CUTOFF_HZ, BEAT_ONSET_BAND_HZ, BEAT_TRIM
 
 _FRAMES_PER_CHUNK = 256
 _TEMPOGRAM_FRAMES_PER_CHUNK = 2_048
@@ -66,18 +69,25 @@ def _ratio(numerator: np.ndarray, denominator: np.ndarray) -> list[float | None]
     ]
 
 
+def _normalized(flux: np.ndarray) -> np.ndarray:
+    peak = flux.max(initial=0.0)
+    return flux / peak if peak > 0 else flux
+
+
 def _measure_frames(samples: np.ndarray, sample_rate: int, config: AnalysisConfig, frames: int):
     frame_length, hop_length = config.frame_length, config.hop_length
     windows = sliding_window_view(samples, frame_length, axis=1)
     hann = np.hanning(frame_length)
     frequencies = np.fft.rfftfreq(frame_length, d=1 / sample_rate)
     bass_bins = frequencies <= BASS_CUTOFF_HZ
+    beat_bins = frequencies <= BEAT_ONSET_BAND_HZ
     rms = np.empty(frames)
     weighted = np.empty(frames)
     magnitude_total = np.empty(frames)
     bass_power = np.empty(frames)
     total_power = np.empty(frames)
     flux = np.zeros(frames)
+    beat_flux = np.zeros(frames)
     previous = None
     for first in range(0, frames, _FRAMES_PER_CHUNK):
         last = min(first + _FRAMES_PER_CHUNK, frames)
@@ -91,13 +101,20 @@ def _measure_frames(samples: np.ndarray, sample_rate: int, config: AnalysisConfi
         magnitude_total[first:last] = magnitude.sum(axis=1)
         bass_power[first:last] = power[:, bass_bins].sum(axis=1)
         total_power[first:last] = power.sum(axis=1)
+        low = magnitude[:, beat_bins]
         if previous is not None:
             flux[first] = np.maximum(magnitude[0] - previous, 0.0).sum()
+            beat_flux[first] = np.maximum(low[0] - previous[beat_bins], 0.0).sum()
         flux[first + 1 : last] = np.maximum(np.diff(magnitude, axis=0), 0.0).sum(axis=1)
+        beat_flux[first + 1 : last] = np.maximum(np.diff(low, axis=0), 0.0).sum(axis=1)
         previous = magnitude[-1]
-    peak = flux.max(initial=0.0)
-    onset = flux / peak if peak > 0 else flux
-    return rms, _ratio(weighted, magnitude_total), _ratio(bass_power, total_power), onset
+    return (
+        rms,
+        _ratio(weighted, magnitude_total),
+        _ratio(bass_power, total_power),
+        _normalized(flux),
+        _normalized(beat_flux),
+    )
 
 
 def _mean_tempogram(onset: np.ndarray, sample_rate: int, hop_length: int) -> np.ndarray:
@@ -156,7 +173,12 @@ def _estimate_beats(onset: np.ndarray, timestamps, sample_rate: int, hop_length:
 
 
 def extract_baseline(decoded: DecodedAudio, config: AnalysisConfig) -> AnalysisMeasurements:
-    """Measure RMS, centroid, bass ratio, onset strength, tempo, and beats."""
+    """Measure RMS, centroid, bass ratio, onset strength, tempo, and beats.
+
+    Tempo and beats are tracked on a separately normalized positive spectral
+    flux over bins at or below ``BEAT_ONSET_BAND_HZ`` (150 Hz), while the
+    stored ``onset_strength`` series stays full-band.
+    """
     _check_consistency(decoded, config)
     samples, sample_rate = decoded.samples, decoded.sample_rate
     frame_length, hop_length = config.frame_length, config.hop_length
@@ -182,13 +204,15 @@ def extract_baseline(decoded: DecodedAudio, config: AnalysisConfig) -> AnalysisM
             f"audio has {sample_count} samples, shorter than one {frame_length}-sample frame; "
             "no features were measured"
         )
-        rms, centroid, bass, onset = np.empty(0), [], [], np.empty(0)
+        rms, centroid, bass, onset, beat_onset = np.empty(0), [], [], np.empty(0), np.empty(0)
     else:
         try:
-            rms, centroid, bass, onset = _measure_frames(samples, sample_rate, config, frames)
+            rms, centroid, bass, onset, beat_onset = _measure_frames(
+                samples, sample_rate, config, frames
+            )
         except (FloatingPointError, MemoryError) as error:
             raise AnalysisError(f"feature extraction failed: {error}") from error
-    tempo, beats = _estimate_beats(onset, timing[0], sample_rate, hop_length)
+    tempo, beats = _estimate_beats(beat_onset, timing[0], sample_rate, hop_length)
     if frames and not beats:
         warnings.append("no tempo or beat positions were detected")
     return AnalysisMeasurements(

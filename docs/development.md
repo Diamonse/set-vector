@@ -9,13 +9,16 @@ Run these commands from the repository root in PowerShell:
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe scripts/fetch_model.py
 .\.venv\Scripts\python.exe -m pip install --no-build-isolation -e .
 .\.venv\Scripts\setvector.exe --help
 ```
 
 Using the virtual environment's executables directly avoids changing PowerShell's execution policy. On macOS or Linux, create the environment with `python3 -m venv .venv` and use `.venv/bin/python` and `.venv/bin/setvector` for the equivalent commands.
 
-`requirements-dev.txt` pins development, build, and runtime dependencies. The runtime dependencies (NumPy, SciPy, SoundFile, librosa, and soxr) are pinned exactly in `pyproject.toml` because their versions are part of every feature artifact's identity.
+`requirements-dev.txt` pins development, build, and runtime dependencies. The runtime dependencies (PyTorch, einops, rotary-embedding-torch, NumPy, SciPy, SoundFile, librosa, and soxr) are pinned exactly in `pyproject.toml` because their versions are part of every artifact's identity.
+
+`src/setvector/analysis/beat_this/` vendors Beat This! 1.1.0's inference code; the `beat-this` package and torchaudio are not installed. `scripts/fetch_model.py` downloads the Beat This! `final0` checkpoint once, verifies its SHA-256, converts it to `src/setvector/models/beat_this-final0.npz` (81 MB), verifies that file's hash, and deletes the checkpoint. It needs PyTorch and NumPy, so run it after installing `requirements-dev.txt`. Git ignores the `.npz`; builds fail without it, and wheels include it. `tests/data/beat_this_reference.npz` holds upstream's output for the parity test; regenerate it only with `scripts/make_beat_this_reference.py`, in the throwaway environment its docstring describes. CPU PyTorch adds about 550 MB to an environment on Windows. On Linux, install with `--extra-index-url https://download.pytorch.org/whl/cpu`, because the default PyPI build of PyTorch includes several gigabytes of CUDA libraries.
 
 Installing the package downloads wheels from a package index. After installation, analysis needs no network access, GPT model, API key, cloud service, or telemetry. An air-gapped wheel bundle is future distribution work.
 
@@ -55,10 +58,14 @@ On success, standard output contains one JSON object:
 |---|---|
 | `asset_id` | SHA-256 of the audio file's bytes |
 | `feature_id` | SHA-256 of the asset ID, configuration, extractor parameters, and dependency versions |
-| `cache_hit` | `true` when an intact stored artifact was reused without decoding the audio |
+| `cache_hit` | `true` when an intact stored baseline feature artifact was reused |
 | `manifest_path` | Absolute path of the feature manifest |
+| `rhythm_id` | SHA-256 of the feature ID and the rhythm extractor identity |
+| `rhythm_source` | `beat_this`, `setvector_fallback`, or `none` |
+| `rhythm_reliable` | `true` when the chosen grid passed its checks |
+| `downbeat_count` | Number of grid beats at bar position 1 |
 
-Warnings, such as a clip shorter than one frame or a decoder-reported length that differs from the decoded audio, go to standard error after the JSON. Invalid arguments, configurations, paths, and unsupported audio exit with code 2. Decode, extraction, and artifact-integrity failures exit with code 1. Neither prints a traceback.
+`cache_hit` covers only the baseline feature artifact; the audio is still decoded whenever the rhythm artifact is missing, even on a feature cache hit. Warnings, such as a clip shorter than one frame or a decoder-reported length that differs from the decoded audio, go to standard error after the JSON, followed by a "no reliable beat grid" warning naming the rejection reasons whenever `rhythm_reliable` is `false`. Invalid arguments, configurations, paths, and unsupported audio exit with code 2. Decode, extraction, and artifact-integrity failures exit with code 1, including a missing or altered Beat This! weights file. Neither prints a traceback.
 
 Moving or renaming a file reuses its features because identity comes from content, not path. Changing the audio bytes, configuration, SetVector version, extractor algorithm version, or a pinned dependency creates a new feature ID. A corrupt or incomplete stored artifact is reported and never silently overwritten; delete that feature directory to recompute it.
 
@@ -77,7 +84,7 @@ Frames are left-aligned, contain exactly `frame_length` samples, and start every
 | `bass_power_ratio` | `ratio` | Spectral power at or below 250 Hz divided by total power; missing for silent frames |
 | `onset_strength` | `normalized_flux` | Positive spectral flux divided by the track's peak flux |
 
-Tempo and beats come from librosa's beat tracker applied to the onset envelope, and beat times match feature frame timestamps. Beats are kept across the whole track, including quieter intros and outros; librosa's default trimming of weak leading and trailing beats is disabled. The tempo is a candidate estimate, not a confidence-rated pulse: the tracker reports a tempo for any onset envelope that is not constant, including steady tones and noise. Onset strength is normalized per track, so it cannot be compared across tracks.
+Tempo and beats come from librosa's beat tracker applied to a separately normalized onset envelope: positive spectral flux over bins at or below 150 Hz, normalized to its own track peak. The stored `onset_strength` series stays full-band and keeps its own normalization, so it does not change meaning. Beat times match feature frame timestamps. Beats are kept across the whole track, including quieter intros and outros; librosa's default trimming of weak leading and trailing beats is disabled. The tempo is a candidate estimate, not a confidence-rated pulse: the tracker reports a tempo for any onset envelope that is not constant, including steady tones and noise. Both onset series are normalized per track, so neither can be compared across tracks.
 
 ### Workspace layout
 
@@ -86,9 +93,12 @@ Tempo and beats come from librosa's beat tracker applied to the onset envelope, 
   assets/<asset-id>/asset.json
   features/<feature-id>/manifest.json
   features/<feature-id>/arrays.npz
+  rhythm/<rhythm-id>/rhythm.json
 ```
 
 JSON files hold identities, configuration, beats, and diagnostics. The NPZ file holds dense arrays and validity masks and is loaded without pickle support. Artifacts are written to a temporary sibling directory, verified, and published with one rename. The source audio is never copied or modified.
+
+`rhythm.json` holds the chosen beat grid (constant-tempo segments, grid beats, and their bar positions), the detector's raw beats, each candidate's quality measurements, and the reasons any candidate was rejected. Its source is `beat_this`, `setvector_fallback` (beats without bars), or `none`.
 
 ## Report
 
@@ -105,7 +115,7 @@ JSON files hold identities, configuration, beats, and diagnostics. The NPZ file 
 | `--no-audio` | Build the report without a player; mutually exclusive with `--audio` |
 | `--overwrite` | Replace an existing report file |
 
-`report` never reanalyzes audio; it renders the stored feature artifact. On success, standard output contains one JSON object:
+`report` never reanalyzes audio; it renders the stored feature artifact. When a reliable rhythm analysis exists for that feature artifact, the report draws bar lines at its detected downbeats and uses its grid beats and tempo. Otherwise it falls back to the baseline tracker's beats with no bar lines and adds one warning explaining why: no rhythm analysis matches the feature artifact, the chosen grid failed its reliability checks (naming the reasons), or the chosen grid has beats but no downbeats. On success, standard output contains one JSON object:
 
 | Field | Meaning |
 |---|---|

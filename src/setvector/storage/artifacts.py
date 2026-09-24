@@ -12,10 +12,7 @@ that is incomplete, corrupt, or inconsistent raises ``ArtifactError`` and is
 never overwritten.
 """
 
-import json
 import os
-import shutil
-import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -25,7 +22,8 @@ from setvector.domain import ArtifactError, AudioAsset, FeatureBundle, InputErro
 from setvector.domain._validation import require_fields, validate_version
 from setvector.domain.audio import validate_sha256
 
-from .canonical import compute_feature_id, strict_json_loads
+from .canonical import compute_feature_id
+from .publish import publish_directory, read_json, write_json
 
 _MANIFEST = "manifest.json"
 _ARRAYS = "arrays.npz"
@@ -53,22 +51,6 @@ def _array_key(series: str, field: str) -> str:
 
 def _asset_identity(asset: AudioAsset) -> dict[str, object]:
     return {key: value for key, value in asset.to_dict().items() if key != "observed_path"}
-
-
-def _write_bytes(path: Path, data: bytes) -> None:
-    with path.open("wb") as stream:
-        stream.write(data)
-        stream.flush()
-        os.fsync(stream.fileno())
-
-
-def _write_json(path: Path, value: Mapping[str, object]) -> None:
-    text = json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False)
-    _write_bytes(path, (text + "\n").encode("utf-8"))
-
-
-def _read_json(path: Path) -> object:
-    return strict_json_loads(path.read_text(encoding="utf-8"))
 
 
 def _encode_bundle(bundle: FeatureBundle) -> tuple[dict[str, object], dict[str, np.ndarray]]:
@@ -162,7 +144,7 @@ def _read_feature_directory(directory: Path, feature_id: str) -> FeatureBundle:
     if not directory.is_dir() or not manifest_path.is_file() or not arrays_path.is_file():
         raise ArtifactError(f"feature artifact {feature_id} is incomplete: {directory}")
     try:
-        manifest = _read_json(manifest_path)
+        manifest = read_json(manifest_path)
         with np.load(arrays_path, allow_pickle=False) as npz:
             arrays = {key: npz[key] for key in npz.files}
         bundle = _decode_bundle(manifest, arrays)
@@ -225,7 +207,7 @@ class ArtifactStore:
         manifest, arrays = _encode_bundle(bundle)
 
         def write(directory: Path) -> None:
-            _write_json(directory / _MANIFEST, manifest)
+            write_json(directory / _MANIFEST, manifest)
             with (directory / _ARRAYS).open("wb") as stream:
                 np.savez_compressed(stream, **arrays)
                 stream.flush()
@@ -233,7 +215,7 @@ class ArtifactStore:
             if _read_feature_directory(directory, bundle.feature_id) != bundle:
                 raise ArtifactError(f"feature artifact {bundle.feature_id} failed verification")
 
-        if not self._publish(target, write):
+        if not publish_directory(target, write):
             return self._accept_existing(asset, bundle)
         return target / _MANIFEST
 
@@ -248,7 +230,7 @@ class ArtifactStore:
         if not path.is_file():
             raise ArtifactError(f"asset metadata is missing for {asset_id}: {path}")
         try:
-            stored = AudioAsset.from_dict(_read_json(path))
+            stored = AudioAsset.from_dict(read_json(path))
         except (OSError, ValueError, TypeError) as error:
             raise ArtifactError(
                 f"asset metadata for {asset_id} is corrupt or incompatible: {error}"
@@ -271,35 +253,12 @@ class ArtifactStore:
             return
 
         def write(temporary: Path) -> None:
-            _write_json(temporary / _ASSET, asset.to_dict())
-            if AudioAsset.from_dict(_read_json(temporary / _ASSET)) != asset:
+            write_json(temporary / _ASSET, asset.to_dict())
+            if AudioAsset.from_dict(read_json(temporary / _ASSET)) != asset:
                 raise ArtifactError(f"asset metadata for {asset.asset_id} failed verification")
 
-        if not self._publish(directory, write):
+        if not publish_directory(directory, write):
             self._check_asset(asset)
-
-    def _publish(self, target: Path, write) -> bool:
-        """Write into a sibling temporary directory and rename it to ``target``.
-
-        Returns ``False`` when another writer published ``target`` first.
-        """
-        try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            temporary = Path(tempfile.mkdtemp(prefix=f".{target.name}.tmp-", dir=target.parent))
-        except OSError as error:
-            raise ArtifactError(f"cannot create artifact directory {target}: {error}") from error
-        try:
-            write(temporary)
-            os.replace(temporary, target)
-        except OSError as error:
-            shutil.rmtree(temporary, ignore_errors=True)
-            if target.exists():
-                return False
-            raise ArtifactError(f"cannot publish artifact {target}: {error}") from error
-        except BaseException:
-            shutil.rmtree(temporary, ignore_errors=True)
-            raise
-        return True
 
     def _accept_existing(self, asset: AudioAsset, bundle: FeatureBundle) -> Path:
         existing = self.load(bundle.feature_id, asset)

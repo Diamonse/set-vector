@@ -9,12 +9,14 @@ The goal is to build tools that help DJs analyze tracks, visualize changes in mu
 
 The Python package analyzes local audio files and saves baseline feature
 measurements: RMS amplitude, spectral centroid, bass power ratio, onset strength,
-and a tempo/beat estimate. Interactive charts and energy scoring are the next steps.
+and a beat grid with downbeats detected by the bundled Beat This! model.
 
 Install locally with Python 3.11 or newer. In PowerShell, from the repository root:
 
 ```powershell
 py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install torch==2.14.0 numpy==2.4.6
+.\.venv\Scripts\python.exe scripts/fetch_model.py
 .\.venv\Scripts\python.exe -m pip install .
 .\.venv\Scripts\setvector.exe --help
 .\.venv\Scripts\setvector.exe config validate examples/analysis-config.json
@@ -25,8 +27,9 @@ py -3.11 -m venv .venv
 ```
 
 `config validate` prints the configuration and its stable identifier as JSON.
-`analyze` prints the asset ID, feature ID, cache status, and manifest path of the
-saved feature artifact. `report` renders that feature ID into a single offline
+`analyze` prints the asset ID, feature ID, cache status, and manifest path,
+plus the beat grid's rhythm ID, source, reliability, and downbeat count.
+`report` renders that feature ID into a single offline
 HTML page with the analyzed track embedded, so share or move it the way you
 would the music file itself. Analysis runs entirely on your machine: no GPT
 model, API key, cloud service, telemetry, or network connection is used after
@@ -37,6 +40,12 @@ To browse several HTML reports together, place them in a `reports` subfolder and
 run `setvector report-index <collection-folder>`. It creates `index.html` and
 adds a link from each report back to the song list. See
 [Report collections](docs/development.md#report-collections).
+
+Beat and downbeat detection uses the bundled Beat This! `final0` model; its
+authors state that some of its training data was copyrighted. On Linux,
+install PyTorch with `--extra-index-url https://download.pytorch.org/whl/cpu`
+first, because a plain `pip install torch` there selects the much larger CUDA
+build.
 
 ## Why SetVector?
 

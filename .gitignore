@@ -30,3 +30,8 @@ analysis-workspace/
 .vscode/
 .idea/
 .ipynb_checkpoints/
+
+# Model weights written by scripts/fetch_model.py
+src/setvector/models/*.npz
+src/setvector/models/*.ckpt
+src/setvector/models/*.part

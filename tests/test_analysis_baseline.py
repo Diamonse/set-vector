@@ -44,6 +44,47 @@ def click_train(sample_rate=8_000, seconds=8.0, interval=0.5):
     return signal[None, :]
 
 
+def kick_and_offbeat_hats(sample_rate=22_050, bpm=125.0, seconds=32.0):
+    """Quiet 60 Hz kicks on the beat and louder noise hi-hats on the off-beat."""
+    size = int(sample_rate * seconds)
+    signal = np.zeros(size)
+    period = 60.0 / bpm
+    rng = np.random.default_rng(7)
+    t = np.arange(int(0.15 * sample_rate)) / sample_rate
+    kick = 0.5 * np.sin(2 * np.pi * 60.0 * t) * np.exp(-t / 0.06)
+    hat_t = np.arange(int(0.05 * sample_rate)) / sample_rate
+    hat = rng.standard_normal(hat_t.size) * np.exp(-hat_t / 0.012)
+    kicks = np.arange(0.25, seconds - 0.2, period)
+    for beat in kicks:
+        start = int(beat * sample_rate)
+        signal[start : start + kick.size] += kick[: size - start]
+        start = int((beat + period / 2) * sample_rate)
+        signal[start : start + hat.size] += hat[: size - start]
+    signal = 0.9 * signal / np.abs(signal).max()
+    return signal.astype(np.float32)[None, :], kicks
+
+
+def test_beats_follow_kicks_not_louder_offbeat_hats(decoded_factory):
+    samples, kicks = kick_and_offbeat_hats()
+    config = AnalysisConfig(
+        sample_rate=None, frame_length=2048, hop_length=512, channel_policy="mono"
+    )
+    result = extract_baseline(decoded_factory(samples, 22_050), config)
+    beats = np.array([beat.seconds for beat in result.beats])
+    on_kick = np.min(np.abs(beats[:, None] - kicks[None, :]), axis=1) <= 0.07
+    assert len(beats) >= 60
+    assert on_kick.mean() >= 0.9
+
+    # The stored onset_strength series stays full-band: it should still peak at
+    # the louder off-beat hi-hats, not follow the bass-band beat tracker to the kicks.
+    hats = kicks + 30 / 125
+    timestamps = np.array(result.onset_strength.timestamps)
+    values = np.array(result.onset_strength.values)
+    top_frames = timestamps[np.argsort(values)[-32:]]
+    near_hat = np.min(np.abs(top_frames[:, None] - hats[None, :]), axis=1) <= 0.07
+    assert near_hat.mean() >= 0.8
+
+
 def test_only_full_left_aligned_frames_are_measured(decoded_factory):
     decoded = decoded_factory(np.ones((1, 10), dtype=np.float32), sample_rate=10)
     config = AnalysisConfig(sample_rate=None, frame_length=4, hop_length=3, channel_policy="mono")
@@ -272,9 +313,10 @@ def test_baseline_identity_records_parameters_and_environment():
     assert identity.name == "baseline-v1"
     assert identity.config == config
     assert identity.package_version == version("setvector")
-    assert identity.algorithm_version == 2
+    assert identity.algorithm_version == 3
     assert dict(identity.parameters) == {
         "bass_cutoff_hz": 250.0,
+        "beat_onset_band_hz": 150.0,
         "beat_trim": False,
         "onset_method": "positive_spectral_flux",
         "onset_normalization": "track_peak",
