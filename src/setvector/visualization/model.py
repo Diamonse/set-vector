@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from setvector.domain import AudioAsset, FeatureBundle, FeatureSeries
+from setvector.domain import AudioAsset, FeatureBundle, FeatureSeries, RhythmAnalysis
 
 SERIES_NAMES = ("rms", "bass_power_ratio", "spectral_centroid", "onset_strength")
 BASS_BANDS = ((0.3, "Light"), (0.6, "Moderate"), (float("inf"), "Heavy"))
@@ -19,6 +19,10 @@ BASS_TIP = (
 BRIGHTNESS_TIP = (
     "Display bands: Dark below 2.5 kHz, Balanced from 2.5 to 4 kHz, Bright from 4 kHz. "
     "Fixed ranges for readability, not a calibrated judgment."
+)
+NO_RHYTHM_WARNING = (
+    "No rhythm analysis matches this installation, so beats come from the baseline tracker "
+    "and bar lines are not shown. Run analyze again to add one."
 )
 
 
@@ -139,15 +143,35 @@ def _decoded_duration(asset: AudioAsset, bundle: FeatureBundle) -> float:
     return decoded_samples / rate
 
 
-def build_report_model(asset: AudioAsset, bundle: FeatureBundle) -> ReportModel:
-    """Describe ``bundle`` for display without reading files or recomputing features."""
+def build_report_model(
+    asset: AudioAsset, bundle: FeatureBundle, rhythm: RhythmAnalysis | None = None
+) -> ReportModel:
+    """Describe ``bundle`` for display without reading files or recomputing features.
+
+    A reliable ``rhythm`` supplies the beat grid, downbeats, and tempo; otherwise the
+    baseline beats are shown without bar lines and a warning says why.
+    """
     if asset.asset_id != bundle.asset_id:
         raise ValueError("asset_id of the asset and bundle must match")
+    if rhythm is not None and rhythm.feature_id != bundle.feature_id:
+        raise ValueError("rhythm feature_id must match the bundle")
     measurements = bundle.measurements
     title, artist = parse_title(asset.observed_path)
     bass = _median(measurements.bass_power_ratio)
     centroid = _median(measurements.spectral_centroid)
+    beats = tuple(beat.seconds for beat in measurements.beats)
+    downbeats: tuple[float, ...] = ()
     tempo = measurements.tempo_bpm
+    warnings = measurements.diagnostics.warnings
+    if rhythm is None:
+        warnings += (NO_RHYTHM_WARNING,)
+    elif not rhythm.reliable:
+        warnings += (
+            f"No reliable beat grid: {'; '.join(rhythm.reasons)}. "
+            "Beats come from the baseline tracker and bar lines are not shown.",
+        )
+    else:
+        beats, downbeats, tempo = rhythm.beats, rhythm.downbeats, rhythm.tempo_bpm
     duration = _decoded_duration(asset, bundle)
     return ReportModel(
         feature_id=bundle.feature_id,
@@ -157,8 +181,8 @@ def build_report_model(asset: AudioAsset, bundle: FeatureBundle) -> ReportModel:
         format_line=_format_line(asset),
         duration_seconds=duration,
         tempo_bpm=tempo,
-        beats=tuple(beat.seconds for beat in measurements.beats),
-        downbeats=(),
+        beats=beats,
+        downbeats=downbeats,
         timestamps=_encode(measurements.rms.timestamps, "<f8"),
         series=tuple(
             ReportSeries(
@@ -175,6 +199,6 @@ def build_report_model(asset: AudioAsset, bundle: FeatureBundle) -> ReportModel:
             brightness_band=band_for(centroid, BRIGHTNESS_BANDS),
             bar_estimate=round(duration * tempo / 240) if tempo is not None else None,
         ),
-        warnings=measurements.diagnostics.warnings,
+        warnings=warnings,
         facts=_facts(bundle),
     )
