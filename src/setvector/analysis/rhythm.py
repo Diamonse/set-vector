@@ -64,13 +64,37 @@ def _interval_cv(beats: np.ndarray) -> float | None:
 
 
 def _nearest(times: np.ndarray, targets: np.ndarray) -> np.ndarray:
-    return np.argmin(np.abs(times[None, :] - targets[:, None]), axis=1)
+    """Index of the closest of the strictly increasing ``times`` to each target.
+
+    Exact ties go to the lower index. Memory is linear, so a long mix stays cheap.
+    """
+    targets = np.asarray(targets, dtype=np.float64)
+    if times.size == 1:
+        return np.zeros(targets.shape, dtype=np.intp)
+    upper = np.clip(np.searchsorted(times, targets), 1, times.size - 1)
+    lower = upper - 1
+    closer_lower = np.abs(times[lower] - targets) <= np.abs(times[upper] - targets)
+    return np.where(closer_lower, lower, upper)
+
+
+def _downbeat_indices(beats: np.ndarray, downbeats: np.ndarray) -> np.ndarray:
+    """Sorted unique beat indices of the downbeats that lie on a beat.
+
+    A downbeat farther than half the median beat interval from its nearest beat, such
+    as one before the first or after the last beat, would snap to an edge and fake a bar.
+    """
+    downbeats = np.asarray(downbeats, dtype=np.float64)
+    if beats.size == 0 or downbeats.size == 0:
+        return np.empty(0, dtype=np.intp)
+    indices = _nearest(beats, downbeats)
+    if beats.size > 1:
+        tolerance = np.median(np.diff(beats)) / 2
+        indices = indices[np.abs(beats[indices] - downbeats) <= tolerance]
+    return np.unique(indices)
 
 
 def _bar_stats(beats: np.ndarray, downbeats: np.ndarray) -> tuple[int | None, float | None]:
-    if beats.size == 0 or downbeats.size < 2:
-        return None, None
-    lengths = np.diff(np.unique(_nearest(beats, downbeats)))
+    lengths = np.diff(_downbeat_indices(beats, downbeats))
     if lengths.size == 0:
         return None, None
     modal = int(np.bincount(lengths).argmax())
@@ -80,12 +104,13 @@ def _bar_stats(beats: np.ndarray, downbeats: np.ndarray) -> tuple[int | None, fl
 def _bar_positions(grid_beats: np.ndarray, downbeats: np.ndarray, modal: int) -> tuple[int, ...]:
     """Number grid beats within bars of ``modal`` beats, following confirmed bar phases.
 
-    Each downbeat's nearest grid beat index ``i`` votes for phase ``i % modal``. A phase takes
+    Each downbeat's nearest grid beat index ``i`` votes for phase ``i % modal``; downbeats
+    off the grid are ignored. A phase takes
     effect only where ``BAR_PHASE_CONFIRM`` consecutive downbeats share it, so a spurious or
     missed downbeat changes nothing, while a sustained shift starts a new phase at the first
     downbeat of its run. The first confirmed phase also numbers the pickup beats.
     """
-    indices = np.unique(_nearest(grid_beats, downbeats))
+    indices = _downbeat_indices(grid_beats, downbeats)
     phases = indices % modal
     run_starts = np.flatnonzero(np.r_[True, phases[1:] != phases[:-1]])
     run_lengths = np.diff(np.r_[run_starts, phases.size])
@@ -109,7 +134,8 @@ def _bar_positions(grid_beats: np.ndarray, downbeats: np.ndarray, modal: int) ->
 
 
 def _evaluate(name, detected, downbeats, duration) -> _Candidate:
-    detected = np.asarray(detected, dtype=np.float64)
+    detected = np.asarray(detected, dtype=np.float64).ravel()
+    detected = np.unique(detected[np.isfinite(detected)])
     fit = grid.fit_grid(detected, duration)
     # The fitted grid fills in missed beats, so a missed beat does not shorten its bar.
     bar_beats = detected if fit is None else fit.beats

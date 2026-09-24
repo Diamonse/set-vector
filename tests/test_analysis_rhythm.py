@@ -8,6 +8,7 @@ import pytest
 
 from setvector.analysis import baseline_identity, extract_rhythm, rhythm_identity
 from setvector.analysis.beat_this import Detection
+from setvector.analysis.rhythm import _nearest
 from setvector.domain import (
     AnalysisConfig,
     AudioAsset,
@@ -76,6 +77,7 @@ def test_missing_downbeat_keeps_counting_bars(context):
     detection = Detection(beats=detection.beats, downbeats=np.delete(detection.downbeats, 5))
     rhythm = run(context(), detection)
     assert max(rhythm.bar_positions) == 4
+    assert bar_lengths(rhythm.bar_positions) == {4}
 
 
 def bar_lengths(positions):
@@ -145,6 +147,70 @@ def test_too_few_downbeats_reads_as_no_bars(context, downbeats):
     assert rhythm.source == "none"
     assert "beat_this: no bars detected" in rhythm.reasons
     assert not any("None" in reason for reason in rhythm.reasons)
+
+
+def dense_nearest(times, targets):
+    """The quadratic-memory reference: the lowest index of the closest time."""
+    return np.argmin(np.abs(times[None, :] - targets[:, None]), axis=1)
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_nearest_matches_the_dense_reference(seed):
+    rng = np.random.default_rng(seed)
+    times = np.unique(np.round(rng.uniform(0, 100, rng.integers(1, 60)), 1))
+    targets = np.round(rng.uniform(-20, 120, 200), 1)  # outside the range too
+    midpoints = (times[:-1] + times[1:]) / 2  # exact ties where representable
+    targets = np.concatenate([targets, midpoints, times])
+    np.testing.assert_array_equal(_nearest(times, targets), dense_nearest(times, targets))
+
+
+def test_nearest_breaks_exact_ties_toward_the_lower_index():
+    times = np.array([0.0, 1.0, 2.0, 4.0])
+    targets = np.array([-1.0, 0.5, 1.5, 3.0, 9.0])
+    np.testing.assert_array_equal(_nearest(times, targets), [0, 0, 1, 2, 3])
+    np.testing.assert_array_equal(dense_nearest(times, targets), [0, 0, 1, 2, 3])
+
+
+def test_downbeats_outside_the_grid_are_ignored(context):
+    detection = regular()  # grid beats from 0.4 s to about 48.3 s
+    stray = np.concatenate([[0.0, 0.05], detection.downbeats, [70.0, 75.0]])
+    rhythm = run(context(), Detection(beats=detection.beats, downbeats=stray))
+    assert rhythm.source == "beat_this"
+    assert rhythm.quality["beat_this"].bar_regularity == 1.0
+    assert bar_lengths(rhythm.bar_positions) == {4}
+    assert rhythm.bar_positions[:6] == (3, 4, 1, 2, 3, 4)
+
+
+def test_unsorted_duplicate_and_nan_detections_are_cleaned(context):
+    beats = regular().beats
+    rng = np.random.default_rng(0)
+    messy = rng.permutation(np.concatenate([beats, [beats[10], np.nan]]))
+    rhythm = run(context(), Detection(beats=messy, downbeats=regular().downbeats))
+    assert rhythm.source == "beat_this" and rhythm.reliable
+    assert rhythm.detected_beats == tuple(beats.tolist())
+    assert rhythm.quality["beat_this"].beat_count == beats.size
+
+
+def test_stereo_is_averaged_to_one_channel(context):
+    decoded, bundle, extractor, rhythm_id = context()
+    left = np.linspace(-0.5, 0.5, 60_000, dtype=np.float32)
+    right = np.full(60_000, 0.25, dtype=np.float32)
+    stereo = DecodedAudio(
+        asset=replace(decoded.asset, channels=2),
+        samples=np.stack([left, right]),
+        sample_rate=1_000,
+    )
+    received = []
+
+    def runner(samples, sample_rate):
+        received.append((samples, sample_rate))
+        return regular()
+
+    rhythm = extract_rhythm(stereo, bundle, extractor, rhythm_id, runner=runner)
+    ((samples, sample_rate),) = received
+    assert samples.ndim == 1 and sample_rate == 1_000
+    np.testing.assert_allclose(samples, (left + right) / 2, rtol=0, atol=1e-7)
+    assert rhythm.source == "beat_this"
 
 
 def test_irregular_beat_this_falls_back_to_regular_baseline_beats(context):
