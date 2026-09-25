@@ -7,7 +7,7 @@ Give every analyzed track a trustworthy beat grid with real downbeats, stored as
 This is the first of three sub-projects toward Rekordbox integration:
 
 1. **Rhythm engine** (this document).
-2. **Rekordbox bridge:** read the user's Rekordbox XML export (grids, cues) and write an importable Rekordbox XML. Existing Rekordbox grids are never replaced; SetVector grids are written only for tracks without one. Hot cues fill empty slots only, SetVector replaces only its own labelled cues, and tracks with no free slot are reported. Imported Rekordbox grids become a third rhythm source and the accuracy reference for this engine.
+2. **Rekordbox bridge:** read the user's Rekordbox XML export (grids, cues) and write an importable Rekordbox XML. Existing Rekordbox grids are never replaced; SetVector grids are written only for tracks without one. Hot cues fill empty slots only, SetVector replaces only its own labelled cues, and tracks with no free slot are reported. Rekordbox grids are read as reference data for phrase detection and for measuring this engine; see the [bridge design](2026-09-25-rekordbox-bridge-design.md).
 3. **Phrase detection and mix-in/out suggestions:** computed on the best available bar grid (Rekordbox, then Beat This!, then fallback) and exported as memory cues and hot cues through the bridge.
 
 This design replaces two earlier positions: the [Analysis Engine Extension](../../research/analysis-engine-extension.md) note that PyTorch and model weights stay outside core dependencies, and the plan to build a rule-based downbeat baseline before any learned model.
@@ -50,7 +50,7 @@ workspace/
 |---|---|
 | `schema_version`, `rhythm_id`, `asset_id`, `feature_id` | Identity. `feature_id` names the baseline artifact the analysis was derived with. |
 | `extractor` | Name `rhythm-v1`, algorithm version, parameters (thresholds below), model name, vendored upstream version and commit, weights SHA-256, and versions of `torch`, `einops`, `rotary-embedding-torch`, `librosa`, `numpy`, `scipy`, `soxr`. |
-| `source` | `beat_this`, `setvector_fallback`, or `none`. Sub-project 2 adds `rekordbox`. |
+| `source` | `beat_this`, `setvector_fallback`, or `none`. |
 | `grid_segments` | Ordered constant-tempo segments, each with `start_seconds` (its first grid beat), `bpm`, `beat_count`, and `first_bar_position` (1-based, or `null` when bars are unknown). Rekordbox's grid format maps one segment to one tempo marker. |
 | `beats` | Grid beat times in decoded-source seconds, generated from `grid_segments`. Empty when `source` is `none`. |
 | `bar_positions` | For each grid beat, its 1-based position in the bar, or `null` for every beat when bars are unknown. Rekordbox's grid format needs this position per beat. |
