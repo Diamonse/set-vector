@@ -11,6 +11,7 @@ from .model import (
     path_from_location,
     validate_colour,
 )
+from .read import parse_library, read_library
 
 __all__ = [
     "HOT_CUE_SLOTS",
@@ -20,6 +21,8 @@ __all__ = [
     "RekordboxTrack",
     "TempoMarker",
     "location_for_path",
+    "parse_library",
     "path_from_location",
+    "read_library",
     "validate_colour",
 ]
