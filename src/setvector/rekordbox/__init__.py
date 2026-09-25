@@ -1,5 +1,6 @@
 """Rekordbox XML exchange: read collection exports and write importable projections."""
 
+from .grid import expand_tempo
 from .model import (
     HOT_CUE_SLOTS,
     SETVECTOR_PREFIX,
@@ -20,6 +21,7 @@ __all__ = [
     "RekordboxLibrary",
     "RekordboxTrack",
     "TempoMarker",
+    "expand_tempo",
     "location_for_path",
     "parse_library",
     "path_from_location",
