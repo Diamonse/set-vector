@@ -1,0 +1,82 @@
+{
+  "tracks": [
+    {
+      "title": "Warm Room",
+      "artist": "Example Artist A",
+      "duration": "6:12",
+      "styles": ["House"],
+      "bpm": 122,
+      "bpm_reviewed": true,
+      "key": "8A",
+      "key_reviewed": true,
+      "energy": 4,
+      "energy_reviewed": true,
+      "cues": [
+        { "kind": "entry", "start": "0:00", "end": "0:32", "label": "Drum intro", "reviewed": true, "vocal": "none" },
+        { "kind": "exit", "start": "5:20", "end": "6:12", "label": "Outro", "reviewed": true, "vocal": "none" }
+      ]
+    },
+    {
+      "title": "Neon Steps",
+      "artist": "Example Artist B",
+      "duration": 342,
+      "styles": ["EDM", "House"],
+      "bpm": 124,
+      "bpm_alternatives": [62],
+      "key": "A minor",
+      "energy": 6,
+      "cues": [
+        { "kind": "entry", "start": 0, "end": 31, "reviewed": true, "vocal": "none" },
+        { "kind": "exit", "start": 280, "end": 342, "vocal": "present" }
+      ]
+    },
+    {
+      "title": "Chandni Edit",
+      "artist": "Example Artist C",
+      "version": "BollyHouse Edit",
+      "remix_group": "chandni",
+      "duration": "5:05",
+      "styles": ["BollyHouse", "Bollywood", "House"],
+      "bpm": 125,
+      "key": "9A",
+      "energy": 7,
+      "cues": [
+        { "kind": "entry", "start": "0:00", "end": "0:30", "reviewed": true, "vocal": "none" },
+        { "kind": "exit", "start": "4:20", "end": "5:05", "reviewed": true, "vocal": "present" }
+      ]
+    },
+    {
+      "title": "Late Signal",
+      "artist": "Example Artist D",
+      "duration": "4:48",
+      "styles": ["Hip-hop"],
+      "bpm": 94,
+      "key": "Dm",
+      "key_status": "uncertain",
+      "energy": 5
+    },
+    {
+      "title": "Rooftop Pop",
+      "artist": "Example Artist E",
+      "duration": "3:31",
+      "styles": ["Pop"],
+      "bpm": 118,
+      "key": "C major",
+      "energy": 6
+    },
+    {
+      "title": "Peak Voltage",
+      "artist": "Example Artist F",
+      "duration": "5:44",
+      "styles": ["EDM"],
+      "bpm": 126,
+      "key": "10A",
+      "energy": 9,
+      "energy_reviewed": true,
+      "cues": [
+        { "kind": "entry", "start": "0:00", "end": "0:30", "reviewed": true, "vocal": "none" },
+        { "kind": "exit", "start": "4:50", "end": "5:44", "reviewed": true, "vocal": "none" }
+      ]
+    }
+  ]
+}
