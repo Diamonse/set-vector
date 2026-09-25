@@ -241,6 +241,9 @@ For the planned playlist engine, see the [research synthesis](docs/research/play
 The [analysis-engine extension research](docs/research/analysis-engine-extension.md) and
 [detailed prerequisite plan](docs/superpowers/plans/2026-09-22-playlist-analysis-prerequisites.md)
 map the required analysis and DJ planning work onto the existing Python package.
+An optional web app for reviewed track metadata and set planning, built on
+Next.js and Supabase, lives in [`web/`](web/README.md). It never receives audio
+and is separate from the offline analysis path.
 For an installable Windows and macOS app around the offline analyzer, see the
 [standalone desktop integration research](<reports/SetVector standalone analysis integration.md>).
 

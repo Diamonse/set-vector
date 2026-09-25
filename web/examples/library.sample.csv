@@ -1,0 +1,4 @@
+title,artist,version,remix_group,duration,styles,bpm,bpm_alternatives,key,key_status,energy,entry_cue,exit_cue,cues_reviewed,asset_id,notes
+Warm Room,Example Artist A,,,6:12,House,122,,8A,reviewed,4,0:00-0:32,5:20-6:12,yes,,
+Chandni Edit,Example Artist C,BollyHouse Edit,chandni,5:05,BollyHouse|Bollywood|House,125,,9A,estimated,7,0:00-0:30,4:20-5:05,yes,,"Vocal hook in outro"
+Late Signal,Example Artist D,,,4:48,Hip-hop,94,188,Dm,uncertain,5,,,,,
