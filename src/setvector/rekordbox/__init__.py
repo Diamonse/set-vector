@@ -15,6 +15,7 @@ from .model import (
 )
 from .profile import PROFILES, UNVERIFIED, CapabilityProfile, profile_for
 from .read import parse_library, read_library
+from .write import format_decimal, render_library
 
 __all__ = [
     "HOT_CUE_SLOTS",
@@ -30,12 +31,14 @@ __all__ = [
     "RekordboxTrack",
     "TempoMarker",
     "expand_tempo",
+    "format_decimal",
     "location_for_path",
     "parse_library",
     "path_from_location",
     "place_cues",
     "profile_for",
     "read_library",
+    "render_library",
     "tempo_markers_for",
     "validate_colour",
 ]

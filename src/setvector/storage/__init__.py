@@ -2,7 +2,7 @@
 
 from .artifacts import ArtifactStore
 from .canonical import canonical_json, compute_feature_id, compute_rhythm_id, strict_json_loads
-from .reports import write_report
+from .reports import write_file, write_report
 from .rhythm import RhythmStore
 
 __all__ = [
@@ -12,5 +12,6 @@ __all__ = [
     "compute_feature_id",
     "compute_rhythm_id",
     "strict_json_loads",
+    "write_file",
     "write_report",
 ]
