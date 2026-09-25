@@ -72,6 +72,8 @@ src = ["src"]
 extend-exclude = [
     "src/setvector/analysis/beat_this/_model.py",
     "src/setvector/analysis/beat_this/_roformer.py",
+    # Preserved exactly as run to build the reference snapshot.
+    "reports",
 ]
 
 [tool.ruff.lint]
