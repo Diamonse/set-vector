@@ -75,7 +75,7 @@ Requirements: Node.js 20.9 or newer and a Supabase project.
    npm install
    ```
 
-2. Create the database schema. In the Supabase dashboard, open **SQL Editor**, then paste and run `supabase/migrations/20260925000000_setvector_init.sql`. Alternatively, with the Supabase CLI linked to your project, run:
+2. Create the database schema. In the Supabase dashboard, open **SQL Editor**, then paste and run each file in `supabase/migrations/` in filename order. Alternatively, with the Supabase CLI linked to your project, run:
 
    ```bash
    npx supabase link --project-ref <project-ref>
