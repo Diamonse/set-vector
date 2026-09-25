@@ -6,14 +6,16 @@ import { ConfirmDelete } from "@/components/app/confirm-delete";
 import { MetricCard } from "@/components/app/metric-card";
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
+import { AnalysisSummary } from "@/components/analysis/analysis-summary";
 import { AnnotationList } from "@/components/library/annotation-list";
+import { AudioEditor } from "@/components/library/audio-editor";
 import { CueEditor } from "@/components/library/cue-editor";
 import { TrackForm } from "@/components/library/track-form";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { describeTrackKey } from "@/lib/domain/camelot";
 import { formatBpm, formatTime } from "@/lib/domain/format";
-import { getTrack, listTrackAnnotations } from "@/lib/data/queries";
+import { getLatestAnalysis, getTrack, listTrackAnnotations } from "@/lib/data/queries";
 import { requireUser } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/schemas";
 
@@ -29,7 +31,11 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
   const { trackId } = await params;
   if (!isUuid(trackId)) notFound();
   const { supabase } = await requireUser();
-  const [track, annotations] = await Promise.all([getTrack(supabase, trackId), listTrackAnnotations(supabase, trackId)]);
+  const [track, annotations, analysis] = await Promise.all([
+    getTrack(supabase, trackId),
+    listTrackAnnotations(supabase, trackId),
+    getLatestAnalysis(supabase, trackId),
+  ]);
   if (!track) notFound();
 
   const keyKind =
@@ -83,12 +89,24 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
         <MetricCard label="Duration" value={formatTime(track.durationSeconds)} detail={track.assetId ? `Asset ${track.assetId.slice(0, 16)}` : "No analyzer asset linked"} />
       </div>
 
-      <Tabs defaultValue="cues" className="mt-12">
+      <Tabs defaultValue="audio" className="mt-12">
         <TabsList aria-label="Track sections">
+          <TabsTrigger value="audio">Audio and analysis</TabsTrigger>
           <TabsTrigger value="cues">Cue regions</TabsTrigger>
           <TabsTrigger value="details">Edit details</TabsTrigger>
           <TabsTrigger value="history">Revision history</TabsTrigger>
         </TabsList>
+        <TabsContent value="audio" className="flex flex-col gap-8">
+          <AnalysisSummary analysis={analysis} trackTitle={track.title} />
+          <AudioEditor
+            trackId={track.id}
+            duration={track.durationSeconds}
+            trackAssetId={track.assetId}
+            cues={track.cues}
+            grid={analysis?.result.rhythm.beats.length ? { beats: analysis.result.rhythm.beats, downbeats: analysis.result.rhythm.downbeats } : null}
+            storedPeaks={analysis?.result.waveform.peaks ?? null}
+          />
+        </TabsContent>
         <TabsContent value="cues">
           <CueEditor trackId={track.id} cues={track.cues} duration={track.durationSeconds} />
         </TabsContent>
