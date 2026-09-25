@@ -1,5 +1,6 @@
 """Rekordbox XML exchange: read collection exports and write importable projections."""
 
+from .compare import compare_libraries, compare_track
 from .cues import CueOutcome, CuePlacement, CueRequest, place_cues
 from .grid import expand_tempo, tempo_markers_for
 from .model import (
@@ -30,6 +31,8 @@ __all__ = [
     "RekordboxLibrary",
     "RekordboxTrack",
     "TempoMarker",
+    "compare_libraries",
+    "compare_track",
     "expand_tempo",
     "format_decimal",
     "location_for_path",
