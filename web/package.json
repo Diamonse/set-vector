@@ -9,7 +9,10 @@
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run test && npm run build"
+    "check": "npm run typecheck && npm run test && npm run build",
+    "postinstall": "node scripts/copy-ort-wasm.mjs",
+    "test:model": "vitest run --config vitest.model.config.ts",
+    "fixtures": "cd .. && PYTHONPATH=src python web/scripts/make_analysis_fixtures.py"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -18,6 +21,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^1.48.0",
     "next": "^16.3.6",
+    "onnxruntime-web": "^1.30.0",
     "radix-ui": "^1.6.7",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

@@ -7,3 +7,7 @@ next-env.d.ts
 .env.local
 .env.*.local
 coverage/
+
+# Generated at install or export time
+public/ort/
+public/models/*.onnx
