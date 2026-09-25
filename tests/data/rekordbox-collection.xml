@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<DJ_PLAYLISTS Version="1.0.0">
+  <PRODUCT Name="rekordbox" Version="7.2.18" Company="AlphaTheta"/>
+  <COLLECTION Entries="4">
+    <TRACK TrackID="101" Name="Club Track" Artist="Artist A" Composer="" Album=""
+           Grouping="" Genre="Tech House" Kind="MP3 File" Size="9437184" TotalTime="360"
+           DiscNumber="0" TrackNumber="0" Year="2024" AverageBpm="124.00"
+           DateAdded="2026-09-01" BitRate="320" SampleRate="44100" Comments=""
+           PlayCount="0" Rating="0"
+           Location="file://localhost/C:/Music/Tom%27s%20%26%20Jerry%20%231/Caf%C3%A9%20100%25.mp3"
+           Remixer="" Tonality="8A" Label="" Mix="">
+      <TEMPO Inizio="0.054" Bpm="124.00" Metro="4/4" Battito="1"/>
+    </TRACK>
+    <TRACK TrackID="102" Name="Two Tempos" Artist="Artist B" Kind="MP3 File"
+           AverageBpm="123.00" Location="file://localhost/C:/Music/two%20tempos.mp3">
+      <TEMPO Inizio="0.051" Bpm="123.00" Metro="4/4" Battito="3"/>
+      <TEMPO Inizio="120.051" Bpm="126.00" Metro="4/4" Battito="1"/>
+      <POSITION_MARK Name="" Type="0" Start="97.609" Num="1" Red="69" Green="172"
+                     Blue="219"/>
+      <POSITION_MARK Name="" Type="0" Start="50.465" Num="-1"/>
+      <POSITION_MARK Name="Loop" Type="4" Start="30.000" End="37.742" Num="-1"/>
+      <POSITION_MARK Name="SV Drop" Type="0" Start="60.000" Num="7" Red="255" Green="0"
+                     Blue="0"/>
+    </TRACK>
+    <TRACK TrackID="103" Name="Stream" Kind="Unknown Format" Size="0" TotalTime="222"
+           Location="file://localhost/soundcloud:tracks:1044057805"/>
+    <TRACK TrackID="104" Name="NOISE" Kind="WAV File"
+           Location="file://localhost/C:/Music/rekordbox/Sampler/PRESET%20ONESHOT/NOISE.wav"/>
+  </COLLECTION>
+  <PLAYLISTS>
+    <NODE Type="0" Name="ROOT" Count="1">
+      <NODE Name="House Practice" Type="1" KeyType="0" Entries="1">
+        <TRACK Key="101"/>
+      </NODE>
+    </NODE>
+  </PLAYLISTS>
+</DJ_PLAYLISTS>
