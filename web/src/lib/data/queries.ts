@@ -154,3 +154,23 @@ export async function getPlan(supabase: ServerClient, id: string): Promise<Store
     updatedAt: row.updated_at,
   };
 }
+
+export interface StoredAnalysis {
+  id: string;
+  createdAt: string;
+  result: import("@/lib/analysis/types").AnalysisResult;
+}
+
+/** Latest browser analysis of a track, or null. Returns null if the table is not migrated yet. */
+export async function getLatestAnalysis(supabase: ServerClient, trackId: string): Promise<StoredAnalysis | null> {
+  const { data, error } = await supabase
+    .from("track_analyses")
+    .select("id, created_at, result")
+    .eq("track_id", trackId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { id: string; created_at: string; result: StoredAnalysis["result"] };
+  return { id: row.id, createdAt: row.created_at, result: row.result };
+}
