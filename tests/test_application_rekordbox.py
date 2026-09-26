@@ -195,6 +195,16 @@ def test_a_new_track_gets_a_free_id_location_name_and_bpm(tmp_path, build, beat_
     assert written.attribute("Name") == "New Track #1"
     assert written.attribute("AverageBpm") == "120.00"
     assert outcome.receipt["unverified_override"] is False
+    assert outcome.receipt["new_tracks"] == [str(audio.absolute())]
+
+
+def test_new_tracks_is_empty_for_a_library_only_change(tmp_path, build, beat_this_rhythm):
+    audio = audio_file(tmp_path)
+    library = library_file(tmp_path, [track_xml(5, audio, GRID)])
+    outcome = build(
+        library, FakeAnalyzer(beat_this_rhythm), cues={audio: DROP}, allow_unverified=True
+    )
+    assert outcome.receipt["new_tracks"] == []
 
 
 def test_an_added_path_collapses_dot_dot_segments(tmp_path, build, beat_this_rhythm):

@@ -189,6 +189,14 @@ def _run_rekordbox_export(args: argparse.Namespace) -> int:
                     f"cue slot {letter} instead of the requested one",
                     file=sys.stderr,
                 )
+    new_tracks = outcome.receipt.get("new_tracks", ())
+    if new_tracks:
+        print(
+            f"setvector: warning: {len(new_tracks)} track(s) are not in {args.xml} and were "
+            "written as new; export the full collection (File → Export Collection) first "
+            "if any of them are already in Rekordbox",
+            file=sys.stderr,
+        )
     return 0
 
 

@@ -215,6 +215,7 @@ def build_rekordbox_import(
     selected, records = _select_tracks(in_library, added, requests)
     used_ids = {track.track_id for track in library.tracks}
     written: list[RekordboxTrack] = []
+    new_tracks: list[str] = []
     for key, track in selected:
         path = track.path.resolve() if track is not None else added[key]
         record, result = _process(
@@ -228,6 +229,8 @@ def build_rekordbox_import(
         records.append(record)
         if result is not None:
             written.append(result)
+            if track is None:
+                new_tracks.append(str(path))
     changed_library_tracks = [r for r in records if r["in_library"] and r["status"] == "written"]
     if changed_library_tracks and not version_profile.verified and not allow_unverified:
         version = library.product_version or "of unknown version"
@@ -249,6 +252,7 @@ def build_rekordbox_import(
         },
         "output": str(xml_target),
         "written_count": len(written),
+        "new_tracks": sorted(new_tracks),
         "tracks": records,
     }
     text = json.dumps(receipt, indent=2, sort_keys=True, ensure_ascii=False) + "\n"

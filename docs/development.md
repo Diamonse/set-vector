@@ -157,6 +157,11 @@ remain readable on their own, but the back link needs the collection folder.
 SetVector reads a Rekordbox collection export (File → Export Collection in xml format) and
 writes an XML file for Rekordbox's own import. It never writes Rekordbox's database.
 
+The `<xml>` argument must be a full collection export, not a playlist export. A track missing
+from it — because the export is stale or covers only a playlist — is written as a new record
+rather than matched to the existing one, and importing that new record can replace the
+track's grid. `export` warns on standard error whenever it wrote tracks as new.
+
 ```powershell
 setvector rekordbox inspect collection.xml
 setvector rekordbox export collection.xml --config examples/analysis-config.json `
@@ -191,8 +196,9 @@ leaves one file without the other.
   or `--unverified-rekordbox`.
 - Standard error carries one warning per problem found while writing: a track left without
   a grid, a track skipped because several library records point to the same file, a cue
-  that did not fit (no free hot cue slot, or over the memory cue limit), and a hot cue
-  placed in a different slot than requested because its preferred one was taken.
+  that did not fit (no free hot cue slot, or over the memory cue limit), a hot cue placed
+  in a different slot than requested because its preferred one was taken, and, once per
+  run, the count of tracks written as new because they were not in `<xml>`.
 - The output and receipt paths must not coincide with the library file, a file passed to
   `--add`, or a library track named by `--add` or `--cues`; `export` refuses to overwrite
   an input this way.

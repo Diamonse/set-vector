@@ -407,6 +407,42 @@ def test_rekordbox_export_prints_warnings_for_skipped_omitted_and_unfit_cues(
     ) in err
 
 
+def test_rekordbox_export_warns_about_tracks_written_as_new(
+    monkeypatch, capsys, tmp_path, config_path
+):
+    receipt = {
+        "unverified_override": False,
+        "new_tracks": ["a.mp3", "b.mp3"],
+        "tracks": [],
+    }
+
+    def fake(xml, **kwargs):
+        return _fake_outcome(receipt, written_count=2)
+
+    monkeypatch.setattr(cli, "build_rekordbox_import", fake)
+    xml = tmp_path / "lib.xml"
+    code = cli.main(
+        [
+            "rekordbox",
+            "export",
+            str(xml),
+            "--config",
+            str(config_path),
+            "--workspace",
+            str(tmp_path / "w"),
+            "--output",
+            str(tmp_path / "o.xml"),
+        ]
+    )
+    err = capsys.readouterr().err
+    assert code == 0
+    assert (
+        f"setvector: warning: 2 track(s) are not in {xml} and were written as new; export "
+        "the full collection (File → Export Collection) first if any of them are already "
+        "in Rekordbox"
+    ) in err
+
+
 def test_rekordbox_export_bad_cues_file_is_a_usage_error(capsys, tmp_path, config_path):
     with pytest.raises(SystemExit) as excinfo:
         cli.main(
