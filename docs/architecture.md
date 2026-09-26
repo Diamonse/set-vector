@@ -55,6 +55,7 @@ The diagram shows data flow. Code dependencies point toward shared data contract
 | `storage` | Save/load artifacts, validate schemas, resolve cache identities | No scoring decisions |
 | `visualization` | Render raw features, curves, comparison views, and provenance | Consume results without recomputing features |
 | `cli` | Parse arguments, display progress, map errors to exit status | Thin adapter over application services |
+| `rekordbox` | Read Rekordbox XML exports and render importable XML projections of SetVector grids and cues | Optional integration; core analysis never imports it. Never replaces existing grids or user cues |
 | `transitions` | Later: directional comparison of specified mix regions | Requires explicit region and playback assumptions |
 | `playlists` | Later: ordered playlists, timed placements, and set summaries | Preserve distinction between ordering and actual mix timing |
 
