@@ -1,4 +1,4 @@
-import { Plus, Upload } from "lucide-react";
+import { AudioLines, Plus, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "@/components/app/empty-state";
@@ -30,12 +30,17 @@ export default async function LibraryPage() {
     <>
       <PageHeader
         title="Library"
-        lead="Track metadata and reviewed evidence. Audio stays on your machine; analyze it with the offline SetVector CLI and import the results."
+        lead="Track metadata and reviewed evidence. Analyze audio files in the browser, or import results from the offline CLI. Audio never leaves your device."
         actions={
           <>
             <Button asChild variant="secondary">
               <Link href="/library/import">
                 <Upload aria-hidden /> Import
+              </Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href="/library/analyze">
+                <AudioLines aria-hidden /> Analyze audio
               </Link>
             </Button>
             <Button asChild>
@@ -52,6 +57,9 @@ export default async function LibraryPage() {
           action={
             <>
               <Button asChild>
+                <Link href="/library/analyze">Analyze audio files</Link>
+              </Button>
+              <Button asChild variant="secondary">
                 <Link href="/library/import">Import JSON or CSV</Link>
               </Button>
               <Button asChild variant="secondary">
