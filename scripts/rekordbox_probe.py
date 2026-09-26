@@ -19,7 +19,8 @@ from setvector.rekordbox import CapabilityProfile, CueRequest, compare_libraries
 from setvector.storage import ArtifactStore
 
 SAMPLE_RATE = 44_100
-CONFIG = Path(__file__).resolve().parents[1] / "examples" / "analysis-config.json"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CONFIG = REPO_ROOT / "examples" / "analysis-config.json"
 PROBE_PROFILE = CapabilityProfile((), 8, 100, None, None, None)
 TRACKS = {
     "probe-1-constant-120.wav": (((120.0, 44),), 0.5),
@@ -37,9 +38,15 @@ COLOURS = (
     (180, 50, 255),
     (255, 18, 123),
 )
-CHECKLIST = """# Rekordbox probe
+CHECKLIST = (
+    """# Rekordbox probe
 
 Probe folder: `{folder}`
+
+Run the commands from the SetVector folder (`{repo}`) in PowerShell.
+
+- Back up your Rekordbox library first (File → Library → Backup Library).
+- Use Rekordbox 7.2.19; export with File → Export Collection in xml format.
 
 1. Rekordbox → Preferences → View → Layout: enable **rekordbox xml**.
 2. Preferences → Advanced → Database → rekordbox xml → Imported Library: choose `stage1.xml`.
@@ -54,13 +61,28 @@ Probe folder: `{folder}`
 6. On `probe-1-constant-120`, set hot cue **G** by hand on any beat and add one memory cue
    by hand.
 7. File → Export Collection in xml format → save as `export-1.xml` in the probe folder.
-8. Run `python scripts/rekordbox_probe.py stage2 "{folder}" --library "{folder}/export-1.xml"`.
+8. Run this command:
+
+   ```powershell
+   """
+    '.\\.venv\\Scripts\\python.exe scripts\\rekordbox_probe.py stage2 "{folder}" '
+    '--library "{folder}/export-1.xml"'
+    """
+   ```
+
 9. Point Imported Library to `stage2.xml`, open **rekordbox xml → All Tracks**, select
    `probe-1-constant-120` → **Import To Collection**. Write down any prompt. Import it a
    second time.
 10. Export the collection again as `export-2.xml` in the probe folder.
-11. Run `python scripts/rekordbox_probe.py check "{folder}" --export1 "{folder}/export-1.xml"
-    --export2 "{folder}/export-2.xml"` and keep `probe-results.json`.
+11. Run this command and keep `probe-results.json`:
+
+    ```powershell
+    """
+    '.\\.venv\\Scripts\\python.exe scripts\\rekordbox_probe.py check "{folder}" '
+    '--export1 "{folder}/export-1.xml" --export2 "{folder}/export-2.xml"'
+    """
+    ```
+
 12. Remove the three probe tracks from the Collection. Afterwards the probe folder (the WAVs,
     the XML files and SetVector's `workspace` cache) can be deleted; keep `probe-results.json`
     and your notes.
@@ -68,6 +90,7 @@ Probe folder: `{folder}`
 In stage 1, the hand-made cues from step 6 appear as `extra`. In stage 2 they are part of
 what SetVector wrote, so `missing` or `duplicated` there means Rekordbox lost or doubled them.
 """
+)
 
 
 def drum_track(sections, lead_in):
@@ -184,7 +207,8 @@ def generate(args) -> int:
             file=sys.stderr,
         )
         return 1
-    (folder / "CHECKLIST.md").write_text(CHECKLIST.format(folder=folder), encoding="utf-8")
+    checklist = CHECKLIST.format(folder=folder, repo=REPO_ROOT)
+    (folder / "CHECKLIST.md").write_text(checklist, encoding="utf-8")
     print(f"wrote {outcome.xml_path}; follow {folder / 'CHECKLIST.md'}")
     return 0
 

@@ -44,3 +44,19 @@ def test_check_with_a_missing_export_reports_an_error(tmp_path, capsys):
     status = PROBE["main"](["check", str(tmp_path), "--export1", str(tmp_path / "export-1.xml")])
     assert status == 1
     assert capsys.readouterr().err.startswith("error:")
+
+
+def test_checklist_commands_are_copy_paste_safe(tmp_path):
+    folder = tmp_path / "probe"
+    checklist = PROBE["CHECKLIST"].format(folder=folder, repo=PROBE["REPO_ROOT"])
+    assert f"Run the commands from the SetVector folder (`{PROBE['REPO_ROOT']}`)" in checklist
+    assert "Back up your Rekordbox library first" in checklist
+    assert "Use Rekordbox 7.2.19" in checklist
+    command_lines = [line for line in checklist.splitlines() if "rekordbox_probe.py" in line]
+    assert len(command_lines) == 2
+    for line in command_lines:
+        assert ".venv\\Scripts\\python.exe" in line
+    stage2_line = next(line for line in command_lines if "rekordbox_probe.py stage2" in line)
+    assert "--library" in stage2_line and str(folder) in stage2_line
+    check_line = next(line for line in command_lines if "rekordbox_probe.py check" in line)
+    assert "--export1" in check_line and "--export2" in check_line and str(folder) in check_line
