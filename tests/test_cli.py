@@ -4,13 +4,14 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import soundfile as sf
 
 import setvector.cli as cli
-from setvector.domain import ArtifactError, DecodeError
+from setvector.domain import ArtifactError, DecodeError, InputError
 
 
 def run_cli(*args, cwd):
@@ -271,3 +272,186 @@ def test_rekordbox_inspect_of_a_missing_file_is_a_usage_error(tmp_path):
     result = run_cli("rekordbox", "inspect", str(tmp_path / "none.xml"), cwd=tmp_path)
     assert result.returncode == 2
     assert "cannot read Rekordbox XML" in result.stderr
+
+
+def _fake_outcome(receipt, written_count=0):
+    return SimpleNamespace(
+        xml_path=Path("output.xml"),
+        receipt_path=Path("output.xml.receipt.json"),
+        written_count=written_count,
+        receipt=receipt,
+    )
+
+
+@pytest.mark.parametrize(
+    "add_arguments", [["--add", "a.mp3"], ["--add", "a.mp3", "--add", "b.mp3"]]
+)
+def test_rekordbox_export_parses_xml_placed_after_the_options(
+    monkeypatch, capsys, tmp_path, config_path, add_arguments
+):
+    captured = {}
+
+    def fake(xml, **kwargs):
+        captured["xml"] = xml
+        captured["add"] = kwargs["add"]
+        return _fake_outcome({"unverified_override": False, "tracks": []})
+
+    monkeypatch.setattr(cli, "build_rekordbox_import", fake)
+    xml = tmp_path / "lib.xml"
+    code = cli.main(
+        [
+            "rekordbox",
+            "export",
+            "--config",
+            str(config_path),
+            "--workspace",
+            str(tmp_path / "w"),
+            "--output",
+            str(tmp_path / "o.xml"),
+            *add_arguments,
+            str(xml),
+        ]
+    )
+    assert code == 0, capsys.readouterr().err
+    assert captured["xml"] == xml
+    assert captured["add"] == [Path(value) for value in add_arguments[1::2]]
+
+
+def test_rekordbox_export_prints_warnings_for_skipped_omitted_and_unfit_cues(
+    monkeypatch, capsys, tmp_path, config_path
+):
+    receipt = {
+        "unverified_override": False,
+        "tracks": [
+            {
+                "path": "dup.mp3",
+                "in_library": True,
+                "track_id": None,
+                "grid": {"action": "omitted", "reasons": ["several library records for this file"]},
+                "cues": [],
+                "status": "skipped",
+                "reason": "several library records for this file",
+            },
+            {
+                "path": "missing.mp3",
+                "in_library": True,
+                "track_id": 1,
+                "grid": {"action": "omitted", "reasons": ["audio file not found"]},
+                "cues": [],
+                "status": "unchanged",
+            },
+            {
+                "path": "cues.mp3",
+                "in_library": True,
+                "track_id": 2,
+                "grid": {"action": "kept", "markers": 4},
+                "cues": [
+                    {
+                        "label": "Full",
+                        "hot": True,
+                        "start_seconds": 1.0,
+                        "status": "no_free_slot",
+                        "slot": None,
+                    },
+                    {
+                        "label": "Over",
+                        "hot": False,
+                        "start_seconds": 2.0,
+                        "status": "over_memory_limit",
+                        "slot": None,
+                    },
+                    {
+                        "label": "Moved",
+                        "hot": True,
+                        "start_seconds": 3.0,
+                        "status": "moved_slot",
+                        "slot": 3,
+                    },
+                ],
+                "status": "written",
+            },
+        ],
+    }
+
+    def fake(xml, **kwargs):
+        return _fake_outcome(receipt, written_count=1)
+
+    monkeypatch.setattr(cli, "build_rekordbox_import", fake)
+    code = cli.main(
+        [
+            "rekordbox",
+            "export",
+            str(tmp_path / "lib.xml"),
+            "--config",
+            str(config_path),
+            "--workspace",
+            str(tmp_path / "w"),
+            "--output",
+            str(tmp_path / "o.xml"),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 0
+    output = json.loads(captured.out)
+    assert output["written_count"] == 1
+    assert output["unverified_override"] is False
+    err = captured.err
+    assert "setvector: warning: dup.mp3: skipped: several library records for this file" in err
+    assert "setvector: warning: missing.mp3: no grid written: audio file not found" in err
+    assert err.count("no grid written") == 1
+    assert "setvector: warning: cues.mp3: cue 'Full' not written: no free slot" in err
+    assert "setvector: warning: cues.mp3: cue 'Over' not written: over memory limit" in err
+    assert (
+        "setvector: warning: cues.mp3: cue 'Moved' placed in hot cue slot D instead of the "
+        "requested one"
+    ) in err
+
+
+def test_rekordbox_export_bad_cues_file_is_a_usage_error(capsys, tmp_path, config_path):
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(
+            [
+                "rekordbox",
+                "export",
+                str(tmp_path / "lib.xml"),
+                "--config",
+                str(config_path),
+                "--workspace",
+                str(tmp_path / "w"),
+                "--output",
+                str(tmp_path / "o.xml"),
+                "--cues",
+                str(tmp_path / "missing_cues.json"),
+            ]
+        )
+    assert excinfo.value.code == 2
+    assert "cannot read cue requests" in capsys.readouterr().err
+
+
+def test_rekordbox_export_unqualified_version_is_a_usage_error(
+    monkeypatch, capsys, tmp_path, config_path
+):
+    def fake(xml, **kwargs):
+        raise InputError(
+            "Rekordbox 7.2.19 has not been qualified for updating tracks already in the "
+            "collection; run scripts/rekordbox_probe.py to qualify it, or pass "
+            "--unverified-rekordbox"
+        )
+
+    monkeypatch.setattr(cli, "build_rekordbox_import", fake)
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(
+            [
+                "rekordbox",
+                "export",
+                str(tmp_path / "lib.xml"),
+                "--config",
+                str(config_path),
+                "--workspace",
+                str(tmp_path / "w"),
+                "--output",
+                str(tmp_path / "o.xml"),
+            ]
+        )
+    assert excinfo.value.code == 2
+    assert "rekordbox_probe" in capsys.readouterr().err

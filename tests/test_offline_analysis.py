@@ -98,3 +98,51 @@ def test_analyze_and_cache_work_with_network_sockets_blocked(
     assert json.loads(first.stdout)["rhythm_source"] in ("beat_this", "setvector_fallback", "none")
     assert json.loads(second.stdout)["rhythm_id"] == json.loads(first.stdout)["rhythm_id"]
     assert list((tmp_path / "torch home").iterdir()) == []
+
+
+def test_rekordbox_export_works_with_network_sockets_blocked(
+    tmp_path, tone_path, config_path, offline_environment
+):
+    library = tmp_path / "collection.xml"
+    library.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<DJ_PLAYLISTS Version="1.0.0">'
+        '<PRODUCT Name="rekordbox" Version="7.2.19" Company="AlphaTheta"/>'
+        '<COLLECTION Entries="0"/></DJ_PLAYLISTS>',
+        encoding="utf-8",
+    )
+    cues = tmp_path / "cues.json"
+    cue = {"label": "Start", "start_seconds": 0.5, "hot": False}
+    cues.write_text(
+        json.dumps({"tracks": [{"path": str(tone_path), "cues": [cue]}]}), encoding="utf-8"
+    )
+    output = tmp_path / "import" / "setvector.xml"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "setvector",
+            "rekordbox",
+            "export",
+            str(library),
+            "--config",
+            str(config_path),
+            "--workspace",
+            str(tmp_path / "workspace"),
+            "--output",
+            str(output),
+            "--add",
+            str(tone_path),
+            "--cues",
+            str(cues),
+        ],
+        cwd=tmp_path,
+        env=offline_environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["written_count"] == 1
+    assert "network access attempted" not in result.stderr
+    assert "no grid written" in result.stderr
+    assert 'Name="SV Start"' in output.read_text(encoding="utf-8")

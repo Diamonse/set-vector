@@ -7,7 +7,14 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from setvector import AnalysisConfig, __version__
-from setvector.application import analyze_track, create_report_index, inspect_library, render_report
+from setvector.application import (
+    analyze_track,
+    build_rekordbox_import,
+    create_report_index,
+    inspect_library,
+    load_cue_requests,
+    render_report,
+)
 from setvector.domain import InputError, SetVectorError
 from setvector.storage import ArtifactStore, strict_json_loads
 
@@ -122,6 +129,69 @@ def _run_rekordbox_inspect(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_rekordbox_export(args: argparse.Namespace) -> int:
+    try:
+        config = _load_config(args.config)
+    except (OSError, ValueError, TypeError) as error:
+        args.parser.error(f"cannot load configuration {args.config}: {error}")
+    cues = None
+    if args.cues is not None:
+        cues, status = _call(args, lambda: load_cue_requests(args.cues))
+        if status is not None:
+            return status
+    outcome, status = _call(
+        args,
+        lambda: build_rekordbox_import(
+            args.xml,
+            config=config,
+            store=ArtifactStore(args.workspace),
+            output=args.output,
+            add=args.add,
+            cues=cues,
+            allow_unverified=args.unverified_rekordbox,
+            overwrite=args.overwrite,
+        ),
+    )
+    if status is not None:
+        return status
+    result = {
+        "xml_path": str(outcome.xml_path),
+        "receipt_path": str(outcome.receipt_path),
+        "written_count": outcome.written_count,
+        "unverified_override": outcome.receipt["unverified_override"],
+    }
+    print(json.dumps(result, sort_keys=True, ensure_ascii=False))
+    for record in outcome.receipt["tracks"]:
+        if record["status"] == "skipped":
+            print(
+                f"setvector: warning: {record['path']}: skipped: {record['reason']}",
+                file=sys.stderr,
+            )
+            continue
+        grid = record["grid"]
+        if grid["action"] == "omitted":
+            reasons = "; ".join(grid["reasons"])
+            print(
+                f"setvector: warning: {record['path']}: no grid written: {reasons}", file=sys.stderr
+            )
+        for cue in record["cues"]:
+            if cue["status"] in ("no_free_slot", "over_memory_limit"):
+                problem = cue["status"].replace("_", " ")
+                print(
+                    f"setvector: warning: {record['path']}: cue {cue['label']!r} not written: "
+                    f"{problem}",
+                    file=sys.stderr,
+                )
+            elif cue["status"] == "moved_slot":
+                letter = "ABCDEFGH"[cue["slot"]]
+                print(
+                    f"setvector: warning: {record['path']}: cue {cue['label']!r} placed in hot "
+                    f"cue slot {letter} instead of the requested one",
+                    file=sys.stderr,
+                )
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="setvector",
@@ -193,6 +263,45 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     inspect_parser.add_argument("xml", type=Path, help="Rekordbox collection XML export")
     inspect_parser.set_defaults(handler=_run_rekordbox_inspect, parser=inspect_parser)
+    export_parser = rekordbox_commands.add_parser(
+        "export",
+        help="Write Rekordbox XML that adds SetVector grids and cues",
+        description=(
+            "Write an importable Rekordbox XML file and a receipt. Existing grids and the "
+            "user's cues are never replaced."
+        ),
+    )
+    export_parser.add_argument("xml", type=Path, help="Rekordbox collection XML export")
+    export_parser.add_argument(
+        "--config", type=Path, required=True, help="Analysis configuration JSON file"
+    )
+    export_parser.add_argument(
+        "--workspace", type=Path, required=True, help="Directory for analysis artifacts"
+    )
+    export_parser.add_argument(
+        "--output", type=Path, required=True, help="Rekordbox XML file to write"
+    )
+    export_parser.add_argument(
+        "--add",
+        type=Path,
+        action="append",
+        default=[],
+        metavar="AUDIO",
+        help=(
+            "Audio file to add, or a library track (matched by path) to give a grid if it "
+            "lacks one; repeat for several files"
+        ),
+    )
+    export_parser.add_argument("--cues", type=Path, help="JSON file of cue requests per audio file")
+    export_parser.add_argument(
+        "--unverified-rekordbox",
+        action="store_true",
+        help="Update library tracks although this Rekordbox version has not been qualified",
+    )
+    export_parser.add_argument(
+        "--overwrite", action="store_true", help="Replace existing output files"
+    )
+    export_parser.set_defaults(handler=_run_rekordbox_export, parser=export_parser)
     return parser
 
 
