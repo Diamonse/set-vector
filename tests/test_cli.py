@@ -254,3 +254,20 @@ def test_report_cli_processing_failure_exits_1(monkeypatch, capsys, tmp_path):
     code = cli.main(["report", "f" * 64, "--workspace", str(tmp_path)])
     assert code == 1
     assert capsys.readouterr().err.strip() == "setvector: error: stored artifact is corrupt"
+
+
+REKORDBOX_FIXTURE = Path(__file__).resolve().parent / "data" / "rekordbox-collection.xml"
+
+
+def test_rekordbox_inspect_prints_a_summary(tmp_path):
+    result = run_cli("rekordbox", "inspect", str(REKORDBOX_FIXTURE), cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    summary = json.loads(result.stdout)
+    assert summary["track_count"] == 4
+    assert summary["product"]["version"] == "7.2.18"
+
+
+def test_rekordbox_inspect_of_a_missing_file_is_a_usage_error(tmp_path):
+    result = run_cli("rekordbox", "inspect", str(tmp_path / "none.xml"), cwd=tmp_path)
+    assert result.returncode == 2
+    assert "cannot read Rekordbox XML" in result.stderr

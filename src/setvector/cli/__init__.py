@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from setvector import AnalysisConfig, __version__
-from setvector.application import analyze_track, create_report_index, render_report
+from setvector.application import analyze_track, create_report_index, inspect_library, render_report
 from setvector.domain import InputError, SetVectorError
 from setvector.storage import ArtifactStore, strict_json_loads
 
@@ -114,6 +114,14 @@ def _run_report_index(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_rekordbox_inspect(args: argparse.Namespace) -> int:
+    summary, status = _call(args, lambda: inspect_library(args.xml))
+    if status is not None:
+        return status
+    print(json.dumps(summary, sort_keys=True, ensure_ascii=False))
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="setvector",
@@ -175,6 +183,16 @@ def _build_parser() -> argparse.ArgumentParser:
     index_parser.add_argument("collection", type=Path, help="Folder containing a reports subfolder")
     index_parser.add_argument("--overwrite", action="store_true", help="Replace an existing index")
     index_parser.set_defaults(handler=_run_report_index, parser=index_parser)
+
+    rekordbox_parser = commands.add_parser(
+        "rekordbox", help="Read Rekordbox XML exports and write files Rekordbox can import"
+    )
+    rekordbox_commands = rekordbox_parser.add_subparsers(dest="rekordbox_command", required=True)
+    inspect_parser = rekordbox_commands.add_parser(
+        "inspect", help="Summarize the tracks, grids and cues in a Rekordbox XML export"
+    )
+    inspect_parser.add_argument("xml", type=Path, help="Rekordbox collection XML export")
+    inspect_parser.set_defaults(handler=_run_rekordbox_inspect, parser=inspect_parser)
     return parser
 
 
