@@ -386,6 +386,20 @@ def test_cues_that_do_not_fit_are_reported(tmp_path, build, beat_this_rhythm):
     ]
 
 
+def test_rerunning_the_same_cues_after_rekordbox_export_order_is_unchanged(
+    tmp_path, build, beat_this_rhythm
+):
+    audio = audio_file(tmp_path)
+    sv_intro = '<POSITION_MARK Name="SV Intro" Type="0" Start="5.000" Num="-1"/>'
+    user_hot = '<POSITION_MARK Name="" Type="0" Start="10.000" Num="0"/>'
+    library = library_file(tmp_path, [track_xml(5, audio, GRID + sv_intro + user_hot)])
+    requests = (CueRequest("Intro", 5.0, False),)
+    outcome = build(library, FakeAnalyzer(beat_this_rhythm), cues={audio: requests})
+    assert outcome.written_count == 0
+    (record,) = outcome.receipt["tracks"]
+    assert record["status"] == "unchanged"
+
+
 def test_receipt_records_limits_allow_unverified_hash_and_removed_cues(
     tmp_path, build, beat_this_rhythm
 ):

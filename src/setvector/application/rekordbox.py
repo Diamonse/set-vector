@@ -382,7 +382,13 @@ def _process(
         record["removed_setvector_cues"] = sorted(previous_sv - final_sv)
     result = None
     if track is not None:
-        if tempo != track.tempo or final_marks != track.marks:
+        # Rekordbox exports memory cues before hot cues regardless of request order, so
+        # comparing mark order would mark a track changed on every re-export even when its
+        # cues are identical; comparing as a multiset lets a stable export stay "unchanged".
+        # Rekordbox exports memory cues before hot cues regardless of request order, so
+        # comparing mark order would mark a track changed on every re-export even when its
+        # cues are identical; comparing as a multiset lets a stable export stay "unchanged".
+        if tempo != track.tempo or Counter(final_marks) != Counter(track.marks):
             result = replace(track, tempo=tempo, marks=final_marks)
     elif tempo or final_marks:
         result = _new_track(path, asset_id, bpm, tempo, final_marks, used_ids)
