@@ -210,7 +210,9 @@ overwrite it on import.
 
 To import, enable Preferences → View → Layout → rekordbox xml, choose the file under
 Preferences → Advanced → Database → rekordbox xml, then select the tracks under
-rekordbox xml → All Tracks and choose Import To Collection.
+rekordbox xml → All Tracks and choose Import To Collection. Switch off automatic analysis
+and CUE Analysis in Preferences → Analysis before importing, or Rekordbox replaces
+SetVector's grid and cues with its own.
 
 ## Python API
 

@@ -30,6 +30,29 @@ merges, or ignores it; whether hot cue slots D–H and memory cue colours surviv
 whether an imported grid survives Rekordbox's own analysis; and how closely Rekordbox
 preserves marker and mark timing.
 
+## New tracks, measured on Rekordbox 7.2.19 (Windows 11)
+
+No version is qualified yet; qualifying a version needs stage 2 of the probe, measured
+against a track already in the collection. The following is measured only for a track
+that Rekordbox has not stored yet, imported through rekordbox xml → All Tracks →
+Import To Collection:
+
+- A new track gets SetVector's grid (including a two-segment tempo change) and cues (hot
+  cues A–H with names and colours, named memory cues) only when its `TRACK` record also
+  carries `Kind`, `Size` and `TotalTime`. Without them, Rekordbox accepts the import but
+  ignores the `TEMPO` and `POSITION_MARK` data. `setvector rekordbox export` writes these
+  attributes for every new track.
+- With automatic analysis and CUE Analysis switched on in Preferences → Analysis,
+  Rekordbox analyses an imported track and replaces the grid and cues with its own
+  (`CUE(Auto)` hot cues). Both must be switched off during import.
+- Re-importing the same file path does not re-apply the XML grid and cues once Rekordbox
+  has already stored the track at that path. Remove the track first and use a path
+  Rekordbox has not stored, or treat re-import as still needing measurement.
+
+Still to measure: re-import of a track already in the collection (stage 2 of the probe),
+memory cue colours, loops, the 12-memory-cue count, and whether manual cues added in
+Rekordbox survive a SetVector re-export.
+
 ## Known open points
 
 - Whether Rekordbox keeps a single-beat bridging tempo marker. SetVector writes one when a

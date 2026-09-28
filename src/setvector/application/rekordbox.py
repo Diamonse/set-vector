@@ -8,7 +8,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from setvector.domain import AnalysisConfig, ArtifactError, InputError, RhythmAnalysis
+from setvector.domain import AnalysisConfig, ArtifactError, AudioAsset, InputError, RhythmAnalysis
 from setvector.rekordbox import (
     CapabilityProfile,
     CueOutcome,
@@ -31,6 +31,15 @@ from .analyze import analyze_track
 
 _PROBE_HINT = "run scripts/rekordbox_probe.py to qualify it, or pass --unverified-rekordbox"
 _TRACK_ID_MASK = 0x7FFFFFFF
+# Rekordbox 7.2.19 ignores TEMPO and POSITION_MARK data on a new TRACK record unless it
+# also carries Kind, Size and TotalTime; SampleRate is written alongside them because
+# Rekordbox's own exports always include it on a real track.
+_FORMAT_TO_KIND = {
+    "WAV": "WAV File",
+    "MP3": "MP3 File",
+    "FLAC": "FLAC File",
+    "AIFF": "AIFF File",
+}
 
 
 def _is_file(path: Path) -> bool:
@@ -365,14 +374,14 @@ def _process(
     record: dict[str, object] = {"path": str(path), "in_library": track is not None}
     tempo = track.tempo if track is not None else ()
     marks = track.marks if track is not None else ()
-    asset_id = bpm = None
+    asset = bpm = None
     if tempo:
         record["grid"] = {"action": "kept", "markers": len(tempo)}
     elif not _is_file(path):
         record["grid"] = {"action": "omitted", "reasons": ["audio file not found"]}
     else:
         outcome = analyze(path)
-        asset_id = outcome.asset.asset_id
+        asset = outcome.asset
         tempo, record["grid"] = _grid(outcome.rhythm)
         bpm = outcome.rhythm.tempo_bpm if tempo else None
     if requests is None:
@@ -395,7 +404,7 @@ def _process(
         if tempo != track.tempo or Counter(final_marks) != Counter(track.marks):
             result = replace(track, tempo=tempo, marks=final_marks)
     elif tempo or final_marks:
-        result = _new_track(path, asset_id, bpm, tempo, final_marks, used_ids)
+        result = _new_track(path, asset, bpm, tempo, final_marks, used_ids)
     if result is not None:
         record["track_id"] = result.track_id
     else:
@@ -417,19 +426,28 @@ def _grid(rhythm: RhythmAnalysis) -> tuple[tuple[TempoMarker, ...], dict[str, ob
 
 def _new_track(
     path: Path,
-    asset_id: str | None,
+    asset: AudioAsset | None,
     bpm: float | None,
     tempo: tuple[TempoMarker, ...],
     marks: tuple[PositionMark, ...],
     used_ids: set[int],
 ) -> RekordboxTrack:
-    if asset_id is None:
+    if asset is None:
         raise InputError(f"audio file disappeared: {path}")
-    track_id = int(asset_id[:8], 16) & _TRACK_ID_MASK or 1
+    track_id = int(asset.asset_id[:8], 16) & _TRACK_ID_MASK or 1
     while track_id in used_ids:
         track_id = track_id % _TRACK_ID_MASK + 1
     used_ids.add(track_id)
     attributes = [("Name", path.stem)]
+    kind = _FORMAT_TO_KIND.get(asset.format)
+    if kind is not None:
+        attributes.append(("Kind", kind))
+    attributes.append(("Size", str(asset.byte_size)))
+    # soundfile reports an MP3's duration from its header-estimated frame count rather
+    # than a sample-exact decode; Rekordbox only needs whole seconds, so that estimate
+    # is truncated directly instead of decoding the file again just to round it.
+    attributes.append(("TotalTime", str(int(asset.duration_seconds))))
+    attributes.append(("SampleRate", str(asset.native_sample_rate)))
     if bpm is not None:
         attributes.append(("AverageBpm", f"{bpm:.2f}"))
     return RekordboxTrack(track_id, location_for_path(path), tuple(attributes), tempo, marks)

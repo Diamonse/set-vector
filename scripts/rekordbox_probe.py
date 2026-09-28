@@ -45,6 +45,7 @@ Probe folder: `{folder}`
 
 Run the commands from the SetVector folder (`{repo}`) in PowerShell.
 
+- In Preferences → Analysis, switch off automatic analysis and CUE Analysis before importing.
 - Back up your Rekordbox library first (File → Library → Backup Library).
 - Use Rekordbox 7.2.19; export with File → Export Collection in xml format.
 

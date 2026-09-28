@@ -99,14 +99,22 @@ DROP = (CueRequest("Drop", 60.0, True),)
 class FakeAnalyzer:
     """Stands in for analyze_track: returns ``rhythm`` and a path-derived asset ID."""
 
-    def __init__(self, rhythm):
+    def __init__(self, rhythm, asset_format="MP3"):
         self.rhythm = rhythm
+        self.asset_format = asset_format
         self.calls = []
 
     def __call__(self, path, config, store):
         self.calls.append(Path(path))
         asset_id = hashlib.sha256(str(path).encode()).hexdigest()
-        return SimpleNamespace(asset=SimpleNamespace(asset_id=asset_id), rhythm=self.rhythm)
+        asset = SimpleNamespace(
+            asset_id=asset_id,
+            byte_size=1234,
+            duration_seconds=89.6,
+            native_sample_rate=44100,
+            format=self.asset_format,
+        )
+        return SimpleNamespace(asset=asset, rhythm=self.rhythm)
 
 
 @pytest.fixture
@@ -193,9 +201,36 @@ def test_a_new_track_gets_a_free_id_location_name_and_bpm(tmp_path, build, beat_
     assert written.track_id == taken + 1
     assert written.location == location_for_path(audio.absolute())
     assert written.attribute("Name") == "New Track #1"
+    assert written.attribute("Kind") == "MP3 File"
+    assert written.attribute("Size") == "1234"
+    assert written.attribute("TotalTime") == "89"
+    assert written.attribute("SampleRate") == "44100"
     assert written.attribute("AverageBpm") == "120.00"
+    assert [name for name, _ in written.attributes] == [
+        "Name",
+        "Kind",
+        "Size",
+        "TotalTime",
+        "SampleRate",
+        "AverageBpm",
+    ]
     assert outcome.receipt["unverified_override"] is False
     assert outcome.receipt["new_tracks"] == [str(audio.absolute())]
+
+
+def test_a_new_track_with_an_unrecognized_format_omits_kind(tmp_path, build, beat_this_rhythm):
+    audio = audio_file(tmp_path, "New Track #2.ogg")
+    library = library_file(tmp_path, [])
+    outcome = build(library, FakeAnalyzer(beat_this_rhythm, asset_format="OGG"), add=[audio])
+    (written,) = read_library(outcome.xml_path).tracks
+    assert written.attribute("Kind") is None
+    assert [name for name, _ in written.attributes] == [
+        "Name",
+        "Size",
+        "TotalTime",
+        "SampleRate",
+        "AverageBpm",
+    ]
 
 
 def test_new_tracks_is_empty_for_a_library_only_change(tmp_path, build, beat_this_rhythm):
