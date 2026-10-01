@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <a
           href="#main"
-          className="sr-only z-50 rounded-[8px] bg-action px-4 py-2 text-on-action focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+          className="sr-only z-50 rounded-control bg-action px-4 py-2 text-on-action focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
         >
           Skip to content
         </a>

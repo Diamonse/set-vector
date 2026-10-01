@@ -25,8 +25,7 @@ export function MetricCard({
   const unavailable = value === null || value === undefined || value === "";
   const lit = meter === null || meter === undefined ? null : Math.round(Math.max(0, Math.min(1, meter)) * 20);
   return (
-    <div className={cn("relative flex flex-col gap-2 overflow-hidden panel p-5", className)}>
-      <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-action/50 to-transparent" />
+    <div className={cn("flex flex-col gap-2 panel p-5", className)}>
       <div className="flex items-start justify-between gap-2">
         <span className="text-eyebrow text-muted">{label}</span>
         {status}

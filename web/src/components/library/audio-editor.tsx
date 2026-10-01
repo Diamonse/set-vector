@@ -27,24 +27,46 @@ export interface EditorGrid {
 export interface EditorPoint {
   time: number;
   label: string;
-  color: string;
+  /** CSS color; points without one use the onset data color. */
+  color?: string | undefined;
 }
 
 const HEIGHT = 180;
 const RULER = 22;
-const COLORS = {
-  wave: "#C4D0D8",
-  beat: "rgba(120, 184, 255, 0.45)",
-  downbeat: "#78B8FF",
-  entry: "rgba(120, 184, 255, 0.22)",
-  entryEdge: "#78B8FF",
-  exit: "rgba(255, 123, 104, 0.22)",
-  exitEdge: "#FF7B68",
-  selection: "rgba(248, 250, 252, 0.18)",
-  playhead: "#F8FAFC",
-  point: "#FFC24D",
-  text: "#C4D0D8",
-};
+/** Seconds between updates of the time readout and slider; the playhead itself moves every frame. */
+const READOUT_INTERVAL = 0.1;
+
+/** Adds alpha to a #rrggbb or rgb() color for the canvas, which cannot read CSS variables. */
+function withAlpha(color: string, alpha: number): string {
+  const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color);
+  const parts = hex ? hex.slice(1).map((h) => parseInt(h, 16)) : (color.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+  return parts.length === 3 ? `rgba(${parts.join(", ")}, ${alpha})` : color;
+}
+
+/**
+ * Canvas colors from the design tokens. The waveform panel is always dark, so it uses the
+ * on-dark text colors (resolved through `color` on the canvases) and the *-dark data colors.
+ */
+function readPalette(base: HTMLElement, overlay: HTMLElement) {
+  const css = getComputedStyle(base);
+  const token = (name: string) => css.getPropertyValue(name).trim();
+  const rhythm = token("--data-rhythm-dark");
+  const energy = token("--data-energy-dark");
+  const wave = css.color;
+  const playhead = getComputedStyle(overlay).color;
+  return {
+    wave,
+    text: wave,
+    beat: withAlpha(rhythm, 0.45),
+    downbeat: rhythm,
+    entry: withAlpha(rhythm, 0.22),
+    entryEdge: rhythm,
+    exit: withAlpha(energy, 0.22),
+    exitEdge: energy,
+    selection: withAlpha(playhead, 0.18),
+    point: token("--data-onset-dark"),
+  };
+}
 
 type Drag =
   | { kind: "select"; anchor: number }
@@ -102,6 +124,8 @@ export function AudioEditor({
   storedPeaks: number[] | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const timeRef = useRef(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -154,10 +178,35 @@ export function AudioEditor({
 
   useEffect(() => () => void (audioUrl && URL.revokeObjectURL(audioUrl)), [audioUrl]);
 
-  // Draw.
+  // Moving layer: only the playhead, redrawn every frame during playback.
+  const drawPlayhead = useCallback(() => {
+    const canvas = overlayRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== contentWidth * dpr || canvas.height !== HEIGHT * dpr) {
+      canvas.width = contentWidth * dpr;
+      canvas.height = HEIGHT * dpr;
+      canvas.style.width = `${contentWidth}px`;
+      canvas.style.height = `${HEIGHT}px`;
+    }
+    const g = canvas.getContext("2d");
+    if (!g) return;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, contentWidth, HEIGHT);
+    g.fillStyle = getComputedStyle(canvas).color;
+    g.fillRect(Math.round(x(timeRef.current)), 0, 2, HEIGHT);
+  }, [contentWidth, x]);
+
+  useEffect(() => {
+    timeRef.current = time;
+    drawPlayhead();
+  }, [time, drawPlayhead]);
+
+  // Static layer: waveform, beats, regions, points, and the selection. Not redrawn while playing.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !overlayRef.current) return;
+    const COLORS = readPalette(canvas, overlayRef.current);
     const dpr = window.devicePixelRatio || 1;
     canvas.width = contentWidth * dpr;
     canvas.height = HEIGHT * dpr;
@@ -207,7 +256,7 @@ export function AudioEditor({
 
     for (const p of points) {
       const px = Math.round(x(p.time));
-      g.fillStyle = p.color;
+      g.fillStyle = p.color ?? COLORS.point;
       g.beginPath();
       g.moveTo(px - 5, RULER);
       g.lineTo(px + 5, RULER);
@@ -221,10 +270,7 @@ export function AudioEditor({
       g.fillStyle = COLORS.selection;
       g.fillRect(x(selection.start), RULER, x(selection.end) - x(selection.start), HEIGHT - RULER);
     }
-
-    g.fillStyle = COLORS.playhead;
-    g.fillRect(Math.round(x(time)), 0, 2, HEIGHT);
-  }, [contentWidth, peaks, beats, downbeatSet, beatPeriod, cues, points, regionOf, selectedCue, selection, time, x]);
+  }, [contentWidth, peaks, beats, downbeatSet, beatPeriod, cues, points, regionOf, selectedCue, selection, x]);
 
   // Keep the playhead in view while zoomed.
   useEffect(() => {
@@ -234,21 +280,33 @@ export function AudioEditor({
     if (px < el.scrollLeft || px > el.scrollLeft + el.clientWidth - 40) el.scrollLeft = Math.max(0, px - el.clientWidth / 4);
   }, [time, zoom, playing, x]);
 
-  // Playback clock and loop.
+  // Playback clock and loop. The playhead follows every frame; React state (the readout,
+  // slider, and auto-scroll) updates about ten times a second instead of re-rendering per frame.
   useEffect(() => {
+    if (!playing) return;
+    const audio = audioRef.current;
     let frame = 0;
+    let shown = -Infinity;
     const tick = () => {
-      const audio = audioRef.current;
       if (audio) {
-        setTime(audio.currentTime);
         const region = selectedRegion();
         if (loop && region && audio.currentTime >= region.end) audio.currentTime = region.start;
+        timeRef.current = audio.currentTime;
+        drawPlayhead();
+        if (Math.abs(audio.currentTime - shown) >= READOUT_INTERVAL) {
+          shown = audio.currentTime;
+          setTime(shown);
+        }
       }
       frame = requestAnimationFrame(tick);
     };
-    if (playing) frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  });
+    frame = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(frame);
+      if (audio) setTime(audio.currentTime);
+    };
+    // selectedRegion reads cues, edits (via regionOf), selection, and selectedCue, so those restart the loop.
+  }, [playing, loop, cues, regionOf, selection, selectedCue, drawPlayhead]);
 
   const selectedRegion = () => {
     if (selectedCue) {
@@ -440,7 +498,7 @@ export function AudioEditor({
             id={`audio-file-${trackId}`}
             type="file"
             accept="audio/*"
-            className="text-[14px] file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-[8px] file:border file:border-control-border file:bg-surface file:px-4 file:text-ui file:text-ink"
+            className="text-[14px] file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-control file:border file:border-control-border file:bg-surface file:px-4 file:text-ui file:text-ink"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void openFile(f);
@@ -455,7 +513,7 @@ export function AudioEditor({
         </Alert>
       ) : null}
 
-      <div className="on-dark mt-6 rounded-[16px] border border-on-dark/10 bg-dark p-4 shadow-lift text-on-dark">
+      <div className="on-dark mt-6 rounded-card border border-on-dark/10 bg-dark p-4 shadow-lift text-on-dark">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="dark" size="icon" onClick={togglePlay} disabled={!audioUrl} aria-label={playing ? "Pause" : "Play"}>
             {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
@@ -499,17 +557,18 @@ export function AudioEditor({
           </div>
         </div>
 
-        <div ref={wrapRef} className="mt-3 overflow-x-auto overscroll-x-contain rounded-[8px] bg-dark-elevated">
+        <div ref={wrapRef} className="relative mt-3 overflow-x-auto overscroll-x-contain rounded-control bg-dark-elevated">
           <canvas
             ref={canvasRef}
             role="img"
             aria-label={`Waveform of ${formatTime(duration)} with ${cues.length} cue regions${beats.length ? ` and ${beats.length} beat markers` : ""}${points.length ? ` and ${points.length} cue points` : ""}. Use the controls and the table below for keyboard access.`}
-            className="block touch-none"
+            className="block touch-none text-on-dark-muted"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
           />
+          <canvas ref={overlayRef} aria-hidden className="pointer-events-none absolute top-0 left-0 block text-on-dark" />
         </div>
         <input
           type="range"
@@ -530,7 +589,7 @@ export function AudioEditor({
             {points.map((p, i) => (
               <li key={i}>
                 <button type="button" className="underline-offset-2 hover:underline" onClick={() => seek(p.time)}>
-                  <span aria-hidden className="mr-1 inline-block size-2 rounded-full align-middle" style={{ backgroundColor: p.color }} />
+                  <span aria-hidden className="mr-1 inline-block size-2 rounded-full align-middle" style={{ backgroundColor: p.color ?? "var(--data-onset-dark)" }} />
                   {p.label} {formatTime(p.time)}
                 </button>
               </li>
@@ -562,7 +621,7 @@ export function AudioEditor({
         ) : null}
 
         {selected ? (
-          <div className="flex flex-col gap-3 rounded-[8px] border border-divider p-4">
+          <div className="flex flex-col gap-3 rounded-inset border border-divider p-4">
             <p className="text-ui text-ink">
               {selected.kind === "entry" ? "Entry" : "Exit"} region: {selected.label || "Unlabelled"}{" "}
               <span className="text-data font-normal text-muted">

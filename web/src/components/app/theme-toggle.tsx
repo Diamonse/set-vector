@@ -36,7 +36,7 @@ export function ThemeToggle({ className }: { className?: string }) {
             title={`${label} theme`}
             onClick={() => applyThemeChoice(value)}
             className={cn(
-              "inline-flex size-9 items-center justify-center rounded-full text-muted transition-colors hover:text-ink",
+              "inline-flex size-9 items-center pointer-coarse:size-11 justify-center rounded-full text-muted transition-colors hover:text-ink",
               active && "bg-surface text-ink shadow-card",
             )}
           >

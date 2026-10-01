@@ -19,7 +19,7 @@ export function PageHeader({
       <div className="max-w-[72ch]">
         {eyebrow ? (
           <div className="mb-3 inline-flex items-center gap-2 text-eyebrow text-muted [&_a]:text-muted [&_a:hover]:text-ink">
-            <span aria-hidden className="size-1.5 rounded-full bg-action shadow-[0_0_10px_var(--action)]" />
+            <span aria-hidden className="size-1.5 rounded-full bg-action" />
             {eyebrow}
           </div>
         ) : null}

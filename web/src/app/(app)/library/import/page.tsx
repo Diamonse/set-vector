@@ -44,13 +44,13 @@ export default function ImportPage() {
             <CardHeader>
               <CardTitle>JSON fields</CardTitle>
             </CardHeader>
-            <pre className="overflow-x-auto rounded-[8px] bg-surface-subtle p-3 text-data text-[12px]">{JSON_EXAMPLE}</pre>
+            <pre className="overflow-x-auto rounded-control bg-surface-subtle p-3 text-data text-[12px]">{JSON_EXAMPLE}</pre>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle>CSV columns</CardTitle>
             </CardHeader>
-            <pre className="overflow-x-auto rounded-[8px] bg-surface-subtle p-3 text-data text-[12px]">{CSV_EXAMPLE}</pre>
+            <pre className="overflow-x-auto rounded-control bg-surface-subtle p-3 text-data text-[12px]">{CSV_EXAMPLE}</pre>
             <p className="mt-3 text-caption text-muted">
               Separate multiple styles or alternative tempos with <code>|</code>. Cue columns take <code>start-end</code>. Keys accept Camelot
               codes or names. Energy is your relative 1 to 10 scale.

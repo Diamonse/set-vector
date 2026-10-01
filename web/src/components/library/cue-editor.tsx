@@ -99,7 +99,7 @@ function reviewKind(cue: CueRegion) {
 function CueTimeline({ cues, duration }: { cues: CueRegion[]; duration: number }) {
   const ticks = Array.from({ length: 5 }, (_, i) => (duration * i) / 4);
   return (
-    <div className="on-dark rounded-[16px] border border-on-dark/10 bg-dark shadow-lift p-6 text-on-dark">
+    <div className="on-dark rounded-card border border-on-dark/10 bg-dark shadow-lift p-6 text-on-dark">
       <div className="flex items-baseline justify-between">
         <h3 className="text-card-title text-on-dark">Cue regions</h3>
         <span className="text-data text-on-dark-muted">{formatTime(duration)}</span>

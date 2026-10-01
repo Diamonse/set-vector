@@ -29,7 +29,7 @@ export interface PickerTrack extends FilterableTrack {
   keyStatus: "unknown" | "estimated" | "reviewed" | "uncertain" | "not_meaningful";
 }
 
-const FIELD = "min-h-9 rounded-[8px] px-2 py-1 text-[14px]";
+const FIELD = "min-h-9 px-2 py-1 text-[14px]";
 const SORTS: SortKey[] = ["title", "artist", "bpm", "key", "energy", "length", "style", "cues"];
 
 /**
@@ -106,7 +106,7 @@ export function TrackPicker({
       </div>
 
       {showFilters ? (
-        <div id={`${id}-filters`} className="grid gap-3 rounded-[10px] border border-divider bg-surface-subtle/50 p-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div id={`${id}-filters`} className="grid gap-3 rounded-control border border-divider bg-surface-subtle/50 p-3 sm:grid-cols-2 lg:grid-cols-4">
           <PickerField label="Style">
             <NativeSelect aria-label="Style" value={filters.style} onChange={(e) => set({ style: e.target.value })} className={cn(FIELD, "pr-8")}>
               <option value="">All styles</option>
@@ -213,7 +213,7 @@ export function TrackPicker({
         {selected.length} selected · {visible.length} of {tracks.length} shown
         {active ? ` · ${active} filter${active === 1 ? "" : "s"} on` : ""}
       </p>
-      <ul className="divide-y divide-divider overflow-y-auto rounded-[10px] border border-control-border/50 bg-surface" style={{ maxHeight }}>
+      <ul className="divide-y divide-divider overflow-y-auto rounded-control border border-control-border/50 bg-surface" style={{ maxHeight }}>
         {visible.map((t) => {
           const key = usableKey(t.keyTonic, t.keyMode, t.keyStatus);
           const checkboxId = `${id}-${t.id}`;

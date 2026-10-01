@@ -42,7 +42,7 @@ function needsReview(t: Track): boolean {
   );
 }
 
-const FIELD = "min-h-9 rounded-[8px] px-2 py-1 text-[14px]";
+const FIELD = "min-h-9 px-2 py-1 text-[14px]";
 // Header cells use the mono eyebrow style; the filter row resets it so inputs read normally.
 const FILTER_CELL = "h-auto py-2 align-top font-sans text-[14px] font-normal tracking-normal normal-case";
 

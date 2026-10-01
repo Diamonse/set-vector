@@ -42,7 +42,7 @@ export function EnergyBreakdown({
       </CardHeader>
 
       {userEnergy !== null ? (
-        <p className="mb-4 rounded-[10px] border border-divider bg-surface-subtle px-3 py-2 text-caption text-body">
+        <p className="mb-4 rounded-control border border-divider bg-surface-subtle px-3 py-2 text-caption text-body">
           Your rating of <span className="font-mono">{userEnergy}</span> is used for planning. Clear the energy field in Edit details to use the
           estimate instead.
         </p>

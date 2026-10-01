@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Download, Pencil, Plus, X } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { adoptAlternative, saveEditedOrder } from "@/app/actions/plans";
 import { FormMessage } from "@/components/app/form-message";
 import { StatusBadge, type EvidenceKind } from "@/components/app/status-badge";
@@ -63,89 +63,140 @@ function SetOrder({
 }) {
   const worst = plan.metrics.transitionCost.worstIndex;
   const dj = plan.transitions[0]?.type !== "sequential";
+  const listRef = useRef<HTMLOListElement>(null);
+  // Rows re-render with new keys after an edit, so the pressed button is replaced; put focus
+  // back on the matching control of the moved row (or its neighbour) once the new order renders.
+  const pendingFocus = useRef<{ index: number; action: "up" | "down" | "remove" } | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (!target) return;
+    pendingFocus.current = null;
+    const find = (index: number, action: string) =>
+      listRef.current?.querySelector<HTMLButtonElement>(`[data-row="${index}"][data-action="${action}"]:not(:disabled)`);
+    const fallback = target.action === "up" ? "down" : "up";
+    (find(target.index, target.action) ?? find(target.index, fallback) ?? find(target.index, "remove"))?.focus();
+  });
+
+  const move = (from: number, to: number) => {
+    pendingFocus.current = { index: to, action: to < from ? "up" : "down" };
+    setAnnouncement(`Moved ${plan.items[from]!.title} to position ${to + 1} of ${plan.items.length}.`);
+    onMove(from, to);
+  };
+
+  const remove = (index: number) => {
+    pendingFocus.current = { index: Math.min(index, plan.items.length - 2), action: "remove" };
+    setAnnouncement(`Removed ${plan.items[index]!.title}. ${plan.items.length - 1} tracks remain.`);
+    onRemove(index);
+  };
+
   return (
-    <ol className="flex flex-col" aria-label="Set order">
-      {plan.items.map((item, i) => {
-        const transition = plan.transitions[i];
-        const entryBadge = ORIGIN_BADGE[item.entryOrigin];
-        const exitBadge = ORIGIN_BADGE[item.exitOrigin];
-        return (
-          <li key={`${item.occurrenceId}-${i}`}>
-            <div className="flex flex-col gap-3 panel p-4 md:flex-row md:items-center">
-              <div className="flex items-center gap-4 md:w-[45%]">
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-action/40 bg-[radial-gradient(circle,var(--surface)_28%,color-mix(in_oklab,var(--action)_14%,var(--surface))_30%)] font-mono text-[15px] font-semibold text-action">
-                  {i + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-ink">{item.title}</p>
-                  <p className="truncate text-caption text-muted">{item.artist || "Unknown artist"}</p>
+    <>
+      <p className="sr-only" aria-live="polite">
+        {announcement}
+      </p>
+      <ol ref={listRef} className="flex flex-col" aria-label="Set order">
+        {plan.items.map((item, i) => {
+          const transition = plan.transitions[i];
+          const entryBadge = ORIGIN_BADGE[item.entryOrigin];
+          const exitBadge = ORIGIN_BADGE[item.exitOrigin];
+          return (
+            <li key={`${item.occurrenceId}-${i}`}>
+              <div className="flex flex-col gap-3 panel p-4 md:flex-row md:items-center">
+                <div className="flex items-center gap-4 md:w-[45%]">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-action/40 bg-[radial-gradient(circle,var(--surface)_28%,color-mix(in_oklab,var(--action)_14%,var(--surface))_30%)] font-mono text-[15px] font-semibold text-action">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-ink">{item.title}</p>
+                    <p className="truncate text-caption text-muted">{item.artist || "Unknown artist"}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-1 flex-col gap-1 text-[14px]">
-                <p>
-                  <span className="text-muted">Starts at </span>
-                  <span className="text-data">{formatTime(item.elapsedStartSeconds)}</span>
-                  {dj ? (
-                    <>
-                      <span className="text-muted"> · plays </span>
-                      <span className="text-data">
-                        {formatTime(item.playStartSeconds)} to {formatTime(item.playEndSeconds)}
-                      </span>
-                    </>
-                  ) : null}
-                  <span className="text-muted"> · energy </span>
-                  {item.energy === null ? <span className="text-data">n/a</span> : <EnergyMeter value={item.energy} className="align-middle text-[14px]" />}
-                  {item.targetEnergy !== null ? (
-                    <>
-                      <span className="text-muted"> (target </span>
-                      <span className="text-data">{item.targetEnergy.toFixed(1)}</span>
-                      <span className="text-muted">)</span>
-                    </>
-                  ) : null}
-                </p>
-                {dj ? (
-                  <p className="flex flex-wrap items-center gap-2 text-caption text-muted">
-                    <span>In: {item.entryLabel}</span>
-                    {entryBadge ? <StatusBadge kind={entryBadge} /> : null}
-                    <span>Out: {item.exitLabel}</span>
-                    {exitBadge ? <StatusBadge kind={exitBadge} /> : null}
+                <div className="flex flex-1 flex-col gap-1 text-[14px]">
+                  <p>
+                    <span className="text-muted">Starts at </span>
+                    <span className="text-data">{formatTime(item.elapsedStartSeconds)}</span>
+                    {dj ? (
+                      <>
+                        <span className="text-muted"> · plays </span>
+                        <span className="text-data">
+                          {formatTime(item.playStartSeconds)} to {formatTime(item.playEndSeconds)}
+                        </span>
+                      </>
+                    ) : null}
+                    <span className="text-muted"> · energy </span>
+                    {item.energy === null ? <span className="text-data">n/a</span> : <EnergyMeter value={item.energy} className="align-middle text-[14px]" />}
+                    {item.targetEnergy !== null ? (
+                      <>
+                        <span className="text-muted"> (target </span>
+                        <span className="text-data">{item.targetEnergy.toFixed(1)}</span>
+                        <span className="text-muted">)</span>
+                      </>
+                    ) : null}
                   </p>
+                  {dj ? (
+                    <p className="flex flex-wrap items-center gap-2 text-caption text-muted">
+                      <span>In: {item.entryLabel}</span>
+                      {entryBadge ? <StatusBadge kind={entryBadge} /> : null}
+                      <span>Out: {item.exitLabel}</span>
+                      {exitBadge ? <StatusBadge kind={exitBadge} /> : null}
+                    </p>
+                  ) : null}
+                </div>
+                {editing ? (
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      data-row={i}
+                      data-action="up"
+                      aria-label={`Move ${item.title} up`}
+                      disabled={i === 0}
+                      onClick={() => move(i, i - 1)}
+                    >
+                      <ArrowUp aria-hidden />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      data-row={i}
+                      data-action="down"
+                      aria-label={`Move ${item.title} down`}
+                      disabled={i === plan.items.length - 1}
+                      onClick={() => move(i, i + 1)}
+                    >
+                      <ArrowDown aria-hidden />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      data-row={i}
+                      data-action="remove"
+                      aria-label={`Remove ${item.title}`}
+                      disabled={plan.items.length <= 1}
+                      onClick={() => remove(i)}
+                    >
+                      <X aria-hidden />
+                    </Button>
+                  </div>
                 ) : null}
               </div>
-              {editing ? (
-                <div className="flex shrink-0 gap-1">
-                  <Button variant="ghost" size="icon" aria-label={`Move ${item.title} up`} disabled={i === 0} onClick={() => onMove(i, i - 1)}>
-                    <ArrowUp aria-hidden />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Move ${item.title} down`}
-                    disabled={i === plan.items.length - 1}
-                    onClick={() => onMove(i, i + 1)}
-                  >
-                    <ArrowDown aria-hidden />
-                  </Button>
-                  <Button variant="ghost" size="icon" aria-label={`Remove ${item.title}`} disabled={plan.items.length <= 1} onClick={() => onRemove(i)}>
-                    <X aria-hidden />
-                  </Button>
-                </div>
+              {transition ? (
+                <TransitionCard
+                  index={i}
+                  transition={transition}
+                  worst={worst === i && plan.transitions.length > 1}
+                  planId={planId}
+                  judgment={judgments[`${transition.fromTrackId}>${transition.toTrackId}`]}
+                  allowJudging={!editing}
+                />
               ) : null}
-            </div>
-            {transition ? (
-              <TransitionCard
-                index={i}
-                transition={transition}
-                worst={worst === i && plan.transitions.length > 1}
-                planId={planId}
-                judgment={judgments[`${transition.fromTrackId}>${transition.toTrackId}`]}
-                allowJudging={!editing}
-              />
-            ) : null}
-          </li>
-        );
-      })}
-    </ol>
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }
 
