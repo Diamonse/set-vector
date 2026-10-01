@@ -43,6 +43,8 @@
   --data-bass-dark: #ba9dff;
   --data-brightness-dark: #55d6c3;
   --data-onset-dark: #ffca70;
+  /* LED blue for deck hardware (the loader's CDJ); the same in both themes, like real LEDs. */
+  --electric: #2f8fff;
 
   --elev-card:
     0 1px 0 light-dark(transparent, rgb(255 255 255 / 0.03)) inset,
@@ -118,6 +120,7 @@
   --color-data-energy-dark: var(--data-energy-dark);
   --color-data-rhythm-dark: var(--data-rhythm-dark);
   --color-data-onset-dark: var(--data-onset-dark);
+  --color-electric: var(--electric);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
