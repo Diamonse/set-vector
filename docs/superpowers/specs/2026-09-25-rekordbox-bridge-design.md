@@ -18,7 +18,7 @@ The user's rules for writing:
 
 ## Evidence
 
-The user's collection export (`collection_1.xml`, Rekordbox 7.2.18; the user now runs 7.2.19) and the comparison snapshot in [`reports/rekordbox-reference/`](../../../reports/rekordbox-reference/README.md) show:
+The user's collection export (`collection_1.xml`, Rekordbox 7.2.18; the user now runs 7.2.19) and the local comparison snapshot in `reports/rekordbox-reference/` show:
 
 - 185 records: 150 local songs (MP3), 30 Rekordbox sampler WAVs, and 5 SoundCloud streaming tracks whose `Location` is `file://localhost/soundcloud:tracks:<id>`.
 - Every local song already has a Rekordbox grid: 116 with one `TEMPO` marker, 34 with several, and 7 with 276–748 markers (dynamic analysis). Every marker is `Metro="4/4"`. Under the rules above, SetVector would write no grid to any song in this library; grid writing matters only for tracks Rekordbox has not analyzed.

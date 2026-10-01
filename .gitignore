@@ -26,6 +26,9 @@ analysis-workspace/
 *.m4a
 *.ogg
 
+# Rekordbox collection comparisons list the user's tracks and paths
+reports/rekordbox-reference/
+
 # Local editor and notebook state
 .vscode/
 .idea/

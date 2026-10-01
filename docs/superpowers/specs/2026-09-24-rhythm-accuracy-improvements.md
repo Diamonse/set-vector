@@ -6,7 +6,7 @@ Improve SetVector's beat timing and bar phase on the user's collection while pre
 
 ## Evidence from the reference collection
 
-The [comparison snapshot](../../../reports/rekordbox-reference/README.md) has 150 song records representing 148 unique audio assets, 30 short samples, and five missing locations. Ninety-eight songs selected Beat This!, 44 selected the fallback beat grid, and eight had no reliable grid. At ±40 ms, 107 of 142 songs with a grid had at least 95% beat precision and Rekordbox coverage; at ±80 ms, 118 did. Thirty-millisecond changes in the tolerance are therefore material and need separate reporting.
+The local comparison snapshot in `reports/rekordbox-reference/` has 150 song records representing 148 unique audio assets, 30 short samples, and five missing locations. Ninety-eight songs selected Beat This!, 44 selected the fallback beat grid, and eight had no reliable grid. At ±40 ms, 107 of 142 songs with a grid had at least 95% beat precision and Rekordbox coverage; at ±80 ms, 118 did. Thirty-millisecond changes in the tolerance are therefore material and need separate reporting.
 
 Twenty-two of 44 fallback song grids remain below 95% agreement at ±80 ms. Twenty of these have beat counts within 2% of Rekordbox; 16 single-marker tracks have tempo differences below 0.1 BPM. This points to local timing and phase errors rather than a simple tempo multiplier on most of the cohort. Two Beat This! tracks have likely half/double-tempo disagreements. Twenty-six Beat This! songs have good beats at ±80 ms but poor downbeats; seven appear about two beats out of phase for nearly the whole song, and others alternate long phase sections. Some of these may be Rekordbox errors and require listening.
 
