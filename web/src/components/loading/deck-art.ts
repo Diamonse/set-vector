@@ -331,8 +331,8 @@ export function drawJogDisplay(ctx: CanvasRenderingContext2D, size: number, beat
 /** Printed legends and panel lines on the top plate, in plate UV space (x right, y toward the player). */
 export function drawTopPlate(ctx: CanvasRenderingContext2D, w: number, h: number, palette: DeckPalette, fonts: DeckFonts, layout: PlateLayout) {
   const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, "#171d26");
-  g.addColorStop(1, "#10151c");
+  g.addColorStop(0, "#1c1d20");
+  g.addColorStop(1, "#141517");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 
@@ -356,7 +356,7 @@ export function drawTopPlate(ctx: CanvasRenderingContext2D, w: number, h: number
   };
 
   // Panel divisions.
-  ctx.strokeStyle = "#232c38";
+  ctx.strokeStyle = "#2a2b2f";
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(u(-layout.width / 2 + 0.12), v(layout.padsZ - 0.28));
@@ -380,7 +380,7 @@ export function drawTopPlate(ctx: CanvasRenderingContext2D, w: number, h: number
   label("LOOP", layout.buttonsX, layout.loopZ - 0.16, 20, "#5f6b7c");
 
   // Jog surround ring print.
-  ctx.strokeStyle = "#202834";
+  ctx.strokeStyle = "#26272b";
   ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.ellipse(u(layout.jogX), v(layout.jogZ), (layout.jogR + 0.1) / layout.width * w, (layout.jogR + 0.1) / layout.depth * h, 0, 0, Math.PI * 2);
