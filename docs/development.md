@@ -152,6 +152,68 @@ existing index after adding reports. Keep `index.html` and its `reports`
 subfolder together so the relative navigation links continue to work. Reports
 remain readable on their own, but the back link needs the collection folder.
 
+## Rekordbox
+
+SetVector reads a Rekordbox collection export (File → Export Collection in xml format) and
+writes an XML file for Rekordbox's own import. It never writes Rekordbox's database.
+
+The `<xml>` argument must be a full collection export, not a playlist export. A track missing
+from it — because the export is stale or covers only a playlist — is written as a new record
+rather than matched to the existing one, and importing that new record can replace the
+track's grid. `export` warns on standard error whenever it wrote tracks as new.
+
+```powershell
+setvector rekordbox inspect collection.xml
+setvector rekordbox export collection.xml --config examples/analysis-config.json `
+  --workspace workspace --output import/setvector.xml `
+  --add "D:/Music/New Track.mp3" --add "D:/Music/Another Track.mp3"
+```
+
+`inspect` prints a JSON summary of the export's track locations, grid types, meters, and
+cue counts; it reads no audio, and an unreachable network drive counts as a missing file
+rather than failing the command.
+
+`export` writes the complete record of every track it changes, plus a receipt
+(`<output>.receipt.json`) listing what was added, left out and why. The XML and its receipt
+are written and replaced together: a failed receipt write removes the XML, so a run never
+leaves one file without the other.
+
+- `--add` names an audio file to add, or an existing library track (matched by its decoded
+  path) to give a grid or cues without adding a duplicate. It is repeatable: `--add a.mp3
+  --add b.mp3`.
+- A track that already has a Rekordbox grid keeps it unchanged. A track without one gets
+  SetVector's grid only when Beat This! produced a reliable grid with bars.
+- `--cues cues.json` adds cues: `{"tracks": [{"path": "...", "cues": [{"label": "Drop",
+  "start_seconds": 61.935, "hot": true}]}]}`. A relative `path` is resolved against the
+  cue file's own folder, not the current directory. Optional fields are `kind` (`cue` or
+  `loop`), `end_seconds` (loops), `preferred_slot` (0–7 for hot cues A–H) and `colour`
+  (`[r, g, b]`). Cues are written with the name prefix `SV `. A track's `SV ` cues are
+  replaced on each export that names the track; other cues are never changed. Hot cues use
+  free slots only. A streaming track has no local path, so it can never be named in
+  `--cues` or `--add`.
+- Updating a track already in the collection requires a Rekordbox version qualified with
+  `scripts/rekordbox_probe.py` (see [Rekordbox compatibility](rekordbox-compatibility.md)),
+  or `--unverified-rekordbox`.
+- Standard error carries one warning per problem found while writing: a track left without
+  a grid, a track skipped because several library records point to the same file, a cue
+  that did not fit (no free hot cue slot, or over the memory cue limit), a hot cue placed
+  in a different slot than requested because its preferred one was taken, and, once per
+  run, the count of tracks written as new because they were not in `<xml>`.
+- The output and receipt paths must not coincide with the library file, a file passed to
+  `--add`, or a library track named by `--add` or `--cues`; `export` refuses to overwrite
+  an input this way.
+
+`export` reads the collection once, at the start of the run. Run it against a fresh
+export: a grid or cue added directly in Rekordbox after that export was taken is not in
+the file SetVector read, and the full-state record `export` writes for that track would
+overwrite it on import.
+
+To import, enable Preferences → View → Layout → rekordbox xml, choose the file under
+Preferences → Advanced → Database → rekordbox xml, then select the tracks under
+rekordbox xml → All Tracks and choose Import To Collection. Switch off automatic analysis
+and CUE Analysis in Preferences → Analysis before importing, or Rekordbox replaces
+SetVector's grid and cues with its own.
+
 ## Python API
 
 ```python

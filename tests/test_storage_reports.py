@@ -6,7 +6,7 @@ import pytest
 
 import setvector.storage.reports as reports_module
 from setvector.domain import ArtifactError, InputError
-from setvector.storage import write_report
+from setvector.storage import write_file, write_report
 
 
 def test_write_report_creates_parents_and_returns_absolute_path(tmp_path, monkeypatch):
@@ -38,3 +38,11 @@ def test_failed_replace_leaves_no_file_behind(tmp_path, monkeypatch):
     with pytest.raises(ArtifactError, match="cannot write report"):
         write_report(tmp_path / "report.html", "x")
     assert os.listdir(tmp_path) == []
+
+
+def test_write_file_names_its_kind(tmp_path):
+    target = tmp_path / "out.xml"
+    assert write_file(target, b"<a/>").read_bytes() == b"<a/>"
+    with pytest.raises(InputError, match="Rekordbox XML already exists"):
+        write_file(target, b"<b/>", kind="Rekordbox XML")
+    assert target.read_bytes() == b"<a/>"

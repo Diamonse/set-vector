@@ -41,6 +41,10 @@ run `setvector report-index <collection-folder>`. It creates `index.html` and
 adds a link from each report back to the song list. See
 [Report collections](docs/development.md#report-collections).
 
+To bring SetVector grids and cues into Rekordbox, run `setvector rekordbox export` on a
+Rekordbox collection export. Existing grids and your own cues are never replaced. See
+[Rekordbox](docs/development.md#rekordbox).
+
 Beat and downbeat detection uses the bundled Beat This! `final0` model; its
 authors state that some of its training data was copyrighted. On Linux,
 install PyTorch with `--extra-index-url https://download.pytorch.org/whl/cpu`

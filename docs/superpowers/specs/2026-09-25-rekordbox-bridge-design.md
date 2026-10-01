@@ -1,0 +1,124 @@
+# Rekordbox Bridge Design
+
+## Goal
+
+Read the user's Rekordbox XML export as reference data, and write a Rekordbox XML file that adds SetVector's beat grids and cues without damaging anything the user already has. The supported exchange route is Rekordbox's XML import; SetVector never writes Rekordbox's database.
+
+This is the second of three sub-projects toward Rekordbox integration:
+
+1. **Rhythm engine:** beat grids with real downbeats ([design](2026-09-23-rhythm-engine-design.md)).
+2. **Rekordbox bridge** (this document).
+3. **Phrase detection and mix-in/out suggestions:** computed on the best available bar grid (Rekordbox, then Beat This!, then fallback) and exported as memory cues and hot cues through this bridge.
+
+The user's rules for writing:
+
+- Never replace an existing Rekordbox grid. SetVector writes a grid only for a track without one.
+- Hot cues fill empty slots only. SetVector replaces only cues it labelled itself, and reports tracks with no free slot.
+- Phrases become named memory cues, coloured if Rekordbox imports memory cue colours. Rekordbox XML cannot set Rekordbox's own phrase strip.
+
+## Evidence
+
+The user's collection export (`collection_1.xml`, Rekordbox 7.2.18; the user now runs 7.2.19) and the comparison snapshot in [`reports/rekordbox-reference/`](../../../reports/rekordbox-reference/README.md) show:
+
+- 185 records: 150 local songs (MP3), 30 Rekordbox sampler WAVs, and 5 SoundCloud streaming tracks whose `Location` is `file://localhost/soundcloud:tracks:<id>`.
+- Every local song already has a Rekordbox grid: 116 with one `TEMPO` marker, 34 with several, and 7 with 276–748 markers (dynamic analysis). Every marker is `Metro="4/4"`. Under the rules above, SetVector would write no grid to any song in this library; grid writing matters only for tracks Rekordbox has not analyzed.
+- No local song has a cue. All 19 cues belong to streaming tracks or samples. Hot cues use `Num` 0–7, so the export itself confirms slots A–H map to 0–7. Hot cues carry `Red`/`Green`/`Blue`; the one memory cue (`Num="-1"`) carries no colour. All cue names are empty.
+- `Inizio` and `Start` have three decimals (milliseconds) and `Bpm` two decimals. Locations are percent-encoded (`%20`, `%26`, `%27` observed).
+- SetVector and Rekordbox agree on beats for 107 of 142 compared songs at ±40 ms, but 26 Beat This! songs disagree on downbeats, 7 by about two beats for nearly the whole song. Rekordbox grids are therefore the preferred bar grid for phrase detection, as decided, though not verified ground truth.
+
+The [Rekordbox research notes](../../../research_notes/SetVector%20desktop%20implementation%20order/rekordbox_capabilities.md) establish that XML import is documented, but not what Rekordbox does when it re-imports a track already in the collection (replace, merge, or ignore), whether hot cues D–H and memory cue colours import, or whether auto-analysis overwrites an imported grid. The compatibility probe below measures these on the user's Rekordbox version before SetVector writes into existing tracks.
+
+## Approach
+
+For each track SetVector changes, the output XML contains the complete desired state of that track: the user's record exactly as exported (all attributes, every `TEMPO`, every `POSITION_MARK`) plus SetVector's additions. Whether Rekordbox replaces or merges a re-imported track, the result is correct; the probe shows whether merging duplicates cues. Tracks SetVector does not change are omitted from the output.
+
+Rejected alternatives: writing only SetVector's additions deletes the user's cues if Rekordbox replaces on re-import; writing Rekordbox's encrypted `master.db` through `pyrekordbox` depends on undocumented storage that changes between releases.
+
+## Components
+
+A new package `src/setvector/rekordbox/` is an optional integration layer: it depends on `domain` and the standard library, and core analysis does not depend on it. It works offline and adds no dependencies.
+
+| File | Responsibility |
+|---|---|
+| `rekordbox/model.py` | Immutable, validated types. `TempoMarker(start_seconds, bpm, meter, beat_in_bar)`. `PositionMark(name, kind, start_seconds, end_seconds, slot, colour)` where `kind` is one of `cue`, `fade_in`, `fade_out`, `load` or `loop` (XML `Type` 0–4, covering every mark a Rekordbox export can contain), `end_seconds` is present only for a `loop`, `slot` is `None` for a memory cue (`Num="-1"`) or 0–7 for hot cues A–H, and `colour` is an optional RGB triple. A `CueRequest` (`rekordbox/cues.py`) only ever asks for `cue` or `loop`; the other three kinds occur only in marks read from an existing track. `RekordboxTrack(track_id, location, attributes, tempo, marks, extra_elements)`: `location` is the raw URI, the `path` property decodes it to a local `Path` or `None` for non-file locations, `attributes` every other `TRACK` attribute in document order, kept verbatim, and `extra_elements` any child elements other than `TEMPO` and `POSITION_MARK`, kept as serialized XML. `RekordboxLibrary(product_name, product_version, tracks)`. |
+| `rekordbox/read.py` | `read_library(path) -> RekordboxLibrary`. Parses with the standard library's `xml.etree.ElementTree` (it never fetches external entities, and Python 3.11's expat rejects entity-expansion attacks). Documents declaring a DOCTYPE or entities are refused, because Rekordbox never writes them, whatever the document's encoding. Decodes `file://localhost/` URIs with `urllib.parse.unquote`. Unknown child elements of `TRACK` go to `extra_elements` so a full-state record can reproduce them. Playlists are not read. |
+| `rekordbox/grid.py` | `expand_tempo(markers, duration_seconds) -> (beats, bar_positions)`, promoted from Codex's `marker_grid`: validates that `duration_seconds` is finite; each marker is a beat anchor; beats advance by `60 / Bpm` to the next marker or the end; `Battito` advances modulo the `Metro` numerator; a later marker resets timing and phase; a beat predicted within a quarter of the local interval (at most 120 ms) before the next marker is dropped as a rounding duplicate, and a marker that starts inside that same guard before its successor contributes no beats at all; nothing is extrapolated before the first marker. `tempo_markers_for(rhythm) -> tuple[TempoMarker, ...]` converts a SetVector grid: one marker per `GridSegment` (`Inizio` = `start_seconds`, `Bpm` = `bpm`, `Battito` = `first_bar_position`, `Metro` = `<modal bar length>/4`), with extra markers inside a segment wherever rounding `Bpm` to two decimals and `Inizio` to milliseconds would move any beat more than 5 ms from SetVector's grid, plus a bridging marker retiming (or, for a single-beat segment, adding to) a segment's last beat whenever the gap before the next segment's marker would otherwise let `expand_tempo` read a spurious extra beat into it. It accepts only a reliable `beat_this` rhythm; fallback grids have no bar positions and are never given invented downbeats. |
+| `rekordbox/cues.py` | Pure placement policy. `CueRequest(label, kind, start_seconds, end_seconds, hot, preferred_slot, colour)`: `label` is stripped of surrounding whitespace and rejected if it starts with `SV ` (that prefix is added when writing, so a caller cannot claim it), `kind` is `cue` or `loop`, and a `loop`'s rounded `end_seconds` must be at least 1 ms after its rounded `start_seconds`. `place_cues(existing, requests, profile) -> CuePlacement` returns the final marks and one outcome per request (`placed`, `moved_slot`, `no_free_slot`, `over_memory_limit`). A mark belongs to SetVector when its name starts with `SV `; the writer adds that prefix to every label. An export that has cue requests for a track replaces all of that track's SetVector marks with them; a track without requests keeps its marks. User marks never change. Times are rounded to milliseconds, the precision Rekordbox exports. A hot cue goes to its preferred slot when free, otherwise to the lowest free slot; SetVector-owned slots count as free. A memory cue is dropped when the track would exceed the profile's memory cue limit. |
+| `rekordbox/write.py` | `render_library(tracks, playlist_name) -> bytes`, a pure function. Builds the document with `ElementTree` (never string concatenation): `DJ_PLAYLISTS Version="1.0.0"`, `PRODUCT Name="SetVector"`, `COLLECTION` with the given tracks, and `PLAYLISTS` with one playlist listing them by `TrackID`. Numbers are formatted without locale: `Inizio`/`Start`/`End` with three decimals, `Bpm` and `AverageBpm` with two. An existing track keeps its raw `location` string, because Rekordbox may match tracks by it; only a new track's path is encoded, as `file://localhost/` + `urllib.parse.quote` of the forward-slash path, keeping the drive colon. Output is byte-identical for identical input. It parses its own output and raises `ArtifactError` unless the tracks read back identically. The application writes the bytes atomically through `storage.write_file`, a generalization of the report writer. |
+| `rekordbox/compare.py` | `compare_libraries(expected, actual)` matches each written track to Rekordbox's export by decoded path, then pairs its tempo markers and marks one-to-one against the export's: for each expected item it picks the nearest-start candidate sharing its identity (a tempo marker matches any candidate within 0.5 s; a mark's identity is its hot cue slot or, for a memory mark, its kind and name — unbounded when that identity is distinctive, bounded to 1 s for an unnamed memory mark, which many unrelated marks could otherwise match). It reports, per track, marker and mark, whether Rekordbox's export kept, rounded, changed, or dropped it, and reports any unmatched export item as a `duplicated` copy of the item it resembles or as `extra`. Used by the probe. |
+| `rekordbox/profile.py` | Capability profiles per verified Rekordbox version: hot cue slot count, memory cue limit, whether memory cue colours import, re-import behaviour, and whether imported grids survive analysis. Filled from the probe results. Until then a default profile assumes 8 hot cue slots and 10 memory cues and is marked unverified. |
+| `application/rekordbox.py` | `inspect_library(xml_path) -> LibrarySummary` and `build_rekordbox_import(...) -> RekordboxExportOutcome`, described below. |
+| `cli/__init__.py` | `setvector rekordbox inspect` and `setvector rekordbox export`. |
+| `scripts/rekordbox_probe.py` | The compatibility probe. |
+
+`docs/architecture.md` gains a `rekordbox` row in the module table: "Read Rekordbox XML exports and write importable XML projections of SetVector results. Optional integration; core analysis never depends on it."
+
+The rhythm artifact does not gain a `rekordbox` source, which the rhythm engine design proposed earlier. A rhythm artifact is a content-addressed analysis of audio; a Rekordbox grid is user data that changes whenever the user edits it. Phrase detection reads Rekordbox grids through `read_library` and `expand_tempo` and chooses between them and the rhythm artifact itself. Codex's rhythm evaluator uses the same two functions instead of its own parser.
+
+## Application and CLI flow
+
+**`setvector rekordbox inspect <xml>`** prints a JSON summary: the product name and version, track counts by location (local file present, local file missing — an unreachable network drive counts as missing too, since `_is_file` treats any `OSError` that way — or non-file location such as a streaming track), grid type (none, one marker, several), meters in use, hot and memory cue counts, and whether the version already has a qualified profile. It reads no audio.
+
+**`setvector rekordbox export <xml> --config <json> --workspace <dir> --output <file> [--add <audio>] [--cues <json>] [--unverified-rekordbox] [--overwrite]`**, with `--add` repeatable (`--add a.mp3 --add b.mp3`), calls `build_rekordbox_import`:
+
+1. Read the library once, from the required `<xml>` path — the CLI always passes one. (`build_rekordbox_import` also accepts `library_path=None`, but only the compatibility probe's first stage uses that, to build `stage1.xml` before any Rekordbox export of the probe tracks exists.) Its bytes are hashed once, for the receipt. For each `--add` file, find a library track whose decoded path equals it (compared with `os.path.normcase` after `resolve`); a match makes it an existing track, otherwise it is new. Several library records naming the same file are ambiguous: rejected outright if cue requests target that file, otherwise skipped without being written, either way recorded in the receipt.
+2. Consider library tracks named by `--add` or `--cues`, and new `--add` files, which must exist. Run the cached `analyze_track` only for a track without a Rekordbox grid; a library track whose file cannot be opened as a file — missing, or on an unreachable drive — gets no grid, with the reason recorded.
+3. Grid: an existing track's markers are copied unchanged, whatever they are. A track without markers gets `tempo_markers_for(rhythm)` when the rhythm is a reliable `beat_this` grid; otherwise its grid is omitted with the rhythm's reasons.
+4. Cues: for a track with cue requests, `place_cues` with the track's existing marks, its requests, and the profile, recording the name of every SetVector cue it removed. `build_rekordbox_import` accepts a `profile` that overrides the cue limits; the probe uses it to test more memory cues than the default allows. `--cues` keys are filesystem paths matched against decoded library locations, so a streaming track — which has no decoded path — can never be named this way.
+5. A track with nothing to add is left out of the output. A new track's record has `TrackID`, `Name` (file stem), `Location`, `AverageBpm`, its markers, and its marks. `Location` is built from the added file's absolute path exactly as given on the command line, not resolved through symlinks, so a symlinked file keeps the location the user passed. `TrackID` is the first 8 hex digits of its `asset_id`, read as an integer and masked to 31 bits (`& 0x7FFFFFFF`, with a zero result becoming 1), then advanced by one modulo that same mask until it collides with no library or output ID.
+6. Write the XML, then a receipt, `<output>.receipt.json`, as a pair: a receipt write that fails removes the XML, so a run never leaves one of the two without the other. The receipt records the library path and its SHA-256, the input's Rekordbox `PRODUCT Version` and whether it has a qualified profile, `allow_unverified`, whether an unverified version was actually overridden, the `cue_limits` in effect, the sorted list of paths written as new tracks (`new_tracks`), and, per track, its outcome — written or left out, grid copied/added/omitted with reasons, each cue request's outcome, and any `removed_setvector_cues`. Existing output files (the XML and its receipt) are replaced only with `--overwrite`. Neither path may coincide with the library, an added file, or a library track named by `--add` or `--cues`.
+
+`--cues` takes a JSON document mapping a local audio path to a list of cue requests; a relative path in it resolves against the cue file's own folder. Sub-project 3 calls `build_rekordbox_import` with generated requests instead.
+
+Changing a track already in the user's collection (a grid or cues) requires a profile whose verified versions include the input XML's `PRODUCT Version`. Without one, the export fails with an `InputError` naming the probe, unless `--unverified-rekordbox` is given; the receipt then records that the version is unverified and whether it was overridden. New tracks are not gated: a track is new only relative to the given export, so a stale or playlist export can make a file already in the collection look new, and writing it would replace its grid on import. The CLI prints one warning naming the count of tracks written as new and the `<xml>` path when `new_tracks` is non-empty, pointing at a full collection export as the fix. Because `export` reads the collection once, it must be run against a fresh export: a grid or cue added directly in Rekordbox after that export was taken is not in what SetVector read, and the full-state record `export` writes for that track would overwrite it on import.
+
+## Compatibility probe
+
+`scripts/rekordbox_probe.py` qualifies one Rekordbox version on the user's machine using only synthetic tracks, so no real track is modified. All files go in a probe folder the user chooses.
+
+1. **`generate <folder>`** writes three synthetic drum tracks about 90 s long (kick on every beat, snare on 2 and 4, off-beat hats, a bass note per bar, and a crash every fourth bar): a 120 BPM constant grid over 44 bars, a grid changing from 120 to 128 BPM at bar 23, and a 124 BPM grid starting after 2.3 s of silence. It analyzes them through `build_rekordbox_import` (with `library_path=None`, since no Rekordbox export of them exists yet) and writes `stage1.xml`, `probe.json` (each track's downbeat times, needed by `stage2`), and `CHECKLIST.md`. Stage 1 adds all three as new tracks with their grids: the first gets hot cues A–F with distinct colours and names, twelve named memory cues with colours, and one loop cue; the second gets hot cues in all eight slots A–H; the third gets one hot cue and two memory cues.
+2. The user imports `stage1.xml` with their normal analysis settings (Preferences → Advanced → Database → rekordbox xml; rekordbox xml pane → All Tracks → Import To Collection), adds one hot cue and one memory cue by hand to the first track only, and exports the collection.
+3. **`stage2 <folder> --library <export>`** runs `build_rekordbox_import` on that export with `--unverified-rekordbox`, moving one SetVector hot cue, removing one, adding one, and renaming one memory cue, all on the first track (the second and third tracks' requests are unchanged from stage 1). The user imports `stage2.xml` the same way, imports it a second time, then exports the collection again.
+4. **`check <folder> --export1 <export> [--export2 <export>]`** compares each export against `stage1.xml`, and `stage2.xml` when `--export2` is given, using `compare_libraries`, and prints, per track, marker and mark, whether Rekordbox kept, rounded, changed, dropped, or duplicated it. It writes the same findings to `probe-results.json`.
+
+The findings become a qualified profile in `rekordbox/profile.py` and a table in `docs/rekordbox-compatibility.md` with the Rekordbox version, operating system, and analysis settings used. If the probe shows that full-state records lose or duplicate user data, the writer's approach is revised before any real track is written. Afterwards the user deletes the three probe tracks from the collection.
+
+## Errors
+
+- Unreadable or malformed XML, a missing `COLLECTION`, a `TRACK` without `TrackID` or `Location`, or invalid numbers: `InputError` naming the file and track.
+- A `--cues` path not in the library and not in `--add`, or an invalid request: `InputError`. A `--cues` entry always names a filesystem path, matched against the library's decoded paths; a streaming track has none, so it can never be named this way.
+- Several library records pointing at the same file: `InputError` if cue requests target it, because there is no single record to write cues onto; otherwise the record is skipped, not an error.
+- An unverified Rekordbox version when writing cues or a grid into an existing track: `InputError`, as above.
+- The output or receipt path would overwrite the library file, an added file, or a library track named by `--add` or `--cues`: `InputError`.
+- Missing audio, a non-file location, or no reliable grid: not an error; the track is skipped or its grid omitted, with the reason in the receipt.
+- Analysis failures propagate as they do from `analyze`.
+- A written file that does not read back identical: `ArtifactError`; nothing is left at the output path.
+
+## Testing
+
+- **Reader:** a synthetic fixture, `tests/data/rekordbox-collection.xml`, modelled on the 7.2.18 export (full attribute set, multi-line attributes, hot cues 0–7, memory cue without colour, streaming location, sampler track). Locations containing spaces, `%`, `#`, `&`, apostrophes, accented characters, and a drive root decode correctly. Malformed documents raise `InputError`, and so do documents with a DOCTYPE, whatever their declared encoding (checked with both a plain and a UTF-16 document).
+- **Grid expansion:** a single marker; several markers with bar-phase resets; a later marker a few milliseconds after a rounded predicted beat, which must not create a duplicate beat; a marker inside the guard of its successor, which contributes no beats; markers out of order and past the end, which are sorted and ignored; a nonfinite `duration_seconds`, which is rejected. A marker's `start_seconds` cannot be negative, since the model itself forbids it.
+- **Grid conversion:** a two-segment `beat_this` rhythm converts to markers whose expansion matches its beats within 5 ms; a 124.004 BPM segment over 400 s gains a marker so drift stays within 5 ms; a wide gap between segments gains a bridging marker; fallback and `none` rhythms produce no markers; 3/4 bars produce `Metro="3/4"`; a seeded property test (`random.Random(7)`) builds many randomized multi-segment grids and checks that each one's markers expand back to its beats within 5 ms.
+- **Cue policy (table-driven):** free preferred slot; preferred slot held by a user cue (moved to the lowest free slot); slots held only by SetVector cues (replaced); all eight slots held by the user (`no_free_slot`); memory limit reached (`over_memory_limit`); user marks unchanged in every case; SetVector marks from a previous export removed.
+- **Writer:** deterministic bytes; read–write–read equality, including passthrough attributes and unknown child elements; locale-independent numbers; the output playlist lists exactly the written tracks.
+- **Application:** existing grids copied unchanged; a new track gets a grid only from a reliable `beat_this` rhythm; `--add` matches library tracks by path; `TrackID` collisions are avoided; the version gate blocks and `--unverified-rekordbox` allows cue writes into existing tracks; the receipt records every skip and omission. Tests use a stub rhythm through the existing analysis cache, not the model.
+- **Comparison:** kept, rounded, changed, missing, duplicated and extra marks; changed grids and colours; duplicate tracks; tracks matched by decoded path.
+- **CLI:** `inspect` and `export` JSON output and error exit codes.
+- **Offline:** the blocked-socket test covers `rekordbox export` on a synthetic track.
+- **Manual:** the probe on Rekordbox 7.2.19.
+
+Personal libraries and audio stay out of Git; fixtures are synthetic.
+
+## Limitations
+
+- Only Rekordbox's documented XML import is supported. The bridge cannot set Rekordbox's phrase analysis, waveforms, or My Tags, and cannot lock a grid against re-analysis.
+- Until the probe runs, cue writing into existing tracks is gated, and re-import, D–H hot cues, memory cue colours, and grid persistence are unverified.
+- A track is matched to the library by its file path. A moved or renamed file is treated as a new track; content-based matching is left for later.
+- Grids written by SetVector use `Metro` `3/4` or `4/4` only, because Beat This! grids are accepted only with those bar lengths.
+- Playlists in the user's export are ignored; the output contains one playlist of the written tracks.
+- Rekordbox grids are used as given. The bridge does not judge their accuracy; the comparison snapshot shows they can disagree with SetVector on downbeats.
+- The `SV ` name prefix is SetVector's only mark of ownership on a cue. A user cue whose name already starts with `SV ` is indistinguishable from SetVector's own and is replaced on the next export that touches that track.
+- XML attribute-value normalization turns an embedded line break inside an attribute value into a space. A multi-line `Comments` field in the user's export is already single-line, with spaces where the line breaks were, by the time SetVector reads it, and stays that way in what it writes back.
+- The bridging marker `tempo_markers_for` adds across a wide segment gap has not been checked against a real Rekordbox import; the probe's synthetic tempo change has no such gap, so the probe does not exercise it.
+- A track's new-ness is judged only against the given export: a file the export does not list is written as new even when it is already in the user's collection under an export that was not passed in.
+- `inspect` and `export` resolve every library track's path to decide whether its file is present, which can be slow when the library references an unreachable network drive.
