@@ -66,10 +66,12 @@ Supabase, with each user's rows visible only to that user.
 - **Analyze audio in the browser.** Drop files on **Library > Analyze audio** to measure
   tempo (with half and double alternatives), a beat grid, downbeats (with the Beat This!
   model when it is available), key with a confidence margin, loudness, section
-  boundaries, and suggested entry and exit cue regions. The browser analyzer is a port of
-  the Python one, with parity tests against it.
+  boundaries, and several phrase-aligned entry and exit cue suggestions. The browser
+  analyzer is a port of the Python one, with parity tests against it.
 - **Import a library.** Bring in a Rekordbox collection export (with its beat grids and
-  cue points), or JSON and CSV files from a spreadsheet or the offline analyzer.
+  cue points), or JSON and CSV files from a spreadsheet or the offline analyzer. Your
+  Rekordbox cues become approved entry and exit regions for planning, and tracks without
+  them get suggestions aligned to 8-bar phrases on the Rekordbox grid.
 - **Review the evidence.** Each track page shows its waveform with beats, bar lines,
   cue regions, and Rekordbox cue points. Play your local copy of the file, drag cue
   regions into place, and approve or reject suggestions. Estimates and your reviewed

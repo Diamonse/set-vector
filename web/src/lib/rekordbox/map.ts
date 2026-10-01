@@ -4,6 +4,7 @@
  * bar grid for review, not ground truth.
  */
 import { parseKey, type MusicalKey } from "@/lib/domain/camelot";
+import { mapRekordboxCues } from "./cues";
 import { expandTempo } from "./grid";
 import { fileNameOf, pathFromLocation, type PositionMark, type RekordboxTrack, type TempoMarker } from "./read";
 
@@ -26,6 +27,8 @@ export interface RekordboxCandidate {
   tempo: TempoMarker[];
   marks: PositionMark[];
   beatCount: number;
+  /** Cue regions the import will create: from cues (approved) and from the grid (pending). */
+  cueRegions: { entries: number; exits: number; fromGrid: number; ignored: number };
   /** Why the track cannot be imported, or null. */
   blocked: string | null;
   /** A reason to leave it unselected by default, or null. */
@@ -94,6 +97,17 @@ export function candidateFor(track: RekordboxTrack): RekordboxCandidate {
   const marks = track.marks.slice(0, MAX_MARKS);
   if (track.marks.length > MAX_MARKS) notes.push(`Only the first ${MAX_MARKS} cue points are kept`);
 
+  const cueRegions = { entries: 0, exits: 0, fromGrid: 0, ignored: 0 };
+  if (durationSeconds !== null) {
+    const mapped = mapRekordboxCues(marks, tempo, durationSeconds, bpm);
+    for (const r of mapped.regions) {
+      if (r.origin === "rekordbox_grid") cueRegions.fromGrid++;
+      else if (r.kind === "entry") cueRegions.entries++;
+      else cueRegions.exits++;
+    }
+    cueRegions.ignored = mapped.ignored;
+  }
+
   return {
     rekordboxTrackId: track.trackId,
     location: track.location,
@@ -109,6 +123,7 @@ export function candidateFor(track: RekordboxTrack): RekordboxCandidate {
     tempo,
     marks,
     beatCount,
+    cueRegions,
     blocked,
     caution,
     notes,

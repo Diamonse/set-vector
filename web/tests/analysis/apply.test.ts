@@ -55,8 +55,10 @@ describe("re-analysis", () => {
   it("does not re-suggest a region the user already approved or rejected", async () => {
     const raw = await analyzeAudio({ channels: [club(22050, 60, 124)], sampleRate: 22050, beatRunner: null, model: null });
     const r = analysisResultSchema.parse(JSON.parse(JSON.stringify(raw)));
-    const exit = r.cues.find((c) => c.kind === "exit")!;
-    const kept = fittingCues(r, 60, [{ kind: "exit", startSeconds: exit.startSeconds + 0.1, endSeconds: exit.endSeconds - 0.1 }]);
-    expect(kept.map((c) => c.kind)).toEqual(["entry"]);
+    const exits = r.cues.filter((c) => c.kind === "exit");
+    const existing = exits.map((e) => ({ kind: "exit" as const, startSeconds: e.startSeconds + 0.1, endSeconds: e.endSeconds - 0.1 }));
+    const kept = fittingCues(r, 60, existing);
+    expect(kept.length).toBe(r.cues.length - exits.length);
+    expect(kept.every((c) => c.kind === "entry")).toBe(true);
   }, 60_000);
 });

@@ -9,10 +9,10 @@ The web app is optional and sits beside the offline Python analyzer. It analyzes
 - **Library:** tracks with style tags, remix family, tempo and alternative tempos, key with a status (reviewed, estimated, uncertain, not meaningful), relative energy on a 1 to 10 scale, and analyzer asset and feature IDs. Every value records whether it is an estimate or a reviewed decision.
 - **Cue regions:** entry and exit intervals `[start, end)` with review status and vocal activity. The database rejects regions that extend past the track.
 - **Revisions:** track edits, cue changes, plan edits, and transition judgments are appended to an `annotations` table. Each revision points to the one it supersedes, and nothing is overwritten.
-- **Audio analysis in the browser:** drop audio files on **Library > Analyze audio** to measure tempo (with half, double, and other alternatives), a beat grid, downbeats (with the model), key with a confidence margin, BS.1770 loudness, section boundaries, and entry and exit cue suggestions. Results are saved as estimates; values you reviewed are never overwritten. See [Audio analysis](#audio-analysis).
+- **Audio analysis in the browser:** drop audio files on **Library > Analyze audio** to measure tempo (with half, double, and other alternatives), a beat grid, downbeats (with the model), key with a confidence margin, BS.1770 loudness, section boundaries, and up to three phrase-aligned entry and exit cue suggestions each. Results are saved as estimates; values you reviewed are never overwritten. See [Audio analysis](#audio-analysis).
 - **Waveform and cue editing:** on a track's **Audio and analysis** tab, open your local copy of the file to play it, see beat and downbeat markers, drag to create or resize cue regions snapped to beats, and approve or reject suggestions.
 - **Import:** JSON or CSV with a local preview before upload (see `examples/`).
-- **Rekordbox import:** read a Rekordbox collection export in the browser, choose tracks, and add them with their tempo markers and cue points. The Rekordbox grid and cue points appear on the track's waveform. See [Rekordbox import](#rekordbox-import).
+- **Rekordbox import:** read a Rekordbox collection export in the browser, choose tracks, and add them with their tempo markers and cue points. Cues become approved entry and exit regions for planning, and tracks without usable cues get phrase-aligned suggestions from the Rekordbox grid. The grid and cue points also appear on the track's waveform. See [Rekordbox import](#rekordbox-import).
 - **Automatic energy estimates:** analyzed tracks without your own rating get a 1 to 10 energy estimate ranked against your library. See [Energy estimates](#energy-estimates).
 - **Crates:** saved track selections, used as fixed lists or as pools.
 - **Light and dark themes:** follows the system setting, with a Light, Dark, or System switch in the top bar that is remembered in the browser. Colors are CSS variables in `src/app/globals.css`; fonts (Unbounded, Instrument Sans, JetBrains Mono) are bundled at build time by `next/font`, so no font request leaves the app at runtime.
@@ -157,7 +157,7 @@ Analysis runs in a Web Worker in the browser. The page decodes each file at its 
 | Beat grid | Beat This! `final0` through ONNX Runtime Web when the model is published, otherwise the CLI's fallback tracker; grids are fitted and accepted with the CLI's rules | Beats, downbeats (model only), segments |
 | Key | STFT chroma with Krumhansl-Kessler templates; the correlation margin is a diagnostic, and weak or close results are marked `uncertain` | Track key, `estimated` or `uncertain` |
 | Loudness | ITU-R BS.1770-4 integrated loudness, EBU Tech 3342 loudness range | `track_analyses`; not an energy score |
-| Cue suggestions | Beat-synchronous novelty for section boundaries; an intro region from the first downbeat and an outro region at the last boundary in the final third, 32 beats each | Cue regions, `estimate`, `pending` |
+| Cue suggestions | Beat-synchronous novelty for section boundaries. Up to three entries on 8-bar phrases from the first downbeat within the first 35% of the track, and up to three exits on phrases in the last 40%, preferring section boundaries; 32 beats each (`src/lib/cues/phrases.ts`). The planner chooses among them per transition | Cue regions, `estimate`, `pending` |
 
 Rules for saving:
 
@@ -174,7 +174,7 @@ All pages are served with `Cross-Origin-Opener-Policy: same-origin` and `Cross-O
 
 ### Beat detection model
 
-Without the model, analysis still works: the fallback tracker finds beats and tempo but no downbeats, so cue suggestions start at the first beat instead of the first bar, and the page says so.
+Without the model, analysis still works: the fallback tracker finds beats and tempo but no downbeats, so cue suggestions fall every 32 beats from the first beat instead of on 8-bar phrases, their labels say the bar phase is unknown, and the page says so.
 
 The model file is about 83 MB and is not in Git. To publish it:
 
@@ -247,11 +247,20 @@ Each analyzed track gets an experimental 1 to 10 energy estimate (`src/lib/energ
 | `TotalTime` | Duration. Entries without it are skipped. |
 | `AverageBpm`, `Tonality` | Tempo and key, as estimates |
 | `TEMPO` markers | Kept with the link and expanded into a beat grid with bar lines on the track's waveform |
-| `POSITION_MARK` hot and memory cues, loops | Kept with the link and shown as points on the waveform. They are not converted to entry or exit regions. |
+| `POSITION_MARK` hot and memory cues, loops | Approved entry and exit cue regions (see below), and points on the waveform |
 
 - Streaming entries (non-file locations) and entries without a duration cannot be imported. Entries shorter than 30 seconds or in the Rekordbox sampler folder are left unselected.
 - A track is matched to the library by an earlier import of the same Rekordbox `Location`, then by a unique title and artist (and version when that separates duplicates). Otherwise a new track is created. An ambiguous title match is skipped and reported. A title match on a track linked to another location is relinked when the lengths agree within 2 seconds, since the file moved in Rekordbox; with a different length it is treated as another file. Within one import each library track takes only one entry, so duplicates in the collection become separate tracks.
 - For a matched track only empty fields are filled; existing and reviewed values are kept. Importing the same file again updates the stored grid and cue points.
+
+**Cue regions from Rekordbox** (`src/lib/rekordbox/cues.ts`):
+
+- A cue's role comes from its type (fade-in marks are entries, fade-out marks exits), then its name (Intro, Mix in, In, Start, Entry, Begin for entries; Outro, Mix out, Out, End, Ending, Exit for exits, as whole words), then its position: the first third is an entry and the last third an exit. Unnamed cues in the middle third and load marks are skipped; the preview counts them.
+- A loop keeps its own span. Any other cue starts a region of 32 beats on the Rekordbox grid (or at the average BPM without a grid), clamped to the track end; regions shorter than 2 seconds are dropped. A memory cue and a hot cue on the same point count once. At most four regions per role are kept.
+- These regions are `reviewed` and `approved`, since you placed the cues yourself, and the planner prefers them.
+- When a track has a grid but no usable cue for a role, the import adds up to three phrase-aligned suggestions for that role from the grid (`Grid intro at bar 1`, `Grid outro at bar 161`, ...), as `estimate` and `pending`.
+- Regions created by an import keep a link to it (`cue_regions.rekordbox_link_id`). Importing again replaces only those. Editing, approving, or rejecting a region detaches it, so your decision is kept, and new regions that repeat an existing one are skipped.
+- Tracks imported before this existed get their regions the next time you import the same collection.
 - The XML reader is a port of `src/setvector/rekordbox/read.py` and refuses documents with a DOCTYPE or entity declarations. Grid expansion is a port of `expand_tempo` in `grid.py`. `tests/rekordbox/` checks both against fixtures generated from the Python code with `scripts/make_rekordbox_fixtures.py`.
 - Rekordbox grids are a strong reference for bar lines, not ground truth. When a track also has a browser analysis, the waveform offers both grids.
 - The import does not use the audio, so the asset ID stays empty until you analyze the file. On the analyze page, choose the imported track as the match so the analysis does not create a second track.
@@ -268,7 +277,8 @@ Each analyzed track gets an experimental 1 to 10 energy estimate (`src/lib/energ
 - Cue regions are candidate mix points, not detected phrases or downbeats. Tracks without regions use labeled intro and outro windows and are flagged for review.
 - Camelot relations rank candidates. They do not predict whether a blend will sound good.
 - Browser analysis is a second implementation of the CLI's analysis. Parity tests cover synthetic signals; real-world accuracy on the six target styles still needs the evaluation collection.
-- Without the published model there are no downbeats, and cue suggestions are not aligned to bars.
+- Without the published model there are no downbeats, and analyzer cue suggestions are not aligned to bars. Rekordbox grids carry bar positions, so grid suggestions are.
+- Name matching for Rekordbox cues is English-only and literal; a cue named for its content ("Vocal", "Drop") is placed by position.
 - Key detection assumes one major or minor key per region and abstains (`uncertain`) when the evidence is weak; modal or changing harmony may still be labeled wrongly.
 - Vocal activity is not detected; suggested regions leave it unannotated.
 - Decoding depends on the browser: MP3, AAC, WAV, FLAC, and Ogg are widely supported; ALAC and AIFF vary. A long track needs memory for its decoded samples, so analyze very long mixes on a desktop browser.

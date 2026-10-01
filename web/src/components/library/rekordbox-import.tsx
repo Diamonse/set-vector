@@ -135,8 +135,11 @@ export function RekordboxImport() {
   }
 
   const summary = useMemo(() => {
-    const s = { created: 0, linked: 0, updated: 0, skipped: 0 };
-    outcomes?.forEach((o) => s[o.status]++);
+    const s = { created: 0, linked: 0, updated: 0, skipped: 0, cueRegions: 0 };
+    outcomes?.forEach((o) => {
+      s[o.status]++;
+      s.cueRegions += o.cueRegions ?? 0;
+    });
     return s;
   }, [outcomes]);
   const titleOf = useMemo(() => new Map(loaded?.candidates.map((c) => [c.rekordboxTrackId, c.title]) ?? []), [loaded]);
@@ -197,7 +200,7 @@ export function RekordboxImport() {
                 <TableHead className="text-right">BPM</TableHead>
                 <TableHead>Key</TableHead>
                 <TableHead className="text-right">Beats</TableHead>
-                <TableHead className="text-right">Cues</TableHead>
+                <TableHead>Cue regions</TableHead>
                 <TableHead>Notes</TableHead>
               </TableRow>
             </TableHeader>
@@ -221,7 +224,19 @@ export function RekordboxImport() {
                   <TableCell className="text-right text-data">{c.bpm ?? "n/a"}</TableCell>
                   <TableCell className="text-caption">{c.key ? describeTrackKey(c.key.tonic, c.key.mode, "estimated") : "n/a"}</TableCell>
                   <TableCell className="text-right text-data">{c.beatCount || "none"}</TableCell>
-                  <TableCell className="text-right text-data">{c.marks.length}</TableCell>
+                  <TableCell className="text-caption whitespace-nowrap">
+                    {c.blocked ? (
+                      <span className="text-muted">n/a</span>
+                    ) : (
+                      <>
+                        <span className="text-ink">
+                          {c.cueRegions.entries} in · {c.cueRegions.exits} out
+                        </span>
+                        {c.cueRegions.fromGrid ? <span className="block text-muted">+{c.cueRegions.fromGrid} from grid</span> : null}
+                        {c.cueRegions.ignored ? <span className="block text-muted">{c.cueRegions.ignored} mid-track cue(s) skipped</span> : null}
+                      </>
+                    )}
+                  </TableCell>
                   <TableCell className="text-caption">
                     {c.blocked ? <StatusBadge kind="unavailable" label={c.blocked} /> : c.caution ? <StatusBadge kind="review" label={c.caution} /> : null}
                     {c.notes.length ? <span className="block text-muted">{c.notes.join("; ")}</span> : null}
@@ -254,7 +269,8 @@ export function RekordboxImport() {
       {outcomes && outcomes.length > 0 ? (
         <Alert tone={summary.skipped ? "warning" : "success"} aria-live="polite">
           <AlertTitle>
-            {summary.created} added, {summary.linked} linked to existing tracks, {summary.updated} updated, {summary.skipped} skipped.
+            {summary.created} added, {summary.linked} linked to existing tracks, {summary.updated} updated, {summary.skipped} skipped.{" "}
+            {summary.cueRegions} cue region(s) created.
           </AlertTitle>
           {summary.skipped ? (
             <ul className="mt-2 list-disc pl-5 text-caption">

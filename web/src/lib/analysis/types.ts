@@ -5,7 +5,7 @@ import type { EnergyFeatures } from "./energy-features";
 import type { TempoCandidate } from "./tempo";
 
 export const EXTRACTOR_NAME = "web-analysis";
-export const EXTRACTOR_VERSION = 2;
+export const EXTRACTOR_VERSION = 3;
 
 export interface ExtractorInfo {
   name: string;

@@ -20,12 +20,15 @@ describe("analyzeAudio without the model", () => {
     expect(r.key.tonic).toBe(9);
     expect(r.key.mode).toBe("minor");
     expect(r.loudness.integratedLufs).not.toBeNull();
-    expect(r.cues.map((c) => c.kind)).toEqual(["entry", "exit"]);
+    expect(r.cues[0]!.kind).toBe("entry");
+    expect(r.cues.some((c) => c.kind === "exit")).toBe(true);
+    expect(r.cues.filter((c) => c.kind === "entry").length).toBeLessThanOrEqual(3);
+    expect(r.cues.filter((c) => c.kind === "exit").length).toBeLessThanOrEqual(3);
     for (const c of r.cues) {
       expect(c.endSeconds).toBeGreaterThan(c.startSeconds);
       expect(c.endSeconds).toBeLessThanOrEqual(r.durationSeconds);
     }
-    expect(r.regionKeys).toHaveLength(2);
+    expect(r.regionKeys).toHaveLength(r.cues.length);
     expect(r.waveform.peaks.length).toBe(r.waveform.buckets);
     expect(r.warnings.some((w) => w.includes("model is not available"))).toBe(true);
     expect(JSON.parse(JSON.stringify(r)).tempo.bpm).toBe(r.tempo.bpm);

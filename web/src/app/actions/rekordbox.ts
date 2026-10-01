@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { recordAnnotation } from "@/lib/data/annotations";
+import { mapRekordboxCues } from "@/lib/rekordbox/cues";
 import { rekordboxImportSchema, type RekordboxImportTrack } from "@/lib/rekordbox/schema";
 import type { ServerClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/supabase/server";
@@ -11,6 +12,8 @@ export interface RekordboxOutcome {
   status: "created" | "linked" | "updated" | "skipped";
   trackId: string | null;
   message: string;
+  /** Cue regions created from this entry's Rekordbox cues and grid. */
+  cueRegions?: number;
 }
 
 export interface RekordboxBatchResult {
@@ -57,6 +60,66 @@ async function loadLinks(supabase: ServerClient): Promise<{ track_id: string; lo
   }
 }
 
+interface CueWork {
+  linkId: string;
+  trackId: string;
+  duration: number;
+  track: RekordboxImportTrack;
+  outcome: number;
+}
+
+/**
+ * Replace the cue regions earlier imports created for these links with regions from the
+ * current cues and grid. Regions the user edited or reviewed were detached by a trigger and
+ * stay; new regions that repeat any existing region are skipped.
+ */
+async function applyCueRegions(supabase: ServerClient, work: CueWork[], outcomes: RekordboxOutcome[]): Promise<string | null> {
+  if (!work.length) return null;
+  const { error: deleteError } = await supabase.from("cue_regions").delete().in("rekordbox_link_id", work.map((w) => w.linkId));
+  if (deleteError) return `Earlier Rekordbox cue regions could not be replaced: ${deleteError.message}`;
+  const { data: existingRows, error: readError } = await supabase
+    .from("cue_regions")
+    .select("track_id, kind, start_seconds, end_seconds")
+    .in("track_id", [...new Set(work.map((w) => w.trackId))]);
+  if (readError) return `Cue regions could not be read: ${readError.message}`;
+  const existing = (existingRows ?? []) as { track_id: string; kind: string; start_seconds: number | string; end_seconds: number | string }[];
+
+  const rows: Record<string, unknown>[] = [];
+  for (const w of work) {
+    const { regions } = mapRekordboxCues(w.track.marks, w.track.tempo, w.duration, w.track.bpm);
+    const fresh = regions.filter(
+      (r) =>
+        !existing.some(
+          (e) =>
+            e.track_id === w.trackId &&
+            e.kind === r.kind &&
+            Math.abs(Number(e.start_seconds) - r.startSeconds) < 0.5 &&
+            Math.abs(Number(e.end_seconds) - r.endSeconds) < 0.5,
+        ),
+    );
+    for (const r of fresh) {
+      const approved = r.origin === "rekordbox_cue";
+      rows.push({
+        track_id: w.trackId,
+        kind: r.kind,
+        start_seconds: r.startSeconds,
+        end_seconds: r.endSeconds,
+        label: r.label.slice(0, 120),
+        provenance: approved ? "reviewed" : "estimate",
+        review_status: approved ? "approved" : "pending",
+        vocal_activity: "unknown",
+        rekordbox_link_id: w.linkId,
+      });
+    }
+    outcomes[w.outcome]!.cueRegions = fresh.length;
+  }
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await supabase.from("cue_regions").insert(rows.slice(i, i + 500));
+    if (error) return `Cue regions could not be saved: ${error.message}`;
+  }
+  return null;
+}
+
 /** Fill only what the library track lacks; reviewed and existing values are never replaced. */
 function fillEmpty(row: LibraryRow, t: RekordboxImportTrack): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
@@ -101,6 +164,7 @@ export async function importRekordboxBatch(input: unknown): Promise<RekordboxBat
   const claimed = new Set(claimedTrackIds);
 
   const outcomes: RekordboxOutcome[] = [];
+  const cueWork: CueWork[] = [];
   for (const t of tracks) {
     const skip = (message: string) => outcomes.push({ rekordboxTrackId: t.rekordboxTrackId, status: "skipped", trackId: null, message });
     let row: LibraryRow | undefined;
@@ -165,7 +229,7 @@ export async function importRekordboxBatch(input: unknown): Promise<RekordboxBat
       }
     }
 
-    const { error } = await supabase.from("rekordbox_links").upsert(
+    const { data: link, error } = await supabase.from("rekordbox_links").upsert(
       {
         track_id: row.id,
         rekordbox_track_id: t.rekordboxTrackId,
@@ -176,14 +240,15 @@ export async function importRekordboxBatch(input: unknown): Promise<RekordboxBat
         imported_at: new Date().toISOString(),
       },
       { onConflict: "owner_id,track_id" },
-    );
-    if (error) {
-      const message = error.message.includes("location") ? "Another library track is already linked to this Rekordbox file." : error.message;
+    ).select("id").single();
+    if (error || !link) {
+      const message = !error ? "no link returned" : error.message.includes("location") ? "Another library track is already linked to this Rekordbox file." : error.message;
       outcomes.push({ rekordboxTrackId: t.rekordboxTrackId, status: "skipped", trackId: row.id, message: `Grid and cues not saved: ${message}` });
       continue;
     }
     claimed.add(row.id);
     linkedTracks.add(row.id);
+    cueWork.push({ linkId: (link as { id: string }).id, trackId: row.id, duration: Number(row.duration_seconds), track: t, outcome: outcomes.length });
     outcomes.push({
       rekordboxTrackId: t.rekordboxTrackId,
       status,
@@ -191,6 +256,9 @@ export async function importRekordboxBatch(input: unknown): Promise<RekordboxBat
       message: status === "created" ? "Added to the library." : status === "linked" ? "Linked to an existing track." : "Updated the existing link.",
     });
   }
+
+  const cueError = await applyCueRegions(supabase, cueWork, outcomes);
+  if (cueError) return { ok: false, message: cueError, outcomes };
 
   const counts = { created: 0, linked: 0, updated: 0, skipped: 0 };
   outcomes.forEach((o) => counts[o.status]++);

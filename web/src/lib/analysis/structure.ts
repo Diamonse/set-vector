@@ -1,3 +1,4 @@
+import { barStartIndices, phraseCues } from "@/lib/cues/phrases";
 import type { BaselineFrames } from "./features";
 import type { Chromagram } from "./key";
 
@@ -138,39 +139,11 @@ function nearestIndex(beats: number[], t: number): number {
  * 30 s windows at the start and end are suggested instead.
  */
 export function suggestCues(beats: number[], downbeats: number[], boundaries: Boundary[], duration: number): CueSuggestion[] {
-  const out: CueSuggestion[] = [];
-  const round = (x: number) => Math.round(x * 1000) / 1000;
-  if (beats.length < REGION_BEATS + MIN_REGION_BEATS) {
-    const len = Math.min(30, duration / 3);
-    out.push({ kind: "entry", startSeconds: 0, endSeconds: round(len), label: "Suggested intro (no reliable beat grid)" });
-    out.push({ kind: "exit", startSeconds: round(duration - len), endSeconds: round(duration), label: "Suggested outro (no reliable beat grid)" });
-    return out;
-  }
-  const firstBar = downbeats.length ? nearestIndex(beats, downbeats[0]!) : 0;
-  const entryStart = firstBar;
-  const entryEnd = Math.min(beats.length - 1, entryStart + REGION_BEATS);
-  out.push({
-    kind: "entry",
-    startSeconds: round(beats[entryStart]!),
-    endSeconds: round(beats[entryEnd]!),
-    label: `Suggested intro, ${entryEnd - entryStart} beats from the ${downbeats.length ? "first downbeat" : "first beat"}`,
+  return phraseCues({
+    beats,
+    barStarts: downbeats.length ? barStartIndices(beats, downbeats) : null,
+    boundaries,
+    duration,
+    source: "Suggested",
   });
-
-  const latest = duration - (MIN_REGION_BEATS * (beats[beats.length - 1]! - beats[0]!)) / (beats.length - 1);
-  const candidates = boundaries
-    .filter((b) => b.seconds >= duration * 0.6 && b.seconds <= latest && b.strength >= 0.3)
-    .sort((a, b) => b.seconds - a.seconds);
-  let exitStart: number;
-  let label: string;
-  if (candidates.length) {
-    exitStart = nearestIndex(beats, candidates[0]!.seconds);
-    label = "Suggested outro from the last estimated section boundary";
-  } else {
-    exitStart = Math.max(entryEnd, beats.length - 1 - REGION_BEATS);
-    label = "Suggested outro, last 32 beats (no section boundary found)";
-  }
-  const exitEnd = Math.min(beats.length - 1, exitStart + REGION_BEATS);
-  const exitEndSeconds = exitEnd > exitStart ? beats[exitEnd]! : duration;
-  out.push({ kind: "exit", startSeconds: round(beats[exitStart]!), endSeconds: round(Math.min(duration, exitEndSeconds)), label });
-  return out.filter((c) => c.endSeconds > c.startSeconds && c.endSeconds <= duration + 1e-6);
 }
