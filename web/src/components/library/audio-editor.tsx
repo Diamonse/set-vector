@@ -440,7 +440,7 @@ export function AudioEditor({
             id={`audio-file-${trackId}`}
             type="file"
             accept="audio/*"
-            className="text-[14px] file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-[8px] file:border file:border-control-border file:bg-surface file:px-4 file:text-ui file:text-ink"
+            className="text-[14px] file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-control file:border file:border-control-border file:bg-surface file:px-4 file:text-ui file:text-ink"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void openFile(f);
@@ -455,7 +455,7 @@ export function AudioEditor({
         </Alert>
       ) : null}
 
-      <div className="on-dark mt-6 rounded-[16px] border border-on-dark/10 bg-dark p-4 shadow-lift text-on-dark">
+      <div className="on-dark mt-6 rounded-card border border-on-dark/10 bg-dark p-4 shadow-lift text-on-dark">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="dark" size="icon" onClick={togglePlay} disabled={!audioUrl} aria-label={playing ? "Pause" : "Play"}>
             {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
@@ -499,7 +499,7 @@ export function AudioEditor({
           </div>
         </div>
 
-        <div ref={wrapRef} className="mt-3 overflow-x-auto overscroll-x-contain rounded-[8px] bg-dark-elevated">
+        <div ref={wrapRef} className="mt-3 overflow-x-auto overscroll-x-contain rounded-control bg-dark-elevated">
           <canvas
             ref={canvasRef}
             role="img"
@@ -562,7 +562,7 @@ export function AudioEditor({
         ) : null}
 
         {selected ? (
-          <div className="flex flex-col gap-3 rounded-[8px] border border-divider p-4">
+          <div className="flex flex-col gap-3 rounded-inset border border-divider p-4">
             <p className="text-ui text-ink">
               {selected.kind === "entry" ? "Entry" : "Exit"} region: {selected.label || "Unlabelled"}{" "}
               <span className="text-data font-normal text-muted">

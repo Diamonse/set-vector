@@ -166,7 +166,7 @@ export function AnalyzeView({ tracks }: { tracks: LibraryTrackRef[] }) {
           </CardDescription>
         </CardHeader>
         <div
-          className={`flex flex-col items-center gap-3 rounded-[12px] border-2 border-dashed p-8 text-center ${dragOver ? "border-action bg-action/5" : "border-control-border/50"}`}
+          className={`flex flex-col items-center gap-3 rounded-inset border-2 border-dashed p-8 text-center ${dragOver ? "border-action bg-action/5" : "border-control-border/50"}`}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);

@@ -45,14 +45,14 @@ export default async function PlansPage() {
             return (
               <li key={p.id} className="group relative flex flex-col gap-4 panel p-5 transition-[box-shadow,transform,border-color] hover:-translate-y-0.5 hover:border-action/40 hover:shadow-lift">
                 <div className="flex items-start justify-between gap-3">
-                  <span className="flex size-11 items-center justify-center rounded-xl border border-action/30 bg-action/10 text-action">
+                  <span className="flex size-11 items-center justify-center rounded-inset border border-action/30 bg-action/10 text-action">
                     <Icon className="size-5 transition-transform duration-700 group-hover:rotate-180" aria-hidden />
                   </span>
                   {p.violationCount ? <StatusBadge kind="review" label={`${p.violationCount} unsatisfied`} /> : <StatusBadge kind="reviewed" label="Satisfied" />}
                 </div>
                 <div>
                   <h2 className="text-card-title">
-                    <Link href={`/plans/${p.id}`} className="text-ink no-underline after:absolute after:inset-0 after:rounded-[16px] hover:text-action">
+                    <Link href={`/plans/${p.id}`} className="text-ink no-underline after:absolute after:inset-0 after:rounded-card hover:text-action">
                       {p.name}
                     </Link>
                   </h2>

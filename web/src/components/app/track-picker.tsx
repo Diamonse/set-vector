@@ -90,7 +90,7 @@ export function TrackPicker({
       <p className="text-caption text-muted" aria-live="polite">
         {selected.length} selected · {visible.length} shown
       </p>
-      <ul className="divide-y divide-divider overflow-y-auto rounded-[8px] border border-control-border/50 bg-surface" style={{ maxHeight }}>
+      <ul className="divide-y divide-divider overflow-y-auto rounded-control border border-control-border/50 bg-surface" style={{ maxHeight }}>
         {visible.map((t) => {
           const key = usableKey(t.keyTonic, t.keyMode, t.keyStatus);
           const checkboxId = `${id}-${t.id}`;

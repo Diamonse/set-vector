@@ -116,7 +116,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <figure className="on-dark relative animate-rise overflow-hidden rounded-[20px] border border-on-dark/10 bg-dark p-5 text-on-dark shadow-lift [animation-delay:120ms] md:p-6">
+          <figure className="on-dark relative animate-rise overflow-hidden rounded-card border border-on-dark/10 bg-dark p-5 text-on-dark shadow-lift [animation-delay:120ms] md:p-6">
             <div aria-hidden className="absolute inset-0 stage-glow" />
             <div className="relative">
               <div className="flex items-center justify-between">
@@ -129,9 +129,9 @@ export default async function HomePage() {
                 { deck: "A", title: "Warm Room", artist: "Example Artist", bpm: "124.0", key: { tonic: 9, mode: "minor" as const }, seed: 1 },
                 { deck: "B", title: "Late Signal", artist: "Second Artist", bpm: "125.0", key: { tonic: 4, mode: "minor" as const }, seed: 4 },
               ].map((d) => (
-                <div key={d.deck} className="mt-4 rounded-[14px] border border-on-dark/10 bg-dark-elevated/80 p-4">
+                <div key={d.deck} className="mt-4 rounded-inset border border-on-dark/10 bg-dark-elevated/80 p-4">
                   <div className="flex items-center gap-3">
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-on-dark/10 font-mono text-[13px] font-semibold text-on-dark">{d.deck}</span>
+                    <span className="flex size-8 items-center justify-center rounded-control bg-on-dark/10 font-mono text-[13px] font-semibold text-on-dark">{d.deck}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-semibold text-on-dark">{d.title}</p>
                       <p className="truncate text-caption text-on-dark-muted">{d.artist}</p>
@@ -151,7 +151,7 @@ export default async function HomePage() {
                   ["Tempo", "+0.8%"],
                   ["Energy", "6 → 7"],
                 ].map(([k, v]) => (
-                  <div key={k} className="rounded-[12px] border border-on-dark/10 bg-dark-elevated/60 px-2 py-3">
+                  <div key={k} className="rounded-inset border border-on-dark/10 bg-dark-elevated/60 px-2 py-3">
                     <dt className="text-eyebrow text-on-dark-muted">{k}</dt>
                     <dd className="mt-1 font-mono text-[15px] font-semibold text-on-dark">{v}</dd>
                   </div>
