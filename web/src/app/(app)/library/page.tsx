@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { TrackTable } from "@/components/library/track-table";
 import { Button } from "@/components/ui/button";
 import { usableKey } from "@/lib/domain/camelot";
-import { formatPercent } from "@/lib/domain/format";
+import { formatPercent, formatTime } from "@/lib/domain/format";
 import { listTracks } from "@/lib/data/queries";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -20,6 +20,7 @@ export default async function LibraryPage() {
   const share = (count: number) => (n === 0 ? "0%" : formatPercent(count / n, 0));
 
   const withKey = tracks.filter((t) => usableKey(t.keyTonic, t.keyMode, t.keyStatus)).length;
+  const totalSeconds = tracks.reduce((sum, t) => sum + t.durationSeconds, 0);
   const withTempo = tracks.filter((t) => t.bpm !== null).length;
   const withEnergy = tracks.filter((t) => t.energy !== null).length;
   const withCues = tracks.filter(
@@ -81,10 +82,15 @@ export default async function LibraryPage() {
               Evidence coverage
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <MetricCard label="Tracks" value={n} />
-              <MetricCard label="Usable key" value={share(withKey)} detail={`${withKey} of ${n}; uncertain keys are excluded`} />
-              <MetricCard label="Tempo and energy" value={share(Math.min(withTempo, withEnergy))} detail={`${withTempo} with tempo, ${withEnergy} with energy`} />
-              <MetricCard label="Approved entry and exit" value={share(withCues)} detail={`${withCues} of ${n} tracks ready for DJ cues`} />
+              <MetricCard label="Tracks" value={n} detail={`${formatTime(totalSeconds)} of music`} />
+              <MetricCard label="Usable key" value={share(withKey)} meter={withKey / n} detail={`${withKey} of ${n}; uncertain keys are excluded`} />
+              <MetricCard
+                label="Tempo and energy"
+                value={share(Math.min(withTempo, withEnergy))}
+                meter={Math.min(withTempo, withEnergy) / n}
+                detail={`${withTempo} with tempo, ${withEnergy} with energy`}
+              />
+              <MetricCard label="Approved entry and exit" value={share(withCues)} meter={withCues / n} detail={`${withCues} of ${n} tracks ready for DJ cues`} />
             </div>
           </section>
           <TrackTable tracks={tracks} />

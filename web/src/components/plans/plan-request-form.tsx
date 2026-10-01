@@ -111,7 +111,7 @@ function RadioCards<T extends string>({
               value={o.value}
               checked={value === o.value}
               onChange={() => onChange(o.value)}
-              className="mt-1 size-4 accent-[#1256B2]"
+              className="mt-1 size-4 accent-[var(--action)]"
             />
             <span>
               <span className="block text-ui text-ink">{o.label}</span>
@@ -303,7 +303,7 @@ export function PlanRequestForm({
                 <legend className="mb-2 text-ui text-ink">Target</legend>
                 {(["duration", "count"] as const).map((v) => (
                   <label key={v} className="inline-flex min-h-11 items-center gap-2">
-                    <input type="radio" name="limit" checked={limit === v} onChange={() => setLimit(v)} className="size-4 accent-[#1256B2]" />
+                    <input type="radio" name="limit" checked={limit === v} onChange={() => setLimit(v)} className="size-4 accent-[var(--action)]" />
                     {v === "duration" ? "Duration" : "Track count"}
                   </label>
                 ))}

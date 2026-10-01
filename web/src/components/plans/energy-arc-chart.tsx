@@ -60,7 +60,7 @@ export function EnergyArcChart({
   const missing = items.filter((i) => i.energy === null).length;
 
   return (
-    <figure className="on-dark rounded-[12px] bg-dark p-6 text-on-dark">
+    <figure className="on-dark rounded-[16px] border border-on-dark/10 bg-dark shadow-lift p-6 text-on-dark">
       <figcaption className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
         <span className="text-card-title text-on-dark">{title}</span>
         <span className="text-caption text-on-dark-muted">

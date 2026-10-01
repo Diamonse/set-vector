@@ -14,6 +14,7 @@ The web app is optional and sits beside the offline Python analyzer. It analyzes
 - **Import:** JSON or CSV with a local preview before upload (see `examples/`).
 - **Rekordbox import:** read a Rekordbox collection export in the browser, choose tracks, and add them with their tempo markers and cue points. The Rekordbox grid and cue points appear on the track's waveform. See [Rekordbox import](#rekordbox-import).
 - **Crates:** saved track selections, used as fixed lists or as pools.
+- **Light and dark themes:** follows the system setting, with a Light, Dark, or System switch in the top bar that is remembered in the browser. Colors are CSS variables in `src/app/globals.css`; fonts (Unbounded, Instrument Sans, JetBrains Mono) are bundled at build time by `next/font`, so no font request leaves the app at runtime.
 - **Planner:**
   - Modes: DJ preparation and listening flow.
   - Selection: use every track, or choose from a pool to a target count or duration.

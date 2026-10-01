@@ -4,14 +4,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-[8px] px-4 text-ui no-underline transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action disabled:cursor-not-allowed disabled:opacity-55 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] px-4 text-ui no-underline transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action disabled:cursor-not-allowed disabled:opacity-55 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-action text-white hover:bg-action-hover active:bg-action-hover",
-        secondary: "border border-control-border bg-surface text-ink hover:bg-surface-subtle active:bg-surface-subtle",
-        ghost: "text-ink hover:bg-surface-subtle",
-        destructive: "bg-error text-white hover:bg-[#8f1b22]",
+        primary:
+          "bg-action text-on-action shadow-[0_6px_20px_-8px_var(--action)] hover:bg-action-hover hover:text-on-action hover:shadow-[0_8px_28px_-8px_var(--action)]",
+        secondary: "border border-control-border/70 bg-surface text-ink hover:border-control-border hover:bg-surface-subtle hover:text-ink",
+        ghost: "text-ink hover:bg-surface-subtle hover:text-ink",
+        destructive: "bg-error text-on-error hover:bg-error/85 hover:text-on-error",
         link: "min-h-0 px-0 text-action underline underline-offset-2 hover:text-action-hover",
         dark: "border border-on-dark-muted/40 bg-dark-elevated text-on-dark hover:bg-dark focus-visible:outline-action-on-dark",
       },

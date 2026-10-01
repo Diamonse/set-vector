@@ -455,7 +455,7 @@ export function AudioEditor({
         </Alert>
       ) : null}
 
-      <div className="on-dark mt-6 rounded-[12px] bg-dark p-4 text-on-dark">
+      <div className="on-dark mt-6 rounded-[16px] border border-on-dark/10 bg-dark p-4 shadow-lift text-on-dark">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="dark" size="icon" onClick={togglePlay} disabled={!audioUrl} aria-label={playing ? "Pause" : "Play"}>
             {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
@@ -519,7 +519,7 @@ export function AudioEditor({
           value={time}
           onChange={(e) => seek(Number(e.target.value))}
           aria-label="Playback position"
-          className="mt-3 w-full accent-[#8FC4FF]"
+          className="mt-3 w-full accent-[var(--action-on-dark)]"
         />
         <p className="mt-2 text-caption text-on-dark-muted">
           Blue regions are entries, red are exits; dashed edges are pending review. Tall blue ticks are bar lines and short ticks are beats

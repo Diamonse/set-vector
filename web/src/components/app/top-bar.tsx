@@ -1,17 +1,19 @@
 "use client";
 
-import { Menu, X } from "lucide-react";
+import { Disc3, Library, ListMusic, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "@/app/actions/auth";
+import { Logo } from "@/components/app/logo";
+import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/library", label: "Library" },
-  { href: "/crates", label: "Crates" },
-  { href: "/plans", label: "Plans" },
+  { href: "/library", label: "Library", Icon: Library },
+  { href: "/crates", label: "Crates", Icon: Disc3 },
+  { href: "/plans", label: "Plans", Icon: ListMusic },
 ];
 
 export function TopBar({ email }: { email: string }) {
@@ -27,27 +29,29 @@ export function TopBar({ email }: { email: string }) {
         aria-current={active ? "page" : undefined}
         onClick={() => setOpen(false)}
         className={cn(
-          "inline-flex min-h-11 items-center rounded-[8px] px-3 text-ui no-underline",
-          active ? "bg-surface-subtle text-ink" : "text-muted hover:text-ink",
+          "relative inline-flex min-h-10 items-center gap-2 rounded-full px-3.5 text-ui no-underline transition-colors",
+          active ? "bg-surface-subtle text-ink hover:text-ink" : "text-muted hover:bg-surface-subtle/60 hover:text-ink",
         )}
       >
+        <item.Icon className={cn("size-4", active ? "text-action" : "")} aria-hidden />
         {item.label}
       </Link>
     );
   });
 
   return (
-    <header className="border-b border-divider bg-surface">
-      <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-2 md:px-6">
-        <div className="flex items-center gap-6">
-          <Link href="/library" className="text-[18px] font-semibold text-ink no-underline">
-            SetVector
+    <header className="sticky top-0 z-40 border-b border-divider bg-[var(--header-bg)] backdrop-blur-xl backdrop-saturate-150">
+      <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-2.5 md:px-6">
+        <div className="flex items-center gap-8">
+          <Link href="/library" className="no-underline" aria-label="SetVector library">
+            <Logo />
           </Link>
           <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
             {links}
           </nav>
         </div>
         <div className="hidden items-center gap-3 md:flex">
+          <ThemeToggle />
           <span className="max-w-[24ch] truncate text-caption text-muted" title={email}>
             {email}
           </span>
@@ -74,6 +78,10 @@ export function TopBar({ email }: { email: string }) {
           <nav aria-label="Main" className="flex flex-col py-2">
             {links}
           </nav>
+          <div className="flex items-center justify-between gap-3 border-t border-divider py-3">
+            <span className="text-caption text-muted">Theme</span>
+            <ThemeToggle />
+          </div>
           <div className="flex items-center justify-between gap-3 border-t border-divider pt-3">
             <span className="truncate text-caption text-muted">{email}</span>
             <form action={signOut}>

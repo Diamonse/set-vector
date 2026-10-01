@@ -12,11 +12,11 @@ const DialogClose = DialogPrimitive.Close;
 function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-dark/60" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-dark/60 backdrop-blur-sm" />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 w-[calc(100%-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-[12px] border border-divider bg-surface p-6 shadow-[0_12px_40px_rgba(18,24,32,0.18)]",
+          "fixed top-1/2 left-1/2 z-50 w-[calc(100%-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-divider bg-surface p-6 shadow-lift",
           className,
         )}
         {...props}

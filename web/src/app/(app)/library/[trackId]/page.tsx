@@ -13,7 +13,8 @@ import { CueEditor } from "@/components/library/cue-editor";
 import { TrackForm } from "@/components/library/track-form";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { describeTrackKey } from "@/lib/domain/camelot";
+import { KeyChip } from "@/components/music/key-chip";
+import { formatKeyName } from "@/lib/domain/camelot";
 import { formatBpm, formatTime } from "@/lib/domain/format";
 import { getLatestAnalysis, getRekordboxLink, getTrack, listTrackAnnotations } from "@/lib/data/queries";
 import { gridForDisplay } from "@/lib/rekordbox/grid";
@@ -77,7 +78,16 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
             {track.versionLabel ? <span className="text-muted"> ({track.versionLabel})</span> : null}
           </>
         }
-        lead={[track.artist || "Unknown artist", track.styleTags.join(", ")].filter(Boolean).join(" · ")}
+        lead={
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="text-lead text-ink">{track.artist || "Unknown artist"}</span>
+            {track.styleTags.map((s) => (
+              <span key={s} className="rounded-full border border-divider bg-surface-subtle px-2.5 py-0.5 text-caption text-body">
+                {s}
+              </span>
+            ))}
+          </span>
+        }
         actions={
           <ConfirmDelete
             title="Delete this track?"
@@ -97,7 +107,14 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
         />
         <MetricCard
           label="Key"
-          value={track.keyTonic === null ? null : describeTrackKey(track.keyTonic, track.keyMode, track.keyStatus)}
+          value={
+            track.keyTonic === null || track.keyMode === null ? null : (
+              <span className="flex flex-wrap items-center gap-3">
+                <KeyChip musicalKey={{ tonic: track.keyTonic, mode: track.keyMode }} estimated={track.keyStatus !== "reviewed"} className="px-3 py-1 text-[20px] leading-7" />
+                <span className="font-sans text-[15px] font-medium tracking-normal text-body">{formatKeyName({ tonic: track.keyTonic, mode: track.keyMode })}</span>
+              </span>
+            )
+          }
           status={<StatusBadge kind={keyKind} />}
           detail={track.keyStatus === "uncertain" ? "Left out of harmonic scoring" : "Camelot code and key name"}
         />
@@ -105,6 +122,7 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
           label="Relative energy"
           value={track.energy}
           unit="of 10"
+          meter={track.energy === null ? null : track.energy / 10}
           status={<StatusBadge kind={track.energy === null ? "unavailable" : track.energySource === "reviewed" ? "reviewed" : "estimated"} />}
           detail="Your annotation, not a calibrated loudness measure"
         />

@@ -1,11 +1,10 @@
-import { Plus } from "lucide-react";
+import { Disc3, Headphones, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTime } from "@/lib/domain/format";
 import { listPlans } from "@/lib/data/queries";
 import { requireUser } from "@/lib/supabase/server";
@@ -40,44 +39,48 @@ export default async function PlansPage() {
           Choose a crate or pool, a mode, and an energy arc. The planner proposes an order and explains each transition.
         </EmptyState>
       ) : (
-        <div className="rounded-[12px] border border-divider bg-surface">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Plan</TableHead>
-                <TableHead>Mode</TableHead>
-                <TableHead className="text-right">Tracks</TableHead>
-                <TableHead className="text-right">Length</TableHead>
-                <TableHead>Constraints</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {plans.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>
-                    <Link href={`/plans/${p.id}`} className="font-semibold">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {plans.map((p) => {
+            const Icon = p.mode === "dj" ? Disc3 : Headphones;
+            return (
+              <li key={p.id} className="group relative flex flex-col gap-4 panel p-5 transition-[box-shadow,transform,border-color] hover:-translate-y-0.5 hover:border-action/40 hover:shadow-lift">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex size-11 items-center justify-center rounded-xl border border-action/30 bg-action/10 text-action">
+                    <Icon className="size-5 transition-transform duration-700 group-hover:rotate-180" aria-hidden />
+                  </span>
+                  {p.violationCount ? <StatusBadge kind="review" label={`${p.violationCount} unsatisfied`} /> : <StatusBadge kind="reviewed" label="Satisfied" />}
+                </div>
+                <div>
+                  <h2 className="text-card-title">
+                    <Link href={`/plans/${p.id}`} className="text-ink no-underline after:absolute after:inset-0 after:rounded-[16px] hover:text-action">
                       {p.name}
                     </Link>
-                    {p.edited ? <span className="text-caption text-muted"> · edited</span> : null}
-                  </TableCell>
-                  <TableCell>
-                    {p.mode === "dj" ? "DJ preparation" : "Listening flow"}
-                    <div className="text-caption text-muted">{p.selectionPolicy === "use_all" ? "Fixed crate" : "Pool selection"}</div>
-                  </TableCell>
-                  <TableCell className="text-right text-data">{p.trackCount}</TableCell>
-                  <TableCell className="text-right text-data">{formatTime(p.totalSeconds)}</TableCell>
-                  <TableCell>
-                    {p.violationCount ? <StatusBadge kind="review" label={`${p.violationCount} unsatisfied`} /> : <StatusBadge kind="reviewed" label="Satisfied" />}
-                  </TableCell>
-                  <TableCell className="text-caption whitespace-nowrap">
-                    <time dateTime={p.createdAt}>{new Date(p.createdAt).toLocaleDateString()}</time>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                  </h2>
+                  <p className="mt-1 text-caption text-muted">
+                    {p.mode === "dj" ? "DJ preparation" : "Listening flow"} · {p.selectionPolicy === "use_all" ? "Fixed crate" : "Pool selection"}
+                    {p.edited ? " · edited" : ""}
+                  </p>
+                </div>
+                <dl className="mt-auto grid grid-cols-3 gap-3 border-t border-divider pt-4">
+                  <div>
+                    <dt className="text-eyebrow text-muted">Tracks</dt>
+                    <dd className="font-mono text-[18px] font-semibold text-ink tabular">{p.trackCount}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-eyebrow text-muted">Length</dt>
+                    <dd className="font-mono text-[18px] font-semibold text-ink tabular">{formatTime(p.totalSeconds)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-eyebrow text-muted">Created</dt>
+                    <dd className="text-[14px] leading-7 text-body">
+                      <time dateTime={p.createdAt}>{new Date(p.createdAt).toLocaleDateString()}</time>
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </>
   );

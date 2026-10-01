@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import { adoptAlternative, saveEditedOrder } from "@/app/actions/plans";
 import { FormMessage } from "@/components/app/form-message";
 import { StatusBadge, type EvidenceKind } from "@/components/app/status-badge";
+import { EnergyMeter } from "@/components/music/energy-meter";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,9 +71,9 @@ function SetOrder({
         const exitBadge = ORIGIN_BADGE[item.exitOrigin];
         return (
           <li key={`${item.occurrenceId}-${i}`}>
-            <div className="flex flex-col gap-3 rounded-[12px] border border-divider bg-surface p-4 md:flex-row md:items-center">
+            <div className="flex flex-col gap-3 panel p-4 md:flex-row md:items-center">
               <div className="flex items-center gap-4 md:w-[45%]">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-subtle text-data font-semibold text-ink">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-action/40 bg-[radial-gradient(circle,var(--surface)_28%,color-mix(in_oklab,var(--action)_14%,var(--surface))_30%)] font-mono text-[15px] font-semibold text-action">
                   {i + 1}
                 </span>
                 <div className="min-w-0">
@@ -93,7 +94,7 @@ function SetOrder({
                     </>
                   ) : null}
                   <span className="text-muted"> · energy </span>
-                  <span className="text-data">{item.energy ?? "n/a"}</span>
+                  {item.energy === null ? <span className="text-data">n/a</span> : <EnergyMeter value={item.energy} className="align-middle text-[14px]" />}
                   {item.targetEnergy !== null ? (
                     <>
                       <span className="text-muted"> (target </span>

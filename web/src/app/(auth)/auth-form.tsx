@@ -21,8 +21,9 @@ export function AuthForm({
   const [state, formAction] = useActionState(action, initialActionState);
   const signup = mode === "signup";
   return (
-    <Card>
-      <h1 className="text-card-title">{signup ? "Create your account" : "Sign in"}</h1>
+    <Card className="p-7 shadow-lift md:p-8">
+      <p className="text-eyebrow text-action">{signup ? "Get started" : "Welcome back"}</p>
+      <h1 className="mt-2 text-section">{signup ? "Create your account" : "Sign in"}</h1>
       <form action={formAction} className="mt-6 flex flex-col gap-4" noValidate>
         {next ? <input type="hidden" name="next" value={next} /> : null}
         {signup ? (
@@ -42,7 +43,7 @@ export function AuthForm({
           <Input name="password" type="password" autoComplete={signup ? "new-password" : "current-password"} required minLength={8} />
         </FormField>
         <FormMessage state={state} />
-        <SubmitButton pendingLabel={signup ? "Creating account" : "Signing in"}>{signup ? "Create account" : "Sign in"}</SubmitButton>
+        <SubmitButton className="mt-2 w-full" pendingLabel={signup ? "Creating account" : "Signing in"}>{signup ? "Create account" : "Sign in"}</SubmitButton>
       </form>
       <p className="mt-6 text-caption text-muted">
         {signup ? (

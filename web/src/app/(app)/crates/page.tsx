@@ -44,7 +44,7 @@ export default async function CratesPage() {
           {crates.map((c) => {
             const total = c.trackIds.reduce((s, id) => s + (durations.get(id) ?? 0), 0);
             return (
-              <li key={c.id} className="flex flex-col gap-2 rounded-[12px] border border-divider bg-surface p-6">
+              <li key={c.id} className="flex flex-col gap-2 panel p-6">
                 <Link href={`/crates/${c.id}`} className="text-card-title">
                   {c.name}
                 </Link>

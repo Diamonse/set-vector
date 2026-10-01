@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { StatusBadge } from "@/components/app/status-badge";
+import { EnergyMeter } from "@/components/music/energy-meter";
+import { KeyChip } from "@/components/music/key-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCamelot, toCamelot, usableKey } from "@/lib/domain/camelot";
+import { usableKey } from "@/lib/domain/camelot";
 import { formatBpm, formatTime } from "@/lib/domain/format";
 import type { Track } from "@/lib/domain/types";
 
@@ -90,7 +92,7 @@ export function TrackTable({ tracks }: { tracks: Track[] }) {
         </div>
       </div>
 
-      <div className="rounded-[12px] border border-divider bg-surface">
+      <div className="panel overflow-hidden">
         <Table>
           <TableCaption className="px-3 pb-3 text-left" aria-live="polite">
             Showing {rows.length} of {tracks.length} tracks. Energy is your relative 1 to 10 annotation, not a calibrated measurement.
@@ -115,27 +117,40 @@ export function TrackTable({ tracks }: { tracks: Track[] }) {
               return (
                 <TableRow key={t.id}>
                   <TableCell className="min-w-[220px]">
-                    <Link href={`/library/${t.id}`} className="font-semibold">
+                    <Link href={`/library/${t.id}`} className="font-semibold text-ink no-underline hover:text-action">
                       {t.title}
                     </Link>
                     {t.versionLabel ? <span className="text-muted"> ({t.versionLabel})</span> : null}
                     <div className="text-caption text-muted">{t.artist || "Unknown artist"}</div>
                   </TableCell>
-                  <TableCell className="text-caption">{t.styleTags.join(", ") || <span className="text-muted">None</span>}</TableCell>
+                  <TableCell>
+                    {t.styleTags.length ? (
+                      <span className="flex flex-wrap gap-1">
+                        {t.styleTags.slice(0, 3).map((s) => (
+                          <span key={s} className="rounded-full border border-divider bg-surface-subtle px-2 py-0.5 text-[12px] leading-4 whitespace-nowrap text-body">
+                            {s}
+                          </span>
+                        ))}
+                        {t.styleTags.length > 3 ? <span className="text-caption text-muted">+{t.styleTags.length - 3}</span> : null}
+                      </span>
+                    ) : (
+                      <span className="text-caption text-muted">None</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right text-data">
                     {t.bpm === null ? <span className="font-sans text-muted">Unavailable</span> : formatBpm(t.bpm)}
                     {t.bpmSource === "estimate" ? <div className="font-sans text-caption text-muted">Estimated</div> : null}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {key ? (
-                      <span className="text-data">{formatCamelot(toCamelot(key))}</span>
+                      <KeyChip musicalKey={key} estimated={t.keyStatus === "estimated"} />
                     ) : (
                       <span className="text-muted">{t.keyStatus === "not_meaningful" ? "Not meaningful" : t.keyStatus === "uncertain" ? "Uncertain" : "Unavailable"}</span>
                     )}
                     {key && t.keyStatus === "estimated" ? <div className="text-caption text-muted">Estimated</div> : null}
                   </TableCell>
                   <TableCell className="text-right text-data">
-                    {t.energy === null ? <span className="font-sans text-muted">Unavailable</span> : t.energy}
+                    {t.energy === null ? <span className="font-sans text-muted">Unavailable</span> : <EnergyMeter value={t.energy} />}
                   </TableCell>
                   <TableCell className="text-right text-data">{formatTime(t.durationSeconds)}</TableCell>
                   <TableCell className="whitespace-nowrap">

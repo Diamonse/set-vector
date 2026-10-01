@@ -88,9 +88,9 @@ export function TransitionCard({
   const t = transition;
   const listening = t.type === "sequential";
   return (
-    <div className="relative ml-4 border-l-2 border-dashed border-control-border/50 py-3 pl-6 md:ml-6">
-      <ArrowDown className="absolute top-4 -left-[9px] size-4 rounded-full bg-canvas text-muted" aria-hidden />
-      <div className="rounded-[12px] border border-divider bg-surface p-4">
+    <div className="relative ml-5 border-l-2 border-action/25 py-3 pl-6 md:ml-[21px]">
+      <ArrowDown className="absolute top-4 -left-[9px] size-4 rounded-full bg-canvas text-action" aria-hidden />
+      <div className="panel p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-ui text-ink">
             Transition {index + 1} to {index + 2}
@@ -100,7 +100,13 @@ export function TransitionCard({
           {t.reviewNeeded ? <StatusBadge kind="review" /> : null}
           {worst ? <Badge tone="warning">Weakest transition</Badge> : null}
           {judgment ? <Badge tone={judgment === "works" ? "success" : judgment === "clash" ? "error" : "warning"}>You: {JUDGMENT_LABEL[judgment]}</Badge> : null}
-          <span className="ml-auto text-data text-muted" title="Weighted transition cost from 0 (no concerns) to 1">
+          <span className="ml-auto inline-flex items-center gap-2 text-data text-muted" title="Weighted transition cost from 0 (no concerns) to 1">
+            <span aria-hidden className="h-1.5 w-16 overflow-hidden rounded-full bg-surface-subtle">
+              <span
+                className={`block h-full rounded-full ${t.cost < 0.25 ? "bg-success" : t.cost < 0.5 ? "bg-warning" : "bg-error"}`}
+                style={{ width: `${Math.max(6, (1 - Math.min(1, t.cost)) * 100)}%` }}
+              />
+            </span>
             cost {t.cost.toFixed(2)}
           </span>
         </div>
