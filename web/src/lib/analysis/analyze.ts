@@ -15,7 +15,8 @@ import {
 } from "./types";
 
 export const ANALYSIS_SAMPLE_RATE = 22_050;
-const MIN_DETECTION_SECONDS = 1;
+/** Shorter audio skips Beat This!, as `MIN_DETECTION_SECONDS` in the CLI. */
+export const MIN_DETECTION_SECONDS = 1;
 const WAVEFORM_BUCKETS = 1600;
 
 export interface AnalyzeInput {

@@ -146,6 +146,8 @@ Rules for saving:
 
 The TypeScript port is checked against the CLI's Python code on synthetic signals (`tests/analysis`, fixtures from `scripts/make_analysis_fixtures.py`): frame features within 1e-4, the same tempo as librosa, identical grid fits and acceptance reasons, identical peak picking, the Beat This! log-mel front end within 2e-3, and loudness within 0.1 LU of `pyloudnorm`. These checks establish that the port reproduces the CLI. They do not measure accuracy on real music; see `docs/research/playlist-engine-evaluation.md`.
 
+`tests/analysis/cli-drift.test.ts` keeps the port in step with the CLI. It reads `src/setvector/analysis/identity.py` and the Beat This! inference settings, and fails when an algorithm version, threshold, or front-end parameter differs from the browser copy (`src/lib/analysis/port.ts` records the CLI versions the port reproduces). When it fails, port the CLI change to `src/lib/analysis`, regenerate the fixtures with `npm run fixtures`, and update the recorded versions.
+
 All pages are served with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`, which lets ONNX Runtime use WASM threads. The ONNX Runtime files are copied into `public/ort` by `npm install`.
 
 ### Beat detection model
