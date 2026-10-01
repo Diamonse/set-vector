@@ -37,10 +37,9 @@
 
   --elev-card: 0 1px 2px rgb(18 21 27 / 0.05), 0 8px 24px -12px rgb(18 21 27 / 0.12);
   --elev-lift: 0 2px 4px rgb(18 21 27 / 0.06), 0 18px 40px -16px rgb(18 21 27 / 0.22);
-  --glow-a: rgb(255 138 61 / 0.16);
-  --glow-b: rgb(29 95 209 / 0.1);
-  --grain-opacity: 0.035;
-  --header-bg: rgb(246 244 239 / 0.78);
+  --glow-a: rgb(255 138 61 / 0.12);
+  --glow-b: rgb(29 95 209 / 0.07);
+  --header-bg: rgb(246 244 239 / 0.85);
   color-scheme: light;
   --data-energy-dark: #ff7b68;
   --data-rhythm-dark: #78b8ff;
@@ -100,10 +99,9 @@
 
   --elev-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 10px 30px -18px rgb(0 0 0 / 0.8);
   --elev-lift: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 22px 50px -20px rgb(0 0 0 / 0.9);
-  --glow-a: rgb(255 138 61 / 0.13);
-  --glow-b: rgb(111 178 255 / 0.1);
-  --grain-opacity: 0.05;
-  --header-bg: rgb(10 13 18 / 0.72);
+  --glow-a: rgb(255 138 61 / 0.1);
+  --glow-b: rgb(111 178 255 / 0.07);
+  --header-bg: rgb(10 13 18 / 0.8);
   color-scheme: dark;
 }
 
@@ -140,10 +138,9 @@
 
     --elev-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 10px 30px -18px rgb(0 0 0 / 0.8);
     --elev-lift: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 22px 50px -20px rgb(0 0 0 / 0.9);
-    --glow-a: rgb(255 138 61 / 0.13);
-    --glow-b: rgb(111 178 255 / 0.1);
-    --grain-opacity: 0.05;
-    --header-bg: rgb(10 13 18 / 0.72);
+    --glow-a: rgb(255 138 61 / 0.1);
+    --glow-b: rgb(111 178 255 / 0.07);
+    --header-bg: rgb(10 13 18 / 0.8);
     color-scheme: dark;
   }
 }
@@ -233,22 +230,11 @@
     font-size: 16px;
     line-height: 1.55;
     min-height: 100dvh;
-    /* Stage lighting: two soft glows behind the content. */
+    /* Stage lighting: two soft glows at the top of the page. */
     background-image:
       radial-gradient(60rem 32rem at 8% -8%, var(--glow-a), transparent 70%),
       radial-gradient(52rem 30rem at 100% 0%, var(--glow-b), transparent 70%);
     background-repeat: no-repeat;
-    background-attachment: fixed;
-  }
-  /* Film grain over the page; decorative and ignored by pointer events. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    pointer-events: none;
-    opacity: var(--grain-opacity);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   ::selection {
     background: color-mix(in oklab, var(--action) 30%, transparent);
@@ -318,6 +304,13 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+/* Two soft glows for the always-dark showcase panels (hero preview, sign-in aside). */
+@utility stage-glow {
+  background-image:
+    radial-gradient(70% 60% at 0% 0%, color-mix(in oklab, var(--action-on-dark) 16%, transparent), transparent 70%),
+    radial-gradient(70% 60% at 100% 100%, color-mix(in oklab, var(--data-rhythm-dark) 12%, transparent), transparent 70%);
 }
 
 /* Card shell shared by cards, tables, and panels. */

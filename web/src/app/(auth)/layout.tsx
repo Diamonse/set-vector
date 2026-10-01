@@ -14,7 +14,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
       <aside className="on-dark relative hidden overflow-hidden bg-dark p-12 text-on-dark lg:flex lg:flex-col">
-        <div aria-hidden className="absolute inset-0 bg-[radial-gradient(40rem_26rem_at_0%_0%,rgb(255_138_61/0.22),transparent_70%),radial-gradient(36rem_24rem_at_100%_100%,rgb(111_178_255/0.18),transparent_70%)]" />
+        <div aria-hidden className="absolute inset-0 stage-glow" />
         <Link href="/" className="relative no-underline [&_span]:text-on-dark">
           <Logo />
         </Link>

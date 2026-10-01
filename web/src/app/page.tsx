@@ -83,12 +83,12 @@ export default async function HomePage() {
         <section className="mx-auto grid max-w-[1200px] items-center gap-12 px-4 pt-14 pb-20 md:px-6 md:pt-24 lg:grid-cols-[1.1fr_1fr]">
           <div className="animate-rise">
             <p className="inline-flex items-center gap-2 rounded-full border border-divider bg-surface/70 px-3 py-1 text-eyebrow text-muted">
-              <span aria-hidden className="size-1.5 rounded-full bg-action shadow-[0_0_10px_var(--action)]" />
+              <span aria-hidden className="size-1.5 rounded-full bg-action" />
               For DJs and playlist builders
             </p>
             <h1 className="mt-6 text-display max-w-[14ch]">
               Shape a set from{" "}
-              <span className="bg-gradient-to-r from-action via-data-energy to-accent-2 bg-clip-text text-transparent">evidence</span> you can inspect.
+              <span className="text-action">evidence</span> you can inspect.
             </h1>
             <p className="mt-6 max-w-[56ch] text-lead text-body">
               Keep reviewed keys, tempos, cue regions, and energy notes for your library. Plan a DJ set or a listening playlist, see why each
@@ -117,7 +117,7 @@ export default async function HomePage() {
           </div>
 
           <figure className="on-dark relative animate-rise overflow-hidden rounded-[20px] border border-on-dark/10 bg-dark p-5 text-on-dark shadow-lift [animation-delay:120ms] md:p-6">
-            <div aria-hidden className="absolute inset-0 bg-[radial-gradient(30rem_18rem_at_0%_0%,rgb(255_138_61/0.18),transparent_70%),radial-gradient(28rem_18rem_at_100%_100%,rgb(111_178_255/0.16),transparent_70%)]" />
+            <div aria-hidden className="absolute inset-0 stage-glow" />
             <div className="relative">
               <div className="flex items-center justify-between">
                 <span className="text-eyebrow text-on-dark-muted">Example transition</span>
@@ -169,14 +169,14 @@ export default async function HomePage() {
           <h2 id="features-heading" className="text-section max-w-[22ch]">
             Everything between your crate and the booth.
           </h2>
-          <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-10 grid gap-x-12 sm:grid-cols-2">
             {FEATURES.map(({ Icon, title, body }) => (
-              <li key={title} className="group panel p-6 transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:border-action/40 hover:shadow-lift">
-                <span className="flex size-11 items-center justify-center rounded-xl border border-action/30 bg-action/10 text-action">
-                  <Icon className="size-5" aria-hidden />
-                </span>
-                <h3 className="mt-5 text-card-title">{title}</h3>
-                <p className="mt-2 text-body">{body}</p>
+              <li key={title} className="flex gap-4 border-t border-divider py-7">
+                <Icon className="mt-1 size-5 shrink-0 text-action" aria-hidden />
+                <div>
+                  <h3 className="text-card-title">{title}</h3>
+                  <p className="mt-2 max-w-[52ch] text-body">{body}</p>
+                </div>
               </li>
             ))}
           </ul>
