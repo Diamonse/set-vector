@@ -3,7 +3,7 @@
 import { Disc3, Library, ListMusic, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/actions/auth";
 import { Logo } from "@/components/app/logo";
 import { ThemeToggle } from "@/components/app/theme-toggle";
@@ -19,6 +19,27 @@ const NAV = [
 export function TopBar({ email }: { email: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
+  // The mobile menu closes on Escape (returning focus to its button) or a tap outside the header.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      toggleRef.current?.focus();
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (!headerRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [open]);
 
   const links = NAV.map((item) => {
     const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -40,7 +61,7 @@ export function TopBar({ email }: { email: string }) {
   });
 
   return (
-    <header className="sticky top-0 z-40 border-b border-divider bg-[var(--header-bg)] backdrop-blur-xl backdrop-saturate-150">
+    <header ref={headerRef} className="sticky top-0 z-40 border-b border-divider bg-[var(--header-bg)] backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-2.5 md:px-6">
         <div className="flex items-center gap-8">
           <Link href="/library" className="no-underline" aria-label="SetVector library">
@@ -62,6 +83,7 @@ export function TopBar({ email }: { email: string }) {
           </form>
         </div>
         <Button
+          ref={toggleRef}
           variant="ghost"
           size="icon"
           className="md:hidden"

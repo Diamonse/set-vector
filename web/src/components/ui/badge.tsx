@@ -8,10 +8,11 @@ const badgeVariants = cva(
     variants: {
       tone: {
         neutral: "border-control-border/40 bg-surface-subtle text-ink",
-        success: "border-success/40 bg-success/10 text-success",
-        warning: "border-warning/40 bg-warning/10 text-warning",
-        error: "border-error/40 bg-error/10 text-error",
-        action: "border-action/40 bg-action/10 text-action",
+        // Text is the tone deepened toward ink so it clears 4.5:1 on every surface in both themes.
+        success: "border-success/40 bg-success/10 text-[color-mix(in_oklab,var(--success)_75%,var(--ink))]",
+        warning: "border-warning/40 bg-warning/10 text-[color-mix(in_oklab,var(--warning)_75%,var(--ink))]",
+        error: "border-error/40 bg-error/10 text-[color-mix(in_oklab,var(--error)_75%,var(--ink))]",
+        action: "border-action/40 bg-action/10 text-[color-mix(in_oklab,var(--action)_75%,var(--ink))]",
       },
     },
     defaultVariants: { tone: "neutral" },

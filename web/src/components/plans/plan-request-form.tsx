@@ -103,7 +103,7 @@ function RadioCards<T extends string>({
         {options.map((o) => (
           <label
             key={o.value}
-            className={`flex cursor-pointer gap-3 rounded-[8px] border p-4 ${value === o.value ? "border-action bg-action/5" : "border-control-border/60 bg-surface"}`}
+            className={`flex cursor-pointer gap-3 rounded-inset border p-4 ${value === o.value ? "border-action bg-action/5" : "border-control-border bg-surface hover:border-muted"}`}
           >
             <input
               type="radio"
@@ -379,7 +379,7 @@ export function PlanRequestForm({
             </div>
           </div>
 
-          <details className="rounded-[8px] border border-divider p-4">
+          <details className="rounded-inset border border-divider p-4">
             <summary className="min-h-11 cursor-pointer py-2 text-ui text-ink">
               Required and excluded tracks ({inCandidates(request.requiredTrackIds).length} required, {inCandidates(request.excludedTrackIds).length}{" "}
               excluded)
@@ -549,7 +549,7 @@ export function PlanRequestForm({
           />
         </div>
 
-        <details className="mt-6 rounded-[8px] border border-divider p-4">
+        <details className="mt-6 rounded-inset border border-divider p-4">
           <summary className="min-h-11 cursor-pointer py-2 text-ui text-ink">Scoring weights and search budget</summary>
           <p className="mt-2 text-caption text-muted">
             Starting weights are declared assumptions for this mode, not fitted values. Changing them changes what the planner prefers.

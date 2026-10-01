@@ -62,7 +62,7 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
     .map((m) => ({
       time: m.startSeconds,
       label: m.slot === null ? m.name || "Memory cue" : `Hot cue ${String.fromCharCode(65 + m.slot)}${m.name ? ` ${m.name}` : ""}`,
-      color: m.colour ? `rgb(${m.colour.join(", ")})` : "#FFC24D",
+      color: m.colour ? `rgb(${m.colour.join(", ")})` : undefined,
     }))
     .sort((a, b) => a.time - b.time);
 
