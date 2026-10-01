@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { formatTime } from "@/lib/domain/format";
 import type { ArcPoint } from "@/lib/planner";
 
@@ -10,7 +13,8 @@ export interface ArcChartItem {
   targetEnergy: number | null;
 }
 
-const W = 960;
+/** The chart draws at its rendered width so labels keep their pixel size; below this it scrolls. */
+const MIN_W = 480;
 const H = 300;
 const PAD = { left: 44, right: 16, top: 16, bottom: 36 };
 
@@ -32,6 +36,18 @@ export function EnergyArcChart({
   title?: string;
   caption?: string;
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(960);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = () => setW(Math.max(MIN_W, Math.floor(el.clientWidth)));
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
   const x = (u: number) => PAD.left + u * plotW;
@@ -68,30 +84,30 @@ export function EnergyArcChart({
         </span>
       </figcaption>
 
-      <div className="mt-4 overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[560px]" role="img" aria-label={`${title}. The data table below lists the values.`}>
+      <div ref={wrapRef} className="mt-4 overflow-x-auto">
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block" role="img" aria-label={`${title}. The data table below lists the values.`}>
           {yTicks.map((e) => (
             <g key={e}>
-              <line x1={PAD.left} x2={W - PAD.right} y1={y(e)} y2={y(e)} stroke="#C4D0D8" strokeOpacity={0.18} />
-              <text x={PAD.left - 10} y={y(e) + 4} textAnchor="end" fontSize={12} fill="#C4D0D8" fontFamily="ui-monospace, monospace">
+              <line x1={PAD.left} x2={W - PAD.right} y1={y(e)} y2={y(e)} className="stroke-on-dark-muted" strokeOpacity={0.18} />
+              <text x={PAD.left - 10} y={y(e) + 4} textAnchor="end" fontSize={12} className="fill-on-dark-muted font-mono">
                 {e}
               </text>
             </g>
           ))}
           {xTicks.map((u) => (
-            <text key={u} x={x(u)} y={H - 10} textAnchor={u === 0 ? "start" : u === 1 ? "end" : "middle"} fontSize={12} fill="#C4D0D8" fontFamily="ui-monospace, monospace">
+            <text key={u} x={x(u)} y={H - 10} textAnchor={u === 0 ? "start" : u === 1 ? "end" : "middle"} fontSize={12} className="fill-on-dark-muted font-mono">
               {total ? formatTime(u * total) : `${Math.round(u * 100)}%`}
             </text>
           ))}
-          {arcPath ? <path d={arcPath} fill="none" stroke="#C4D0D8" strokeWidth={2} strokeDasharray="6 5" /> : null}
+          {arcPath ? <path d={arcPath} fill="none" className="stroke-on-dark-muted" strokeWidth={2} strokeDasharray="6 5" /> : null}
           {steps.map((d, i) => (
-            <path key={i} d={d} fill="none" stroke="#FF7B68" strokeWidth={3} strokeLinecap="round" />
+            <path key={i} d={d} fill="none" className="stroke-data-energy-dark" strokeWidth={3} strokeLinecap="round" />
           ))}
           {dots.map((d) => (
             <g key={d.n}>
-              <circle cx={d.cx} cy={d.cy} r={4.5} fill="#FF7B68" />
+              <circle cx={d.cx} cy={d.cy} r={4.5} className="fill-data-energy-dark" />
               {dots.length <= 40 ? (
-                <text x={d.cx} y={d.cy - 10} textAnchor="middle" fontSize={11} fill="#F8FAFC" fontFamily="ui-monospace, monospace">
+                <text x={d.cx} y={d.cy - 10} textAnchor="middle" fontSize={12} className="fill-on-dark font-mono">
                   {d.n}
                 </text>
               ) : null}
@@ -104,7 +120,7 @@ export function EnergyArcChart({
         {arc ? (
           <span className="inline-flex items-center gap-2">
             <svg width="28" height="8" aria-hidden>
-              <line x1="0" x2="28" y1="4" y2="4" stroke="#C4D0D8" strokeWidth="2" strokeDasharray="6 5" />
+              <line x1="0" x2="28" y1="4" y2="4" className="stroke-on-dark-muted" strokeWidth="2" strokeDasharray="6 5" />
             </svg>
             Target arc (dashed)
           </span>
@@ -114,8 +130,8 @@ export function EnergyArcChart({
         {items.length ? (
           <span className="inline-flex items-center gap-2">
             <svg width="28" height="10" aria-hidden>
-              <line x1="0" x2="28" y1="5" y2="5" stroke="#FF7B68" strokeWidth="3" />
-              <circle cx="14" cy="5" r="3.5" fill="#FF7B68" />
+              <line x1="0" x2="28" y1="5" y2="5" className="stroke-data-energy-dark" strokeWidth="3" />
+              <circle cx="14" cy="5" r="3.5" className="fill-data-energy-dark" />
             </svg>
             Track energy (solid, numbered by position)
           </span>
