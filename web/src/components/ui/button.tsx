@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         primary:
           "bg-action text-on-action shadow-[0_6px_20px_-8px_var(--action)] hover:bg-action-hover hover:text-on-action hover:shadow-[0_8px_28px_-8px_var(--action)]",
-        secondary: "border border-control-border/70 bg-surface text-ink hover:border-control-border hover:bg-surface-subtle hover:text-ink",
+        secondary: "border border-control-border bg-surface text-ink hover:border-muted hover:bg-surface-subtle hover:text-ink",
         ghost: "text-ink hover:bg-surface-subtle hover:text-ink",
         destructive: "bg-error text-on-error hover:bg-error/85 hover:text-on-error",
         link: "min-h-0 px-0 text-action underline underline-offset-2 hover:text-action-hover",
@@ -18,7 +18,7 @@ const buttonVariants = cva(
       },
       size: {
         default: "",
-        sm: "min-h-9 px-3 text-[13px]",
+        sm: "min-h-9 px-3 text-[13px] pointer-coarse:min-h-11",
         icon: "size-11 px-0",
       },
     },

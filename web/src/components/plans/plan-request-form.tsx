@@ -103,7 +103,7 @@ function RadioCards<T extends string>({
         {options.map((o) => (
           <label
             key={o.value}
-            className={`flex cursor-pointer gap-3 rounded-inset border p-4 ${value === o.value ? "border-action bg-action/5" : "border-control-border/60 bg-surface"}`}
+            className={`flex cursor-pointer gap-3 rounded-inset border p-4 ${value === o.value ? "border-action bg-action/5" : "border-control-border bg-surface hover:border-muted"}`}
           >
             <input
               type="radio"

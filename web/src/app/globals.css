@@ -16,7 +16,8 @@
   --body: light-dark(#363d47, #c3cbd6);
   --muted: light-dark(#5b6571, #8d99a8);
   --divider: light-dark(#e0dbd1, #232c39);
-  --control-border: light-dark(#7a838e, #465365);
+  /* At least 3:1 against every surface, so control boundaries stay visible (WCAG 1.4.11). */
+  --control-border: light-dark(#737c87, #66758a);
   --action: light-dark(#c2410c, #ff8a3d);
   --action-hover: light-dark(#9a3412, #ffa766);
   --on-action: light-dark(#ffffff, #1a0d03);
@@ -147,12 +148,13 @@
   --shadow-card: var(--elev-card);
   --shadow-lift: var(--elev-lift);
 
-  --animate-eq: eq 1.6s ease-in-out infinite;
+  /* Three cycles (under five seconds), then the bars rest at full height (WCAG 2.2.2). */
+  --animate-eq: eq 1.6s ease-in-out 3;
   --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 
   @keyframes eq {
-    0%, 100% { transform: scaleY(0.35); }
-    50% { transform: scaleY(1); }
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.35); }
   }
   @keyframes rise {
     from { opacity: 0; transform: translateY(8px); }
@@ -201,13 +203,30 @@
   .on-dark :focus-visible {
     outline-color: var(--action-on-dark);
   }
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      transition-duration: 0.01ms !important;
-    }
+}
+
+/*
+ * Reduced motion keeps state changes visible without movement: entrances fade instead of
+ * rising, the level-meter bars stand still, and spinners pulse in place.
+ */
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+@keyframes breathe {
+  50% { opacity: 0.4; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation-name: fade-in;
+  }
+  .animate-eq {
+    animation: none;
+  }
+  .animate-spin {
+    animation: breathe 1.6s ease-in-out infinite;
+  }
+  html {
+    scroll-behavior: auto;
   }
 }
 

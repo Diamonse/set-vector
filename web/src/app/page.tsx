@@ -201,14 +201,19 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <footer className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-12 md:flex-row md:items-center md:justify-between md:px-6">
-          <Logo />
-          <p className="max-w-[70ch] text-caption text-muted">
-            Plans are proposals to review and edit. Scores are transparent heuristics and do not judge musical quality. Track audio never leaves
-            your machine; only the measurements and metadata you save are stored.
-          </p>
-        </footer>
       </main>
+
+      <footer className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-12 md:flex-row md:items-center md:justify-between md:px-6">
+        <div className="flex items-center justify-between gap-4">
+          <Logo />
+          {/* The header has no room for the theme switch on phones, so it lives here. */}
+          <ThemeToggle className="sm:hidden" />
+        </div>
+        <p className="max-w-[70ch] text-caption text-muted">
+          Plans are proposals to review and edit. Scores are transparent heuristics and do not judge musical quality. Track audio never leaves
+          your machine; only the measurements and metadata you save are stored.
+        </p>
+      </footer>
     </>
   );
 }
