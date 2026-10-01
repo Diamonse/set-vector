@@ -128,6 +128,24 @@ Requirements: Node.js 20.9 or newer and a Supabase project.
 | `npm run fixtures` | Regenerates the analysis and Rekordbox parity fixtures from the CLI's Python code |
 | `npm run check` | Typecheck, tests, and build |
 
+## Deploying to Vercel
+
+1. Import the GitHub repository in Vercel. Set **Root Directory** to `web`; the framework
+   preset is **Next.js** and the default build settings work.
+2. Add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and
+   `NEXT_PUBLIC_SITE_URL` (your production origin, for example `https://<project>.vercel.app`)
+   under **Settings > Environment Variables**, then redeploy. Add the beat model variables
+   if you host the model ([Beat detection model](#beat-detection-model)).
+3. In Supabase, under **Authentication > URL Configuration**, set the Site URL to the
+   production origin and add `<origin>/auth/confirm` to the redirect URLs, so
+   confirmation emails link to the deployed app rather than `localhost`.
+4. Apply every file in `supabase/migrations/` to the production database before deploying
+   code that depends on it (SQL Editor, or `npx supabase db push`).
+
+Every push to the production branch redeploys. The app sets cross-origin isolation
+headers on all routes (`next.config.ts`) so the analyzer can use multithreaded
+WebAssembly; resources from other origins, such as a hosted model, must allow that.
+
 ## Audio analysis
 
 Analysis runs in a Web Worker in the browser. The page decodes each file at its native sample rate, computes the asset ID (SHA-256 of the file bytes, the same ID the CLI uses), and analyzes it. Only the resulting measurements are sent to the server, and only when you choose **Save**.

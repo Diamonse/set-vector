@@ -51,6 +51,64 @@ install PyTorch with `--extra-index-url https://download.pytorch.org/whl/cpu`
 first, because a plain `pip install torch` there selects the much larger CUDA
 build.
 
+## Web App
+
+SetVector also has a web app for building a reviewed track library and planning sets
+from it, with no installation for the people who use it. The hosted version runs at
+[set-vector.vercel.app](https://set-vector.vercel.app); the code is in [`web/`](web/README.md).
+
+**Audio stays on your device.** The app analyzes files inside the browser and stores
+only the measurements you choose to save. Sign-in and the library are stored in
+Supabase, with each user's rows visible only to that user.
+
+### What it does
+
+- **Analyze audio in the browser.** Drop files on **Library > Analyze audio** to measure
+  tempo (with half and double alternatives), a beat grid, downbeats (with the Beat This!
+  model when it is available), key with a confidence margin, loudness, section
+  boundaries, and suggested entry and exit cue regions. The browser analyzer is a port of
+  the Python one, with parity tests against it.
+- **Import a library.** Bring in a Rekordbox collection export (with its beat grids and
+  cue points), or JSON and CSV files from a spreadsheet or the offline analyzer.
+- **Review the evidence.** Each track page shows its waveform with beats, bar lines,
+  cue regions, and Rekordbox cue points. Play your local copy of the file, drag cue
+  regions into place, and approve or reject suggestions. Estimates and your reviewed
+  values are kept apart, and every change is saved as a revision.
+- **Automatic energy estimates.** Analyzed tracks you have not rated get an experimental
+  1 to 10 energy score. It ranks loudness, drum activity, tempo, bass weight, and
+  brightness against the rest of your library, so it adjusts as the library grows. The
+  track page explains each score, and your own ratings always take priority.
+- **Plan a set.** Choose a crate or a pool of tracks, a mode (**DJ preparation** or
+  **listening flow**), a target length, constraints, and an energy arc. The planner
+  proposes an order and explains every transition: key relation, tempo change, cue
+  status, energy step, and a suggested cut, short blend, or long blend.
+- **Edit and export.** Reorder or remove tracks with live re-scoring, adopt a suggested
+  alternative, compare the plan with
+  simple baselines (random, BPM-sorted, Camelot walk), record your own judgment of each
+  transition, and export the plan as CSV or JSON.
+- **Light and dark themes**, following your system setting or a manual choice.
+
+### Using it
+
+1. Create an account at [set-vector.vercel.app](https://set-vector.vercel.app) and
+   confirm your email.
+2. Add tracks: analyze audio files, import a Rekordbox collection, or import JSON or CSV
+   ([sample files](web/examples/)).
+3. Open tracks to check tempo, key, energy, and cue regions. Fix anything the analysis
+   got wrong; corrected values are marked as reviewed.
+4. Group tracks into crates if you like, then open **Plans > New plan**.
+5. Review the proposed order and its transition notes, adjust it, and export it.
+
+Plans are proposals to review, and scores are transparent heuristics; neither judges
+musical quality.
+
+### Running your own copy
+
+The web app needs Node.js 20.9 or newer and a Supabase project. Setup, environment
+variables, database migrations, deployment to Vercel, and the design of the analyzer,
+planner, and energy estimates are described in the [web app README](web/README.md).
+The web app is optional: the Python package and CLI work on their own, offline.
+
 ## Why SetVector?
 
 Most DJ software provides useful technical information such as BPM, key, waveform structure, and beat grids.
@@ -245,9 +303,9 @@ For the planned playlist engine, see the [research synthesis](docs/research/play
 The [analysis-engine extension research](docs/research/analysis-engine-extension.md) and
 [detailed prerequisite plan](docs/superpowers/plans/2026-09-22-playlist-analysis-prerequisites.md)
 map the required analysis and DJ planning work onto the existing Python package.
-An optional web app for reviewed track metadata and set planning, built on
-Next.js and Supabase, lives in [`web/`](web/README.md). It never receives audio
-and is separate from the offline analysis path.
+The optional web app (Next.js and Supabase, see [Web App](#web-app)) lives in
+[`web/`](web/README.md). It never receives audio and is separate from the offline
+analysis path.
 For an installable Windows and macOS app around the offline analyzer, see the
 [standalone desktop integration research](<reports/SetVector standalone analysis integration.md>).
 
