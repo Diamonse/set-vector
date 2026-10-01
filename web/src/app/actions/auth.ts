@@ -13,7 +13,7 @@ const credentials = z.object({
 
 function safeNext(value: FormDataEntryValue | null): string {
   const next = typeof value === "string" ? value : "";
-  return next.startsWith("/") && !next.startsWith("//") ? next : "/library";
+  return next.startsWith("/") && !next.startsWith("//") ? next : "/home";
 }
 
 export async function signIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -46,7 +46,7 @@ export async function signUp(_prev: ActionState, formData: FormData): Promise<Ac
     },
   });
   if (error) return { ok: false, message: error.message };
-  if (data.session) redirect("/library");
+  if (data.session) redirect("/home");
   return { ok: true, message: "Check your email for a confirmation link, then sign in." };
 }
 

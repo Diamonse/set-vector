@@ -1,5 +1,6 @@
 import { ArrowRight, AudioLines, Disc3, FileUp, Headphones, ListChecks, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Logo } from "@/components/app/logo";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { KeyChip } from "@/components/music/key-chip";
@@ -51,6 +52,8 @@ export default async function HomePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // Signed-in visitors get their dashboard; this page is the public introduction.
+  if (user) redirect("/home");
 
   return (
     <>
@@ -63,7 +66,7 @@ export default async function HomePage() {
             <ThemeToggle className="hidden sm:inline-flex" />
             {user ? (
               <Button asChild size="sm">
-                <Link href="/library">Open library</Link>
+                <Link href="/home">Open SetVector</Link>
               </Button>
             ) : (
               <>

@@ -194,3 +194,35 @@ export async function getRekordboxLink(supabase: ServerClient, trackId: string):
   const row = data as { rekordbox_track_id: number; location: string; tempo: StoredRekordboxLink["tempo"]; marks: StoredRekordboxLink["marks"]; imported_at: string };
   return { rekordboxTrackId: Number(row.rekordbox_track_id), location: row.location, tempo: row.tempo, marks: row.marks, importedAt: row.imported_at };
 }
+
+/** Most recent revisions across the library, newest first. */
+export async function listRecentAnnotations(supabase: ServerClient, limit = 8): Promise<Annotation[]> {
+  const { data, error } = await supabase.from("annotations").select("*").order("created_at", { ascending: false }).limit(limit);
+  if (error) return [];
+  return ((data ?? []) as AnnotationRow[]).map(toAnnotation);
+}
+
+export interface RecentAnalysis {
+  trackId: string;
+  title: string;
+  createdAt: string;
+}
+
+/** Latest saved analyses with their track titles, and the total number saved. */
+export async function listRecentAnalyses(supabase: ServerClient, limit = 5): Promise<{ recent: RecentAnalysis[]; total: number }> {
+  const { data, count, error } = await supabase
+    .from("track_analyses")
+    .select("track_id, created_at, tracks(title)", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return { recent: [], total: 0 };
+  const rows = (data ?? []) as unknown as { track_id: string; created_at: string; tracks: { title: string } | { title: string }[] | null }[];
+  return {
+    total: count ?? rows.length,
+    recent: rows.map((r) => ({
+      trackId: r.track_id,
+      createdAt: r.created_at,
+      title: (Array.isArray(r.tracks) ? r.tracks[0]?.title : r.tracks?.title) ?? "Untitled track",
+    })),
+  };
+}

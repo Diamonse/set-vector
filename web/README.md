@@ -6,6 +6,7 @@ The web app is optional and sits beside the offline Python analyzer. It analyzes
 
 ## Features
 
+- **Home dashboard:** signing in lands on **Home** (`/home`): quick actions, a getting-started checklist that ticks off from your data and hides when done, library health (tempo, key, energy, and cue coverage, with a link to the tracks that need review), charts of tempo, keys on the Camelot wheel, energy, and styles (each with a data table), and recent plans, analyses, and changes. The public page at `/` sends signed-in visitors to Home.
 - **Filtering and sorting:** click any Library column header to sort by it (again to reverse). A filter row under the headers narrows by title or artist, style, BPM range (optionally at half or double time), Camelot key (exact, or keys that mix with it: same, adjacent, relative), energy range, length range, and cue-region state; filters combine. The track picker for plans and crates has the same filters and a sort menu. The rules live in `src/lib/library/filters.ts`.
 - **Library:** tracks with style tags, remix family, tempo and alternative tempos, key with a status (reviewed, estimated, uncertain, not meaningful), relative energy on a 1 to 10 scale, and analyzer asset and feature IDs. Every value records whether it is an estimate or a reviewed decision.
 - **Cue regions:** entry and exit intervals `[start, end)` with review status and vocal activity. The database rejects regions that extend past the track.

@@ -104,9 +104,9 @@ function Range({
   );
 }
 
-export function TrackTable({ tracks }: { tracks: Track[] }) {
+export function TrackTable({ tracks, initialReview = "all" }: { tracks: Track[]; initialReview?: "all" | "needs" | "complete" }) {
   const [filters, setFilters] = useState<TrackFilters>(EMPTY_FILTERS);
-  const [review, setReview] = useState("all");
+  const [review, setReview] = useState<string>(initialReview);
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "artist", dir: "asc" });
   const set = (patch: Partial<TrackFilters>) => setFilters((f) => ({ ...f, ...patch }));
 

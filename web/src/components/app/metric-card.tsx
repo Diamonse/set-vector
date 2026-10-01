@@ -41,7 +41,8 @@ export function MetricCard({
               key={i}
               className={cn(
                 "h-1.5 flex-1 rounded-[1px]",
-                i < lit ? (i >= 17 ? "bg-data-energy" : i >= 12 ? "bg-warning" : "bg-action") : "bg-surface-subtle",
+                // One hue for magnitude: a full meter is good coverage, not a warning.
+                i < lit ? "bg-action" : "bg-surface-subtle",
               )}
             />
           ))}

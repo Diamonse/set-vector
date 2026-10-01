@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseEnv } from "./env";
 
-const PROTECTED_PREFIXES = ["/library", "/crates", "/plans"];
+const PROTECTED_PREFIXES = ["/home", "/library", "/crates", "/plans"];
 const AUTH_PAGES = ["/login", "/signup"];
 
 /** Refreshes the auth session cookie and guards app routes. */
@@ -37,7 +37,7 @@ export async function updateSession(request: NextRequest) {
   }
   if (user && AUTH_PAGES.includes(path)) {
     const target = request.nextUrl.clone();
-    target.pathname = "/library";
+    target.pathname = "/home";
     target.search = "";
     return NextResponse.redirect(target);
   }

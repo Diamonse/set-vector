@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatTime } from "@/lib/domain/format";
 import type { Annotation } from "@/lib/domain/types";
 
-function summarize(a: Annotation): string {
+export function describeAnnotation(a: Annotation): string {
   const p = a.payload;
   if (a.task === "track_metadata") {
     if (p.reason === "created") return "Track created";
@@ -14,6 +14,14 @@ function summarize(a: Annotation): string {
     return `${a.task.replace("_", " ")} ${String(p.action ?? "")}${region}${p.review_status ? `, ${String(p.review_status)}` : ""}`;
   }
   if (a.task === "transition_judgment") return `Transition judged: ${String(p.judgment ?? "").replace("_", " ")}`;
+  if (a.task === "audio_analysis") return "Audio analyzed";
+  if (a.task === "manual_reorder") return "Plan order edited";
+  if (a.task === "adopt_alternative") return "Adopted an alternative plan order";
+  if (a.task === "library_import") return `Imported ${Number(p.imported ?? 0)} track(s) from ${String(p.format ?? "a file").toUpperCase()}`;
+  if (a.task === "rekordbox_import") {
+    const parts = [`${Number(p.created ?? 0)} added`, `${Number(p.linked ?? 0)} linked`, `${Number(p.updated ?? 0)} updated`];
+    return `Rekordbox import: ${parts.join(", ")}`;
+  }
   return a.task.replace(/_/g, " ");
 }
 
@@ -24,7 +32,7 @@ export function AnnotationList({ annotations }: { annotations: Annotation[] }) {
       {annotations.map((a) => (
         <li key={a.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-ink">{summarize(a)}</p>
+            <p className="text-ink">{describeAnnotation(a)}</p>
             {a.note ? <p className="text-caption text-muted">Reason: {a.note}</p> : null}
           </div>
           <div className="flex shrink-0 items-center gap-2">
