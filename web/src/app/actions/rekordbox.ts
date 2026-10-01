@@ -47,6 +47,16 @@ async function loadLibrary(supabase: ServerClient): Promise<LibraryRow[]> {
   }
 }
 
+async function loadLinks(supabase: ServerClient): Promise<{ track_id: string; location: string }[]> {
+  const rows: { track_id: string; location: string }[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from("rekordbox_links").select("track_id, location").order("id").range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    rows.push(...((data ?? []) as { track_id: string; location: string }[]));
+    if (!data || data.length < PAGE) return rows;
+  }
+}
+
 /** Fill only what the library track lacks; reviewed and existing values are never replaced. */
 function fillEmpty(row: LibraryRow, t: RekordboxImportTrack): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
@@ -77,15 +87,16 @@ export async function importRekordboxBatch(input: unknown): Promise<RekordboxBat
     return { ok: false, message: `The library could not be read: ${(error as Error).message}`, outcomes: [] };
   }
   const byId = new Map(library.map((r) => [r.id, r]));
-  const { data: linkRows, error: linkError } = await supabase
-    .from("rekordbox_links")
-    .select("track_id, location")
-    .in("location", tracks.map((t) => t.location));
-  if (linkError) return { ok: false, message: `Rekordbox links could not be read: ${linkError.message}`, outcomes: [] };
-  const linkedByLocation = new Map((linkRows ?? []).map((l) => [l.location as string, l.track_id as string]));
-  const { data: allLinks, error: allLinksError } = await supabase.from("rekordbox_links").select("track_id");
-  if (allLinksError) return { ok: false, message: `Rekordbox links could not be read: ${allLinksError.message}`, outcomes: [] };
-  const linkedTracks = new Set((allLinks ?? []).map((l) => l.track_id as string));
+  // Read every link once and match in memory: a filter listing the batch's locations
+  // makes the request URL too long for real file paths.
+  let links: { track_id: string; location: string }[];
+  try {
+    links = await loadLinks(supabase);
+  } catch (error) {
+    return { ok: false, message: `Rekordbox links could not be read: ${(error as Error).message}`, outcomes: [] };
+  }
+  const linkedByLocation = new Map(links.map((l) => [l.location, l.track_id]));
+  const linkedTracks = new Set(links.map((l) => l.track_id));
   // A library track takes at most one entry per import run, so duplicates in the collection stay separate.
   const claimed = new Set(claimedTrackIds);
 
