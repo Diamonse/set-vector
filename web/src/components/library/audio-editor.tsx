@@ -16,9 +16,18 @@ import { formatTime } from "@/lib/domain/format";
 import type { CueRegion } from "@/lib/domain/types";
 import { initialActionState, type ActionState } from "@/lib/validation/schemas";
 
-interface Grid {
+export interface EditorGrid {
+  id: string;
+  label: string;
   beats: number[];
   downbeats: number[];
+}
+
+/** A point marker such as a Rekordbox hot or memory cue; drawn above the waveform. */
+export interface EditorPoint {
+  time: number;
+  label: string;
+  color: string;
 }
 
 const HEIGHT = 180;
@@ -33,6 +42,7 @@ const COLORS = {
   exitEdge: "#FF7B68",
   selection: "rgba(248, 250, 252, 0.18)",
   playhead: "#F8FAFC",
+  point: "#FFC24D",
   text: "#C4D0D8",
 };
 
@@ -79,14 +89,16 @@ export function AudioEditor({
   duration,
   trackAssetId,
   cues,
-  grid,
+  grids,
+  points = [],
   storedPeaks,
 }: {
   trackId: string;
   duration: number;
   trackAssetId: string | null;
   cues: CueRegion[];
-  grid: Grid | null;
+  grids: EditorGrid[];
+  points?: EditorPoint[];
   storedPeaks: number[] | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -109,6 +121,8 @@ export function AudioEditor({
   const [pending, startTransition] = useTransition();
   const drag = useRef<Drag | null>(null);
 
+  const [gridId, setGridId] = useState(grids[0]?.id ?? "");
+  const grid = grids.find((g) => g.id === gridId) ?? grids[0] ?? null;
   const beats = useMemo(() => grid?.beats ?? [], [grid]);
   const downbeatSet = useMemo(() => new Set(grid?.downbeats ?? []), [grid]);
   const contentWidth = Math.max(width, Math.round(width * zoom));
@@ -191,6 +205,18 @@ export function AudioEditor({
       g.fillRect(Math.round(x(b)), isDown ? 4 : 12, isDown ? 2 : 1, isDown ? RULER - 4 : RULER - 12);
     }
 
+    for (const p of points) {
+      const px = Math.round(x(p.time));
+      g.fillStyle = p.color;
+      g.beginPath();
+      g.moveTo(px - 5, RULER);
+      g.lineTo(px + 5, RULER);
+      g.lineTo(px, RULER + 8);
+      g.closePath();
+      g.fill();
+      g.fillRect(px, RULER, 1, HEIGHT - RULER);
+    }
+
     if (selection) {
       g.fillStyle = COLORS.selection;
       g.fillRect(x(selection.start), RULER, x(selection.end) - x(selection.start), HEIGHT - RULER);
@@ -198,7 +224,7 @@ export function AudioEditor({
 
     g.fillStyle = COLORS.playhead;
     g.fillRect(Math.round(x(time)), 0, 2, HEIGHT);
-  }, [contentWidth, peaks, beats, downbeatSet, beatPeriod, cues, regionOf, selectedCue, selection, time, x]);
+  }, [contentWidth, peaks, beats, downbeatSet, beatPeriod, cues, points, regionOf, selectedCue, selection, time, x]);
 
   // Keep the playhead in view while zoomed.
   useEffect(() => {
@@ -403,7 +429,7 @@ export function AudioEditor({
         <CardTitle>Waveform and cues</CardTitle>
         <CardDescription>
           Open your copy of the track to play it here; it is not uploaded. Drag across the waveform to select a region, drag a region&apos;s edge to
-          resize it, and click a region to review it. {beats.length ? "Edges snap to the detected beats." : "Analyze the file to get beat markers."}
+          resize it, and click a region to review it. {beats.length ? "Edges snap to the chosen beat grid." : "Analyze the file or import it from Rekordbox to get beat markers."}
         </CardDescription>
       </CardHeader>
 
@@ -445,6 +471,20 @@ export function AudioEditor({
             <Checkbox checked={snap} onCheckedChange={(v) => setSnap(v === true)} disabled={beats.length === 0} className="border-on-dark-muted bg-dark-elevated" />
             Snap to beats
           </label>
+          {grids.length > 1 ? (
+            <div className="flex items-center gap-2">
+              <Label htmlFor={`grid-${trackId}`} className="text-on-dark-muted">
+                Grid
+              </Label>
+              <NativeSelect id={`grid-${trackId}`} value={grid?.id ?? ""} onChange={(e) => setGridId(e.target.value)} className="min-h-9 w-44 border-on-dark-muted/50 bg-dark-elevated py-1 text-on-dark">
+                {grids.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          ) : null}
           <div className="ml-auto flex items-center gap-2">
             <Label htmlFor={`zoom-${trackId}`} className="text-on-dark-muted">
               Zoom
@@ -463,7 +503,7 @@ export function AudioEditor({
           <canvas
             ref={canvasRef}
             role="img"
-            aria-label={`Waveform of ${formatTime(duration)} with ${cues.length} cue regions${beats.length ? ` and ${beats.length} beat markers` : ""}. Use the controls and the table below for keyboard access.`}
+            aria-label={`Waveform of ${formatTime(duration)} with ${cues.length} cue regions${beats.length ? ` and ${beats.length} beat markers` : ""}${points.length ? ` and ${points.length} cue points` : ""}. Use the controls and the table below for keyboard access.`}
             className="block touch-none"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -482,9 +522,21 @@ export function AudioEditor({
           className="mt-3 w-full accent-[#8FC4FF]"
         />
         <p className="mt-2 text-caption text-on-dark-muted">
-          Blue regions are entries, red are exits; dashed edges are pending review. Tall blue ticks are downbeats from the model, short ticks
-          are beats.
+          Blue regions are entries, red are exits; dashed edges are pending review. Tall blue ticks are bar lines and short ticks are beats
+          {grid ? ` from the ${grid.label} grid` : ""}.{points.length ? " Triangles mark Rekordbox cue points." : ""}
         </p>
+        {points.length ? (
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption text-on-dark-muted" aria-label="Rekordbox cue points">
+            {points.map((p, i) => (
+              <li key={i}>
+                <button type="button" className="underline-offset-2 hover:underline" onClick={() => seek(p.time)}>
+                  <span aria-hidden className="mr-1 inline-block size-2 rounded-full align-middle" style={{ backgroundColor: p.color }} />
+                  {p.label} {formatTime(p.time)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {audioUrl ? (
           <audio ref={audioRef} src={audioUrl} preload="auto" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} className="hidden" />
         ) : null}

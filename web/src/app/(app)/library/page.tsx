@@ -63,6 +63,9 @@ export default async function LibraryPage() {
                 <Link href="/library/import">Import JSON or CSV</Link>
               </Button>
               <Button asChild variant="secondary">
+                <Link href="/library/import/rekordbox">Import from Rekordbox</Link>
+              </Button>
+              <Button asChild variant="secondary">
                 <Link href="/library/new">Add a track by hand</Link>
               </Button>
             </>

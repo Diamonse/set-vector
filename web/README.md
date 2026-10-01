@@ -12,6 +12,7 @@ The web app is optional and sits beside the offline Python analyzer. It analyzes
 - **Audio analysis in the browser:** drop audio files on **Library > Analyze audio** to measure tempo (with half, double, and other alternatives), a beat grid, downbeats (with the model), key with a confidence margin, BS.1770 loudness, section boundaries, and entry and exit cue suggestions. Results are saved as estimates; values you reviewed are never overwritten. See [Audio analysis](#audio-analysis).
 - **Waveform and cue editing:** on a track's **Audio and analysis** tab, open your local copy of the file to play it, see beat and downbeat markers, drag to create or resize cue regions snapped to beats, and approve or reject suggestions.
 - **Import:** JSON or CSV with a local preview before upload (see `examples/`).
+- **Rekordbox import:** read a Rekordbox collection export in the browser, choose tracks, and add them with their tempo markers and cue points. The Rekordbox grid and cue points appear on the track's waveform. See [Rekordbox import](#rekordbox-import).
 - **Crates:** saved track selections, used as fixed lists or as pools.
 - **Planner:**
   - Modes: DJ preparation and listening flow.
@@ -51,7 +52,7 @@ web/
 │   ├── app/
 │   │   ├── (auth)/            Sign-in and sign-up pages
 │   │   ├── (app)/             Library, crates, and plans (signed-in area)
-│   │   ├── actions/           Server actions (auth, tracks, cues, import, crates, plans)
+│   │   ├── actions/           Server actions (auth, tracks, cues, import, rekordbox, crates, plans)
 │   │   └── auth/confirm/      Email confirmation handler
 │   ├── components/
 │   │   ├── ui/                shadcn/ui primitives styled with SetVector tokens
@@ -62,10 +63,11 @@ web/
 │   │   ├── domain/            Types, Camelot and key parsing, formatting
 │   │   ├── planner/           Planning engine (pure TypeScript)
 │   │   ├── import/            JSON and CSV import parser
+│   │   ├── rekordbox/         Rekordbox XML reader and grid expansion (port of src/setvector/rekordbox)
 │   │   ├── data/              Row mapping, queries, annotation writer
 │   │   ├── supabase/          Server client, proxy helper, environment
 │   │   └── validation/        Zod schemas
-└── tests/                     Vitest tests: planner, keys, import, analysis parity, model
+└── tests/                     Vitest tests: planner, keys, import, analysis and Rekordbox parity, model
 ```
 
 ## Local setup
@@ -121,7 +123,7 @@ Requirements: Node.js 20.9 or newer and a Supabase project.
 | `npm run typecheck` | Generate route types and run the TypeScript compiler |
 | `npm test` | Vitest unit and parity tests |
 | `npm run test:model` | Runs an exported ONNX model through the browser pipeline and compares it with PyTorch (needs `BEAT_MODEL_PATH` and `BEAT_MODEL_REFERENCE`) |
-| `npm run fixtures` | Regenerates the analysis parity fixtures from the CLI's Python code |
+| `npm run fixtures` | Regenerates the analysis and Rekordbox parity fixtures from the CLI's Python code |
 | `npm run check` | Typecheck, tests, and build |
 
 ## Audio analysis
@@ -195,6 +197,26 @@ JSON is an array of tracks, or `{"tracks": [...]}`. CSV needs a header row. Reco
 
 Values are imported as estimates unless marked reviewed.
 
+## Rekordbox import
+
+**Library > Import > Import a Rekordbox collection** reads a file made with Rekordbox's **File > Export Collection in xml format**. The file is parsed in the browser; only the selected tracks' metadata, tempo markers, and cue points are sent, in batches of 100. Playlists are not read.
+
+| Rekordbox | SetVector |
+| --- | --- |
+| `Name` (or the file name), `Artist`, `Mix` | Title, artist, version |
+| `Genre` | Style tags, split on `,` `;` `/` and `|` |
+| `TotalTime` | Duration. Entries without it are skipped. |
+| `AverageBpm`, `Tonality` | Tempo and key, as estimates |
+| `TEMPO` markers | Kept with the link and expanded into a beat grid with bar lines on the track's waveform |
+| `POSITION_MARK` hot and memory cues, loops | Kept with the link and shown as points on the waveform. They are not converted to entry or exit regions. |
+
+- Streaming entries (non-file locations) and entries without a duration cannot be imported. Entries shorter than 30 seconds or in the Rekordbox sampler folder are left unselected.
+- A track is matched to the library by an earlier import of the same Rekordbox `Location`, then by a unique title and artist (and version when that separates duplicates). Otherwise a new track is created. An ambiguous title match is skipped and reported. A title match on a track linked to another location is relinked when the lengths agree within 2 seconds, since the file moved in Rekordbox; with a different length it is treated as another file. Within one import each library track takes only one entry, so duplicates in the collection become separate tracks.
+- For a matched track only empty fields are filled; existing and reviewed values are kept. Importing the same file again updates the stored grid and cue points.
+- The XML reader is a port of `src/setvector/rekordbox/read.py` and refuses documents with a DOCTYPE or entity declarations. Grid expansion is a port of `expand_tempo` in `grid.py`. `tests/rekordbox/` checks both against fixtures generated from the Python code with `scripts/make_rekordbox_fixtures.py`.
+- Rekordbox grids are a strong reference for bar lines, not ground truth. When a track also has a browser analysis, the waveform offers both grids.
+- The import does not use the audio, so the asset ID stays empty until you analyze the file. On the analyze page, choose the imported track as the match so the analysis does not create a second track.
+
 ## Security
 
 - Every table has row level security, and rows are visible only to their owner. Inserts that reference another user's tracks, crates, or plans are rejected by the policies.
@@ -212,3 +234,4 @@ Values are imported as estimates unless marked reviewed.
 - Vocal activity is not detected; suggested regions leave it unannotated.
 - Decoding depends on the browser: MP3, AAC, WAV, FLAC, and Ogg are widely supported; ALAC and AIFF vary. A long track needs memory for its decoded samples, so analyze very long mixes on a desktop browser.
 - The app plays audio only from files you open locally; it does not render mixes.
+- The Rekordbox import does not write back to Rekordbox and does not read playlists. Matching by title and artist can pick the wrong track when names differ only in ways the export does not record; check the result list.

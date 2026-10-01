@@ -174,3 +174,23 @@ export async function getLatestAnalysis(supabase: ServerClient, trackId: string)
   const row = data as { id: string; created_at: string; result: StoredAnalysis["result"] };
   return { id: row.id, createdAt: row.created_at, result: row.result };
 }
+
+export interface StoredRekordboxLink {
+  rekordboxTrackId: number;
+  location: string;
+  tempo: import("@/lib/rekordbox/read").TempoMarker[];
+  marks: import("@/lib/rekordbox/read").PositionMark[];
+  importedAt: string;
+}
+
+/** The Rekordbox entry linked to a track, or null. Returns null if the table is not migrated yet. */
+export async function getRekordboxLink(supabase: ServerClient, trackId: string): Promise<StoredRekordboxLink | null> {
+  const { data, error } = await supabase
+    .from("rekordbox_links")
+    .select("rekordbox_track_id, location, tempo, marks, imported_at")
+    .eq("track_id", trackId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { rekordbox_track_id: number; location: string; tempo: StoredRekordboxLink["tempo"]; marks: StoredRekordboxLink["marks"]; imported_at: string };
+  return { rekordboxTrackId: Number(row.rekordbox_track_id), location: row.location, tempo: row.tempo, marks: row.marks, importedAt: row.imported_at };
+}

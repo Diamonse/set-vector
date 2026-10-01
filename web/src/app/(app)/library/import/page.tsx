@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
 import { ImportForm } from "@/components/library/import-form";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Import tracks" };
@@ -29,6 +31,11 @@ export default function ImportPage() {
       <PageHeader
         title="Import tracks"
         lead="Bring in metadata from the offline analyzer, a spreadsheet, or other DJ software exports you have converted to JSON or CSV."
+        actions={
+          <Button asChild variant="secondary">
+            <Link href="/library/import/rekordbox">Import a Rekordbox collection</Link>
+          </Button>
+        }
       />
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <ImportForm />

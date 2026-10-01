@@ -8,14 +8,15 @@ import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
 import { AnalysisSummary } from "@/components/analysis/analysis-summary";
 import { AnnotationList } from "@/components/library/annotation-list";
-import { AudioEditor } from "@/components/library/audio-editor";
+import { AudioEditor, type EditorGrid, type EditorPoint } from "@/components/library/audio-editor";
 import { CueEditor } from "@/components/library/cue-editor";
 import { TrackForm } from "@/components/library/track-form";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { describeTrackKey } from "@/lib/domain/camelot";
 import { formatBpm, formatTime } from "@/lib/domain/format";
-import { getLatestAnalysis, getTrack, listTrackAnnotations } from "@/lib/data/queries";
+import { getLatestAnalysis, getRekordboxLink, getTrack, listTrackAnnotations } from "@/lib/data/queries";
+import { gridForDisplay } from "@/lib/rekordbox/grid";
 import { requireUser } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/schemas";
 
@@ -31,12 +32,33 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
   const { trackId } = await params;
   if (!isUuid(trackId)) notFound();
   const { supabase } = await requireUser();
-  const [track, annotations, analysis] = await Promise.all([
+  const [track, annotations, analysis, rekordbox] = await Promise.all([
     getTrack(supabase, trackId),
     listTrackAnnotations(supabase, trackId),
     getLatestAnalysis(supabase, trackId),
+    getRekordboxLink(supabase, trackId),
   ]);
   if (!track) notFound();
+
+  const grids: EditorGrid[] = [];
+  if (analysis?.result.rhythm.beats.length) {
+    grids.push({ id: "analysis", label: "Analyzer", beats: analysis.result.rhythm.beats, downbeats: analysis.result.rhythm.downbeats });
+  }
+  if (rekordbox?.tempo.length) {
+    try {
+      grids.push({ id: "rekordbox", label: "Rekordbox", ...gridForDisplay(rekordbox.tempo, track.durationSeconds) });
+    } catch {
+      // A stored grid that no longer expands is left out rather than breaking the page.
+    }
+  }
+  const points: EditorPoint[] = (rekordbox?.marks ?? [])
+    .filter((m) => m.startSeconds <= track.durationSeconds)
+    .map((m) => ({
+      time: m.startSeconds,
+      label: m.slot === null ? m.name || "Memory cue" : `Hot cue ${String.fromCharCode(65 + m.slot)}${m.name ? ` ${m.name}` : ""}`,
+      color: m.colour ? `rgb(${m.colour.join(", ")})` : "#FFC24D",
+    }))
+    .sort((a, b) => a.time - b.time);
 
   const keyKind =
     track.keyStatus === "reviewed" ? "reviewed" : track.keyStatus === "estimated" ? "estimated" : track.keyStatus === "uncertain" ? "uncertain" : "unavailable";
@@ -103,7 +125,8 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
             duration={track.durationSeconds}
             trackAssetId={track.assetId}
             cues={track.cues}
-            grid={analysis?.result.rhythm.beats.length ? { beats: analysis.result.rhythm.beats, downbeats: analysis.result.rhythm.downbeats } : null}
+            grids={grids}
+            points={points}
             storedPeaks={analysis?.result.waveform.peaks ?? null}
           />
         </TabsContent>

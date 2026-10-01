@@ -12,7 +12,7 @@
     "check": "npm run typecheck && npm run test && npm run build",
     "postinstall": "node scripts/copy-ort-wasm.mjs",
     "test:model": "vitest run --config vitest.model.config.ts",
-    "fixtures": "cd .. && PYTHONPATH=src python web/scripts/make_analysis_fixtures.py"
+    "fixtures": "cd .. && PYTHONPATH=src python web/scripts/make_analysis_fixtures.py && PYTHONPATH=src python web/scripts/make_rekordbox_fixtures.py"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
