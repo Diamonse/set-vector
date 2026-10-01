@@ -151,6 +151,7 @@ export function TrackTable({ tracks }: { tracks: Track[] }) {
                   </TableCell>
                   <TableCell className="text-right text-data">
                     {t.energy === null ? <span className="font-sans text-muted">Unavailable</span> : <EnergyMeter value={t.energy} />}
+                    {t.energy !== null && t.energySource === "estimate" ? <div className="font-sans text-caption text-muted">Estimated</div> : null}
                   </TableCell>
                   <TableCell className="text-right text-data">{formatTime(t.durationSeconds)}</TableCell>
                   <TableCell className="whitespace-nowrap">

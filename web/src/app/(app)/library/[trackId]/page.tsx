@@ -16,6 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KeyChip } from "@/components/music/key-chip";
 import { formatKeyName } from "@/lib/domain/camelot";
 import { formatBpm, formatTime } from "@/lib/domain/format";
+import { EnergyBreakdown } from "@/components/energy/energy-breakdown";
+import { loadLibraryEnergy } from "@/lib/data/energy";
 import { getLatestAnalysis, getRekordboxLink, getTrack, listTrackAnnotations } from "@/lib/data/queries";
 import { gridForDisplay } from "@/lib/rekordbox/grid";
 import { requireUser } from "@/lib/supabase/server";
@@ -33,13 +35,16 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
   const { trackId } = await params;
   if (!isUuid(trackId)) notFound();
   const { supabase } = await requireUser();
-  const [track, annotations, analysis, rekordbox] = await Promise.all([
+  const [track, annotations, analysis, rekordbox, libraryEnergy] = await Promise.all([
     getTrack(supabase, trackId),
     listTrackAnnotations(supabase, trackId),
     getLatestAnalysis(supabase, trackId),
     getRekordboxLink(supabase, trackId),
+    loadLibraryEnergy(supabase).catch(() => null),
   ]);
   if (!track) notFound();
+  const energyEstimate = libraryEnergy?.estimates.get(track.id) ?? null;
+  const userEnergy = track.energy !== null && !track.energyModel ? track.energy : null;
 
   const grids: EditorGrid[] = [];
   if (analysis?.result.rhythm.beats.length) {
@@ -124,7 +129,13 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
           unit="of 10"
           meter={track.energy === null ? null : track.energy / 10}
           status={<StatusBadge kind={track.energy === null ? "unavailable" : track.energySource === "reviewed" ? "reviewed" : "estimated"} />}
-          detail="Your annotation, not a calibrated loudness measure"
+          detail={
+            track.energyModel
+              ? "Automatic estimate from the audio, relative to your library"
+              : track.energy === null
+                ? "Analyze the audio for an automatic estimate"
+                : "Your rating; used instead of the automatic estimate"
+          }
         />
         <MetricCard label="Duration" value={formatTime(track.durationSeconds)} detail={track.assetId ? `Asset ${track.assetId.slice(0, 16)}` : "No analyzer asset linked"} />
       </div>
@@ -138,6 +149,7 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
         </TabsList>
         <TabsContent value="audio" className="flex flex-col gap-8">
           <AnalysisSummary analysis={analysis} trackTitle={track.title} />
+          <EnergyBreakdown estimate={energyEstimate} userEnergy={userEnergy} needsReanalysis={libraryEnergy?.needsReanalysis.has(track.id) ?? false} />
           <AudioEditor
             trackId={track.id}
             duration={track.durationSeconds}

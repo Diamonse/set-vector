@@ -13,6 +13,7 @@ The web app is optional and sits beside the offline Python analyzer. It analyzes
 - **Waveform and cue editing:** on a track's **Audio and analysis** tab, open your local copy of the file to play it, see beat and downbeat markers, drag to create or resize cue regions snapped to beats, and approve or reject suggestions.
 - **Import:** JSON or CSV with a local preview before upload (see `examples/`).
 - **Rekordbox import:** read a Rekordbox collection export in the browser, choose tracks, and add them with their tempo markers and cue points. The Rekordbox grid and cue points appear on the track's waveform. See [Rekordbox import](#rekordbox-import).
+- **Automatic energy estimates:** analyzed tracks without your own rating get a 1 to 10 energy estimate ranked against your library. See [Energy estimates](#energy-estimates).
 - **Crates:** saved track selections, used as fixed lists or as pools.
 - **Light and dark themes:** follows the system setting, with a Light, Dark, or System switch in the top bar that is remembered in the browser. Colors are CSS variables in `src/app/globals.css`; fonts (Unbounded, Instrument Sans, JetBrains Mono) are bundled at build time by `next/font`, so no font request leaves the app at runtime.
 - **Planner:**
@@ -197,6 +198,25 @@ JSON is an array of tracks, or `{"tracks": [...]}`. CSV needs a header row. Reco
 | `entry_cue`, `exit_cue`, `cues_reviewed` (CSV) | Ranges such as `0:00-0:32`. |
 
 Values are imported as estimates unless marked reviewed.
+
+## Energy estimates
+
+Each analyzed track gets an experimental 1 to 10 energy estimate (`src/lib/energy/score.ts`, model `library-percentile-v1`). Five inputs are ranked against the other analyzed tracks in the same library and combined with fixed weights:
+
+| Input | Measurement | Weight |
+| --- | --- | --- |
+| Loudness of the busiest sections | 90th percentile of the 3 s BS.1770 short-term loudness | 35% |
+| Drum and note activity | Onsets per second of non-silent audio | 25% |
+| Tempo | The track's BPM (your corrected value when you set one) | 15% |
+| Bass weight | Share of spectral power below 250 Hz | 15% |
+| Brightness | Mean spectral centroid | 10% |
+
+- Each rank is a mid-rank percentile, blended with a fixed reference range weighted as eight tracks, so small libraries still get usable numbers. The score is `1 + 9 x` the weighted mean; missing inputs are left out and the weights renormalized. Loudness and two other inputs are required.
+- Scores are library-relative and recomputed whenever analyses are saved, a track's tempo or energy is edited, or a track is deleted. **Library > Recalculate energy** recomputes on demand.
+- `tracks.energy_model` marks values the model wrote. Only empty values and earlier model values are replaced. Any other edit to energy (the form, an import) clears the marker, so your ratings are never overwritten. Clearing the energy field hands the track back to the estimate.
+- The track page lists each input's value, rank, weight, and points.
+- Analyses saved before extractor version 2 lack the onset measurement; their loudness is derived from the stored short-term series. Analyze those files again for full estimates.
+- The weights and reference ranges are hypotheses. They are not fitted to listener judgments, and the score is not a calibrated measure of perceived energy.
 
 ## Rekordbox import
 

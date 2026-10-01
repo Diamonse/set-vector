@@ -30,6 +30,7 @@ export interface TrackRow {
   key_status: Track["keyStatus"];
   energy: number | string | null;
   energy_source: Track["energySource"];
+  energy_model?: string | null;
   asset_id: string | null;
   feature_id: string | null;
   notes: string;
@@ -98,6 +99,7 @@ export function toTrack(row: TrackRow): Track {
     keyStatus: row.key_status,
     energy: numOrNull(row.energy),
     energySource: row.energy_source,
+    energyModel: row.energy_model ?? null,
     assetId: row.asset_id,
     featureId: row.feature_id,
     notes: row.notes,

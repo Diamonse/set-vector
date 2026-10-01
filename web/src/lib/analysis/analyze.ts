@@ -2,6 +2,7 @@ import { detectBeats, type BeatRunner } from "./beat-model";
 import { extractBaselineFrames, DEFAULT_BASELINE_CONFIG } from "./features";
 import { evaluateCandidate, segmentBpm, type RhythmCandidate } from "./grid";
 import { chromagram, estimateKey } from "./key";
+import { energyFeatures } from "./energy-features";
 import { measureLoudness } from "./loudness";
 import { mixToMono, resample } from "./resample";
 import { findBoundaries, suggestCues } from "./structure";
@@ -184,6 +185,7 @@ export async function analyzeAudio(input: AnalyzeInput): Promise<AnalysisResult>
       shortTerm: loudness.shortTerm.map((v) => (v === null ? null : Math.round(v * 10) / 10)),
     },
     summary: { meanRms: mean(frames.rms) ?? 0, meanCentroidHz: mean(frames.centroid), meanBassRatio: mean(frames.bassRatio) },
+    energyFeatures: energyFeatures(frames, loudness),
     boundaries: boundaries.map((b) => ({ seconds: round3(b.seconds), strength: Math.round(b.strength * 1000) / 1000 })),
     cues,
     waveform: waveform(mono, sampleRate),

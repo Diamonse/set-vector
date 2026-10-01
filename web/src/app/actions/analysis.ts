@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { recordAnnotation } from "@/lib/data/annotations";
+import { refreshEnergyEstimates } from "@/lib/data/energy";
 import { fittingCues, planTrackUpdate } from "@/lib/analysis/apply";
 import { saveAnalysisSchema, type SaveAnalysisInput } from "@/lib/analysis/schema";
 import type { ServerClient } from "@/lib/supabase/server";
@@ -188,6 +189,8 @@ export async function saveAnalyses(items: unknown[]): Promise<SaveOutcome[]> {
   const { supabase } = await requireUser();
   const outcomes: SaveOutcome[] = [];
   for (const item of items) outcomes.push(await saveOne(supabase, item));
+  // New measurements change the library's distribution, so every estimate is recomputed.
+  if (outcomes.some((o) => o.ok)) await refreshEnergyEstimates(supabase);
   revalidatePath("/library");
   for (const o of outcomes) if (o.trackId) revalidatePath(`/library/${o.trackId}`);
   return outcomes;

@@ -38,6 +38,8 @@ export interface Track {
   keyStatus: KeyStatus;
   energy: number | null;
   energySource: MeasurementSource | null;
+  /** Model that wrote `energy`, or null when the value came from the user or an import. */
+  energyModel?: string | null;
   assetId: string | null;
   featureId: string | null;
   notes: string;

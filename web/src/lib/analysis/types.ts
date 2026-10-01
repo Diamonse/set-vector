@@ -1,10 +1,11 @@
 import type { CandidateQuality, Segment } from "./grid";
 import type { CueSuggestion, Boundary } from "./structure";
 import type { KeyEstimate } from "./key";
+import type { EnergyFeatures } from "./energy-features";
 import type { TempoCandidate } from "./tempo";
 
 export const EXTRACTOR_NAME = "web-analysis";
-export const EXTRACTOR_VERSION = 1;
+export const EXTRACTOR_VERSION = 2;
 
 export interface ExtractorInfo {
   name: string;
@@ -52,6 +53,8 @@ export interface AnalysisResult {
     shortTerm: (number | null)[];
   };
   summary: { meanRms: number; meanCentroidHz: number | null; meanBassRatio: number | null };
+  /** Inputs for the energy estimate; absent in analyses saved before extractor version 2. */
+  energyFeatures?: EnergyFeatures;
   boundaries: Boundary[];
   cues: CueSuggestion[];
   /** Peak absolute amplitude per bucket, 0 to 1, for drawing a waveform. */

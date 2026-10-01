@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { refreshEnergyEstimates } from "@/lib/data/energy";
 import { recordAnnotation } from "@/lib/data/annotations";
 import { requireUser } from "@/lib/supabase/server";
 import { fieldErrors, isUuid, trackFormSchema, type ActionState, type TrackInsert } from "@/lib/validation/schemas";
@@ -79,6 +80,9 @@ export async function updateTrack(trackId: string, _prev: ActionState, formData:
   const { error } = await supabase.from("tracks").update(parsed.data).eq("id", trackId);
   if (error) return { ok: false, message: friendly(error.message) };
 
+  // A tempo edit or a cleared energy value changes the estimates.
+  await refreshEnergyEstimates(supabase);
+
   const previous = before as Record<string, unknown>;
   const changes: Record<string, { from: unknown; to: unknown }> = {};
   for (const field of REVIEWED_FIELDS) {
@@ -112,6 +116,7 @@ export async function deleteTrack(trackId: string): Promise<void> {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("tracks").delete().eq("id", trackId);
   if (error) throw new Error(`Could not delete the track: ${error.message}`);
+  await refreshEnergyEstimates(supabase);
   revalidatePath("/library");
   redirect("/library");
 }

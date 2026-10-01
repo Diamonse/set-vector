@@ -98,7 +98,7 @@ export function TrackForm({ track, action, submitLabel }: { track?: Track; actio
               <option value="unknown">Unknown</option>
             </NativeSelect>
           </FormField>
-          <FormField id="energy" label="Relative energy (1 to 10)" helper="Your judgment against other tracks in your library." error={e.energy}>
+          <FormField id="energy" label="Relative energy (1 to 10)" helper="Your judgment against other tracks in your library. Leave empty to use the automatic estimate from analyzed audio." error={e.energy}>
             <Input name="energy" defaultValue={track?.energy ?? ""} inputMode="decimal" className="text-data" />
           </FormField>
           <FormField id="energy_source" label="Energy source" error={e.energy_source}>

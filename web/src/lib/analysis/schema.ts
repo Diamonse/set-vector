@@ -52,6 +52,17 @@ export const analysisResultSchema = z.object({
     shortTerm: z.array(finite.nullable()).max(90000),
   }),
   summary: z.object({ meanRms: finite, meanCentroidHz: finite.nullable(), meanBassRatio: finite.nullable() }),
+  energyFeatures: z
+    .object({
+      version: z.number().int().positive(),
+      integratedLufs: finite.nullable(),
+      loudSectionLufs: finite.nullable(),
+      loudnessRangeLu: finite.nullable(),
+      onsetRate: finite.min(0).nullable(),
+      bassRatio: finite.min(0).max(1).nullable(),
+      centroidHz: finite.min(0).nullable(),
+    })
+    .optional(),
   boundaries: z.array(z.object({ seconds: finite, strength: finite })).max(500),
   cues: z
     .array(z.object({ kind: z.enum(["entry", "exit"]), startSeconds: finite.min(0), endSeconds: finite.positive(), label: z.string().max(120) }))

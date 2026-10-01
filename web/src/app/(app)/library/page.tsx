@@ -8,6 +8,8 @@ import { TrackTable } from "@/components/library/track-table";
 import { Button } from "@/components/ui/button";
 import { usableKey } from "@/lib/domain/camelot";
 import { formatPercent, formatTime } from "@/lib/domain/format";
+import { RecalculateEnergy } from "@/components/energy/recalculate-energy";
+import { loadLibraryEnergy } from "@/lib/data/energy";
 import { listTracks } from "@/lib/data/queries";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -15,7 +17,9 @@ export const metadata: Metadata = { title: "Library" };
 
 export default async function LibraryPage() {
   const { supabase } = await requireUser();
-  const tracks = await listTracks(supabase);
+  const [tracks, libraryEnergy] = await Promise.all([listTracks(supabase), loadLibraryEnergy(supabase).catch(() => null)]);
+  const stale = libraryEnergy?.needsReanalysis.size ?? 0;
+  const estimated = tracks.filter((t) => t.energyModel).length;
   const n = tracks.length;
   const share = (count: number) => (n === 0 ? "0%" : formatPercent(count / n, 0));
 
@@ -92,6 +96,18 @@ export default async function LibraryPage() {
               />
               <MetricCard label="Approved entry and exit" value={share(withCues)} meter={withCues / n} detail={`${withCues} of ${n} tracks ready for DJ cues`} />
             </div>
+          </section>
+          <section aria-labelledby="energy-heading" className="flex flex-col gap-3 panel p-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 id="energy-heading" className="text-ui text-ink">
+                Automatic energy
+              </h2>
+              <p className="text-caption text-muted">
+                {estimated} track(s) use an estimate ranked against your analyzed tracks; your own ratings always win.
+                {stale ? ` ${stale} track(s) were analyzed before drum activity was measured; analyze them again for full estimates.` : ""}
+              </p>
+            </div>
+            <RecalculateEnergy />
           </section>
           <TrackTable tracks={tracks} />
         </div>
