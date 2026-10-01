@@ -1,0 +1,203 @@
+@import "tailwindcss";
+
+/*
+ * SetVector design tokens. Values come from the SetVector design system; the
+ * shadcn/ui variable names map onto them so generated components stay on-brand.
+ */
+:root {
+  --canvas: #f7f6f2;
+  --surface: #ffffff;
+  --surface-subtle: #efeee8;
+  --ink: #171b20;
+  --body: #394047;
+  --muted: #58636e;
+  --divider: #d8dce0;
+  --control-border: #78838d;
+  --action: #1256b2;
+  --action-hover: #0d438c;
+  --dark: #121820;
+  --dark-elevated: #1d2833;
+  --on-dark: #f8fafc;
+  --on-dark-muted: #c4d0d8;
+  --action-on-dark: #8fc4ff;
+  --success: #2f7c4a;
+  --warning: #a4610b;
+  --error: #b4232c;
+
+  --data-energy: #b64536;
+  --data-rhythm: #376b9a;
+  --data-bass: #704db3;
+  --data-brightness: #087f75;
+  --data-onset: #a4610b;
+  --data-energy-dark: #ff7b68;
+  --data-rhythm-dark: #78b8ff;
+  --data-bass-dark: #ba9dff;
+  --data-brightness-dark: #55d6c3;
+  --data-onset-dark: #ffca70;
+
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--action);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface);
+  --secondary-foreground: var(--ink);
+  --muted-foreground: var(--muted);
+  --accent: var(--surface-subtle);
+  --accent-foreground: var(--ink);
+  --destructive: var(--error);
+  --border: var(--divider);
+  --input: var(--control-border);
+  --ring: var(--action);
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-muted: var(--muted);
+  --color-divider: var(--divider);
+  --color-control-border: var(--control-border);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-dark: var(--dark);
+  --color-dark-elevated: var(--dark-elevated);
+  --color-on-dark: var(--on-dark);
+  --color-on-dark-muted: var(--on-dark-muted);
+  --color-action-on-dark: var(--action-on-dark);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+
+  --color-data-energy: var(--data-energy);
+  --color-data-rhythm: var(--data-rhythm);
+  --color-data-bass: var(--data-bass);
+  --color-data-brightness: var(--data-brightness);
+  --color-data-onset: var(--data-onset);
+  --color-data-energy-dark: var(--data-energy-dark);
+  --color-data-rhythm-dark: var(--data-rhythm-dark);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: Georgia, Cambria, serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  --radius-control: 8px;
+  --radius-card: 12px;
+}
+
+@layer base {
+  * {
+    @apply border-divider;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-canvas text-body font-sans antialiased;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-ink;
+  }
+  a {
+    @apply text-action underline underline-offset-2;
+  }
+  :focus-visible {
+    outline: 2px solid var(--action);
+    outline-offset: 2px;
+  }
+  .on-dark :focus-visible {
+    outline-color: var(--action-on-dark);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility text-display {
+  font-family: var(--font-serif);
+  font-size: 32px;
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  @media (width >= 960px) {
+    font-size: 48px;
+    line-height: 1.1;
+  }
+}
+
+@utility text-section {
+  font-size: 26px;
+  line-height: 1.25;
+  font-weight: 600;
+  @media (width >= 960px) {
+    font-size: 32px;
+    line-height: 1.2;
+  }
+}
+
+@utility text-card-title {
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+@utility text-lead {
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+@utility text-ui {
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+@utility text-caption {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@utility text-data {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
