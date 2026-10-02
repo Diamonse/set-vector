@@ -23,8 +23,14 @@ export function AuthForm({
   const signup = mode === "signup";
   return (
     <Card className="p-7 shadow-lift md:p-8">
-      <p className="text-eyebrow text-action">{signup ? "Get started" : "Welcome back"}</p>
-      <h1 className="mt-2 text-section">{signup ? "Create your account" : "Sign in"}</h1>
+      {/* The form's title sits on the deck's screen, like the mode a player shows before a track loads. */}
+      <div className="deck-screen m-1 px-4 py-3.5">
+        <p className="inline-flex items-center gap-2 text-eyebrow text-action">
+          <span aria-hidden className="size-1.5 rounded-full bg-[var(--led-blue)] shadow-[0_0_6px_var(--led-blue)]" />
+          {signup ? "Get started" : "Welcome back"}
+        </p>
+        <h1 className="mt-2 text-section text-ink">{signup ? "Create your account" : "Sign in"}</h1>
+      </div>
       <ActionForm state={state} action={formAction} className="mt-6 flex flex-col gap-4" noValidate>
         {next ? <input type="hidden" name="next" value={next} /> : null}
         {signup ? (

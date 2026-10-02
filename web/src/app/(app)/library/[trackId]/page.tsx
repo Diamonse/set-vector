@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/app/status-badge";
 import { AnalysisSummary } from "@/components/analysis/analysis-summary";
 import { AnnotationList } from "@/components/library/annotation-list";
 import { AudioEditor, type EditorGrid, type EditorPoint } from "@/components/library/audio-editor";
+import { CueDeck } from "@/components/library/cue-deck";
 import { CueEditor } from "@/components/library/cue-editor";
 import { TrackForm } from "@/components/library/track-form";
 import { Card } from "@/components/ui/card";
@@ -146,6 +147,10 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
           }
         />
         <MetricCard label="Duration" segment value={formatTime(track.durationSeconds)} detail={track.assetId ? `Asset ${track.assetId.slice(0, 16)}` : "No analyzer asset linked"} />
+      </div>
+
+      <div className="mt-6">
+        <CueDeck cues={track.cues} duration={track.durationSeconds} />
       </div>
 
       <Tabs defaultValue="audio" className="mt-12">

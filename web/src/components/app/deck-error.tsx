@@ -26,7 +26,7 @@ export function DeckError({
           <span className="font-segment tracking-normal">---.-</span> BPM
         </span>
       </div>
-      <p className="mt-8 font-mono text-[44px] leading-none font-bold tracking-[0.04em] text-[var(--led-red)] [text-shadow:0_0_18px_rgb(255_90_80/0.45)]">
+      <p className="mt-8 font-segment text-[44px] leading-none text-[var(--led-red)] [text-shadow:0_0_18px_rgb(255_90_80/0.45)]">
         {code}
       </p>
       <h1 className="mt-5 text-section text-ink">{title}</h1>
