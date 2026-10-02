@@ -3,9 +3,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/app/logo";
 import { ThemeToggle } from "@/components/app/theme-toggle";
+import { HowItWorks } from "@/components/landing/how-it-works";
 import { KeyChip } from "@/components/music/key-chip";
 import { WaveformArt } from "@/components/music/waveform-art";
 import { Button } from "@/components/ui/button";
+import { KineticTextReveal } from "@/components/ui/kinetic-text-reveal";
 import { createClient } from "@/lib/supabase/server";
 
 const FEATURES = [
@@ -39,12 +41,6 @@ const FEATURES = [
     title: "Your corrections win",
     body: "Estimates and reviewed values stay separate. Analysis never overwrites what you checked, and every change is kept as a revision.",
   },
-];
-
-const STEPS = [
-  { n: "A", title: "Analyze or import", body: "Drop audio files or a Rekordbox export." },
-  { n: "B", title: "Review the evidence", body: "Confirm keys, tempos, and cue regions on the waveform." },
-  { n: "C", title: "Plan and export", body: "Generate an order, edit it, and export CSV or JSON." },
 ];
 
 export default async function HomePage() {
@@ -89,9 +85,11 @@ export default async function HomePage() {
               <span aria-hidden className="size-1.5 rounded-full bg-action" />
               For DJs and playlist builders
             </p>
+            {/* Three reveals in one heading, so "evidence" can take the action colour; the delays continue the stagger. */}
             <h1 className="mt-6 text-display max-w-[14ch]">
-              Shape a set from{" "}
-              <span className="text-action">evidence</span> you can inspect.
+              <KineticTextReveal text="Shape a set from" delay={0.1} />{" "}
+              <KineticTextReveal text="evidence" className="text-action" delay={0.4} />{" "}
+              <KineticTextReveal text="you can inspect." delay={0.475} />
             </h1>
             <p className="mt-6 max-w-[56ch] text-lead text-body">
               Keep reviewed keys, tempos, cue regions, and energy notes for your library. Plan a DJ set or a listening playlist, see why each
@@ -170,7 +168,7 @@ export default async function HomePage() {
 
         <section aria-labelledby="features-heading" className="mx-auto max-w-[1200px] px-4 pb-20 md:px-6">
           <h2 id="features-heading" className="text-section max-w-[22ch]">
-            Everything between your crate and the booth.
+            <KineticTextReveal text="Everything between your crate and the booth." trigger="inView" />
           </h2>
           <ul className="mt-10 grid gap-x-12 sm:grid-cols-2">
             {FEATURES.map(({ Icon, title, body }) => (
@@ -185,30 +183,7 @@ export default async function HomePage() {
           </ul>
         </section>
 
-        <section aria-labelledby="steps-heading" className="border-y border-divider bg-surface/50">
-          <div className="mx-auto max-w-[1200px] px-4 py-16 md:px-6">
-            <h2 id="steps-heading" className="sr-only">
-              How it works
-            </h2>
-            {/* The steps are hot cue pads A to C, lit in alternating cue colours. */}
-            <ol className="grid gap-8 md:grid-cols-3">
-              {STEPS.map((s, i) => (
-                <li key={s.n} className="flex gap-4">
-                  <span
-                    aria-hidden
-                    className={`key-lit flex size-14 shrink-0 items-center justify-center rounded-[10px] font-mono text-[24px] font-bold ${i === 1 ? "[--led:var(--electric)]" : ""}`}
-                  >
-                    {s.n}
-                  </span>
-                  <div>
-                    <h3 className="text-card-title">{s.title}</h3>
-                    <p className="mt-1 text-body">{s.body}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
+        <HowItWorks />
 
       </main>
 

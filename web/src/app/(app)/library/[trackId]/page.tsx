@@ -17,6 +17,7 @@ import { KeyChip } from "@/components/music/key-chip";
 import { formatKeyName } from "@/lib/domain/camelot";
 import { formatBpm, formatTime } from "@/lib/domain/format";
 import { EnergyBreakdown } from "@/components/energy/energy-breakdown";
+import { KineticTextReveal } from "@/components/ui/kinetic-text-reveal";
 import { loadLibraryEnergy } from "@/lib/data/energy";
 import { getLatestAnalysis, getRekordboxLink, getTrack, listTrackAnnotations } from "@/lib/data/queries";
 import { gridForDisplay } from "@/lib/rekordbox/grid";
@@ -79,8 +80,14 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
         }
         title={
           <>
-            {track.title}
-            {track.versionLabel ? <span className="text-muted"> ({track.versionLabel})</span> : null}
+            <KineticTextReveal text={track.title} delay={0.08} />
+            {track.versionLabel ? (
+              <>
+                {" "}
+                {/* The version label continues the title's stagger: one beat per preceding word. */}
+                <KineticTextReveal text={`(${track.versionLabel})`} className="text-muted" delay={0.08 + track.title.split(/\s+/).length * 0.075} />
+              </>
+            ) : null}
           </>
         }
         lead={

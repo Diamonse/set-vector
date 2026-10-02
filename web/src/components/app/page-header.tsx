@@ -1,4 +1,5 @@
 import * as React from "react";
+import { KineticTextReveal } from "@/components/ui/kinetic-text-reveal";
 import { cn } from "@/lib/utils";
 
 export function PageHeader({
@@ -23,7 +24,8 @@ export function PageHeader({
             {eyebrow}
           </div>
         ) : null}
-        <h1 className="text-section">{title}</h1>
+        {/* Plain-text titles rise in word by word; composed titles render as given. */}
+        <h1 className="text-section">{typeof title === "string" ? <KineticTextReveal text={title} delay={0.08} /> : title}</h1>
         {lead ? <div className="mt-3 text-body">{lead}</div> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-3">{actions}</div> : null}

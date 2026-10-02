@@ -41,8 +41,8 @@ export function TopBar({ email }: { email: string }) {
     };
   }, [open]);
 
-  // Vertical strips (the phone menu) put the indicator LED at the row's right end.
-  const links = (vertical: boolean) => NAV.map((item) => {
+  // The phone menu's strip puts the indicator LED at the row's right end.
+  const links = NAV.map((item) => {
     const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
     return (
       <Link
@@ -50,11 +50,7 @@ export function TopBar({ email }: { email: string }) {
         href={item.href}
         aria-current={active ? "page" : undefined}
         onClick={() => setOpen(false)}
-        className={
-          vertical
-            ? "key-select flex min-h-11 items-center gap-2 rounded-control px-3.5 text-ui no-underline before:top-1/2 before:right-3 before:left-auto before:-mt-1.5 before:ml-0 before:h-3 before:w-[3px]"
-            : "key-select inline-flex min-h-10 items-center gap-2 rounded-control px-3.5 pt-1 text-ui no-underline"
-        }
+        className="key-select flex min-h-11 items-center gap-2 rounded-control px-3.5 text-ui no-underline before:top-1/2 before:right-3 before:left-auto before:-mt-1.5 before:ml-0 before:h-3 before:w-[3px]"
       >
         <item.Icon className="size-4" aria-hidden />
         {item.label}
@@ -65,25 +61,13 @@ export function TopBar({ email }: { email: string }) {
   return (
     <header ref={headerRef} className="sticky top-0 z-40 border-b border-divider bg-[var(--header-bg)] backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-2.5 md:px-6">
-        <div className="flex items-center gap-8">
-          <Link href="/home" className="no-underline" aria-label="SetVector home">
-            <Logo />
-          </Link>
-          <nav aria-label="Main" className="key-well hidden items-center gap-1 rounded-[14px] p-1 md:flex">
-            {links(false)}
-          </nav>
-        </div>
-        <div className="hidden items-center gap-3 md:flex">
-          <ThemeToggle />
-          <span className="max-w-[24ch] truncate text-caption text-muted" title={email}>
-            {email}
-          </span>
-          <form action={signOut}>
-            <Button variant="secondary" size="sm" type="submit">
-              Sign out
-            </Button>
-          </form>
-        </div>
+        <Link href="/home" className="no-underline" aria-label="SetVector home">
+          <Logo />
+        </Link>
+        {/* On wider screens the sections, theme, and sign out live in the dock (AppDock). */}
+        <span className="hidden max-w-[32ch] truncate text-caption text-muted md:inline" title={email}>
+          {email}
+        </span>
         <Button
           ref={toggleRef}
           variant="ghost"
@@ -100,7 +84,7 @@ export function TopBar({ email }: { email: string }) {
       {open ? (
         <div id="mobile-menu" className="border-t border-divider px-4 pb-4 md:hidden">
           <nav aria-label="Main" className="key-well my-3 flex flex-col gap-1 rounded-[14px] p-1">
-            {links(true)}
+            {links}
           </nav>
           <div className="flex items-center justify-between gap-3 border-t border-divider py-3">
             <span className="text-caption text-muted">Theme</span>

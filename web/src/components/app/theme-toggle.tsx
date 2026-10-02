@@ -20,10 +20,14 @@ function subscribe(callback: () => void) {
   };
 }
 
+/** The stored theme choice. The server cannot know it, so it renders "system" and the client corrects it. */
+export function useThemeChoice(): ThemeChoice {
+  return useSyncExternalStore(subscribe, readThemeChoice, () => "system" as ThemeChoice);
+}
+
 /** Light, dark, or follow the system. The choice is remembered in this browser. */
 export function ThemeToggle({ className }: { className?: string }) {
-  // The server cannot know the stored choice, so it renders "system" and the client corrects it.
-  const choice = useSyncExternalStore(subscribe, readThemeChoice, () => "system" as ThemeChoice);
+  const choice = useThemeChoice();
   return (
     <div role="group" aria-label="Color theme" className={cn("key-well inline-flex items-center gap-1 rounded-[12px] p-1", className)}>
       {OPTIONS.map(({ value, label, Icon }) => {
