@@ -78,6 +78,21 @@
   --led-red: #ff5a50;
   --led-blue: light-dark(#1d5fd1, #3d9bff);
   --led-ink: #1a0d03;
+  --led-green: #3ad48a;
+  --led-amber: #ffb53d;
+  --rubber-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+
+  /* Deck top plate (static cards and panels) and recessed display windows (fields). */
+  --plate-top: light-dark(#f9f8f5, #1d1e22);
+  --plate: light-dark(#f4f2ed, #16171a);
+  --plate-edge: light-dark(#d9d5cc, #2a2b30);
+  --plate-print: light-dark(#bdb9b0, #34363c);
+  --plate-screw: light-dark(#c4c0b7, #2e2f35);
+  --plate-grain: light-dark(rgb(0 0 0 / 0.016), rgb(255 255 255 / 0.018));
+  --field: light-dark(#edeae4, #0b0c0e);
+  /* Deck screens stay dark on both editions, like a CDJ display. */
+  --screen: #05080d;
+  --screen-bezel: #111214;
 
   --background: var(--canvas);
   --foreground: var(--ink);
@@ -342,7 +357,7 @@
   border: 1px solid var(--key-edge);
   background-color: var(--key-face);
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+    var(--rubber-grain),
     linear-gradient(180deg, var(--key-face-top), var(--key-face) 72%);
   box-shadow:
     inset 0 1px 0 var(--key-highlight),
@@ -470,13 +485,134 @@
   }
 }
 
-/* Card shell shared by cards, tables, and panels. */
+/* Deck top plate: brushed panel metal shared by cards, tables, and panels. */
 @utility panel {
-  border: 1px solid var(--divider);
+  border: 1px solid var(--plate-edge);
   border-radius: var(--radius-card);
-  background-color: var(--surface);
-  background-image: linear-gradient(180deg, color-mix(in oklab, var(--ink) 2.5%, transparent), transparent 120px);
-  box-shadow: var(--elev-card);
+  background-color: var(--plate);
+  background-image:
+    repeating-linear-gradient(0deg, var(--plate-grain) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--plate-top), var(--plate) 160px);
+  box-shadow:
+    inset 0 1px 0 var(--key-highlight),
+    var(--elev-card);
+}
+
+/* Four corner screws for a full plate (cards); rows and strips go without. */
+@utility plate-screws {
+  background-image:
+    radial-gradient(circle at 12px 12px, var(--plate-screw) 2.6px, transparent 3.3px),
+    radial-gradient(circle at calc(100% - 12px) 12px, var(--plate-screw) 2.6px, transparent 3.3px),
+    radial-gradient(circle at 12px calc(100% - 12px), var(--plate-screw) 2.6px, transparent 3.3px),
+    radial-gradient(circle at calc(100% - 12px) calc(100% - 12px), var(--plate-screw) 2.6px, transparent 3.3px),
+    repeating-linear-gradient(0deg, var(--plate-grain) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--plate-top), var(--plate) 160px);
+}
+
+/*
+ * Pad: a whole clickable card as one large rubber key. The card's main link carries
+ * data-pad-link (stretched over the card); pressing it presses the pad.
+ */
+@utility pad {
+  position: relative;
+  border: 1px solid var(--key-edge);
+  border-radius: var(--radius-card);
+  background-color: var(--key-face);
+  background-image:
+    var(--rubber-grain),
+    linear-gradient(180deg, var(--key-face-top), var(--key-face) 55%);
+  box-shadow:
+    inset 0 1px 0 var(--key-highlight),
+    0 3px 0 var(--key-skirt),
+    0 4px 0 var(--key-skirt),
+    0 12px 20px -10px var(--key-shade);
+  transition:
+    transform 70ms ease-out,
+    box-shadow 70ms ease-out,
+    filter 120ms ease-out;
+  &:has([data-pad-link]:hover) {
+    filter: brightness(1.04);
+  }
+  &:has([data-pad-link]:active) {
+    transform: translateY(4px);
+    box-shadow:
+      inset 0 1px 3px var(--key-shade),
+      0 0 0 var(--key-skirt);
+  }
+  &:has([data-pad-link]:focus-visible) {
+    outline: 2px solid var(--action);
+    outline-offset: 3px;
+  }
+}
+
+/*
+ * Deck screen: an always-dark display inset in the plate, on both editions. It re-points
+ * the theme tokens to their dark values, so anything inside reads as on-screen.
+ */
+@utility deck-screen {
+  --canvas: var(--screen);
+  --surface: #0a0f16;
+  --surface-subtle: #121822;
+  --surface-raised: #0e141d;
+  --ink: #eef1f5;
+  --body: #c3cbd6;
+  --muted: #8d99a8;
+  --divider: #1c2533;
+  --control-border: #66758a;
+  --action: #ff8a3d;
+  --action-hover: #ffa766;
+  --on-action: #1a0d03;
+  --accent-2: #6fb2ff;
+  --success: #5bd38a;
+  --warning: #f2c14e;
+  --error: #ff6b6b;
+  --data-energy: #ff7b68;
+  --data-rhythm: #78b8ff;
+  --data-bass: #ba9dff;
+  --data-brightness: #55d6c3;
+  --data-onset: #ffca70;
+  --field: #0b0f15;
+  --led-blue: #3d9bff;
+  --key-face-top: #36373d;
+  --key-face: #1c1d21;
+  --key-skirt: #040405;
+  --key-edge: #717379;
+  --key-ink: #e8eaee;
+  --key-highlight: rgb(255 255 255 / 0.16);
+  --key-shade: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+  color: var(--body);
+  border-radius: var(--radius-inset);
+  background-color: var(--screen);
+  background-image: linear-gradient(170deg, rgb(255 255 255 / 0.05), transparent 38%);
+  box-shadow:
+    0 0 0 3px var(--screen-bezel),
+    0 0 0 4px var(--plate-edge),
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    inset 0 2px 10px rgb(0 0 0 / 0.7);
+}
+
+/* Recessed display window for text fields and selects, with an LED caret and focus edge. */
+@utility field {
+  border: 1px solid var(--control-border);
+  background-color: var(--field);
+  color: var(--ink);
+  caret-color: var(--led-orange);
+  box-shadow:
+    inset 0 1px 3px var(--key-shade),
+    inset 0 -1px 0 var(--key-highlight);
+  transition:
+    border-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+  &:hover {
+    border-color: var(--muted);
+  }
+  &:focus-visible {
+    border-color: var(--led-blue);
+    box-shadow:
+      inset 0 1px 3px var(--key-shade),
+      0 0 0 3px color-mix(in oklab, var(--led-blue) 22%, transparent);
+  }
 }
 
 @utility text-card-title {
