@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { ActionForm } from "@/components/app/action-form";
 import { FormField } from "@/components/app/form-field";
 import { FormMessage } from "@/components/app/form-message";
 import { SubmitButton } from "@/components/app/submit-button";
@@ -21,7 +22,7 @@ export function TrackForm({ track, action, submitLabel }: { track?: Track; actio
   const keyText = track && track.keyTonic !== null && track.keyMode ? formatCamelot(toCamelot({ tonic: track.keyTonic, mode: track.keyMode })) : "";
 
   return (
-    <form action={formAction} className="flex flex-col gap-6" noValidate>
+    <ActionForm state={state} action={formAction} className="flex flex-col gap-6" noValidate>
       <Card>
         <CardHeader>
           <CardTitle>Identity</CardTitle>
@@ -140,6 +141,6 @@ export function TrackForm({ track, action, submitLabel }: { track?: Track; actio
       <div>
         <SubmitButton pendingLabel="Saving">{submitLabel}</SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

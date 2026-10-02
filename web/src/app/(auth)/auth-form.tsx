@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { ActionForm } from "@/components/app/action-form";
 import { FormField } from "@/components/app/form-field";
 import { FormMessage } from "@/components/app/form-message";
 import { SubmitButton } from "@/components/app/submit-button";
@@ -24,7 +25,7 @@ export function AuthForm({
     <Card className="p-7 shadow-lift md:p-8">
       <p className="text-eyebrow text-action">{signup ? "Get started" : "Welcome back"}</p>
       <h1 className="mt-2 text-section">{signup ? "Create your account" : "Sign in"}</h1>
-      <form action={formAction} className="mt-6 flex flex-col gap-4" noValidate>
+      <ActionForm state={state} action={formAction} className="mt-6 flex flex-col gap-4" noValidate>
         {next ? <input type="hidden" name="next" value={next} /> : null}
         {signup ? (
           <FormField id="display_name" label="Display name" helper="Optional.">
@@ -44,7 +45,7 @@ export function AuthForm({
         </FormField>
         <FormMessage state={state} />
         <SubmitButton className="mt-2 w-full" pendingLabel={signup ? "Creating account" : "Signing in"}>{signup ? "Create account" : "Sign in"}</SubmitButton>
-      </form>
+      </ActionForm>
       <p className="mt-6 text-caption text-muted">
         {signup ? (
           <>

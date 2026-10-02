@@ -3,6 +3,7 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { createCue, deleteCue, updateCue } from "@/app/actions/cues";
+import { ActionForm } from "@/components/app/action-form";
 import { FormField } from "@/components/app/form-field";
 import { FormMessage } from "@/components/app/form-message";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -30,7 +31,7 @@ function CueForm({ trackId, cue, onDone }: { trackId: string; cue?: CueRegion; o
   }, [state, cue, onDone]);
 
   return (
-    <form key={formKey} action={formAction} className="flex flex-col gap-4" noValidate>
+    <ActionForm key={formKey} state={state} action={formAction} className="flex flex-col gap-4" noValidate>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <FormField id={`${prefix}-kind`} label="Kind" error={e.kind}>
           <NativeSelect name="kind" defaultValue={cue?.kind ?? "entry"}>
@@ -85,7 +86,7 @@ function CueForm({ trackId, cue, onDone }: { trackId: string; cue?: CueRegion; o
           </Button>
         ) : null}
       </div>
-    </form>
+    </ActionForm>
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { ActionForm } from "@/components/app/action-form";
 import { FormField } from "@/components/app/form-field";
 import { FormMessage } from "@/components/app/form-message";
 import { SubmitButton } from "@/components/app/submit-button";
@@ -27,7 +28,7 @@ export function CrateForm({
   const e = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} className="flex flex-col gap-6" noValidate>
+    <ActionForm state={state} action={formAction} className="flex flex-col gap-6" noValidate>
       <Card className="grid gap-4 md:grid-cols-2">
         <FormField id="name" label="Name" error={e.name}>
           <Input name="name" defaultValue={crate?.name} required maxLength={120} />
@@ -43,6 +44,6 @@ export function CrateForm({
       <div>
         <SubmitButton pendingLabel="Saving">{submitLabel}</SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

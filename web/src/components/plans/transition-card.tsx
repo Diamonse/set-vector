@@ -3,6 +3,7 @@
 import { ArrowDown } from "lucide-react";
 import { useActionState } from "react";
 import { judgeTransition } from "@/app/actions/plans";
+import { ActionForm } from "@/components/app/action-form";
 import { FormMessage } from "@/components/app/form-message";
 import { StatusBadge } from "@/components/app/status-badge";
 import { SubmitButton } from "@/components/app/submit-button";
@@ -124,7 +125,7 @@ function JudgmentForm({ planId, transition }: { planId: string; transition: Tran
   return (
     <details className="mt-1">
       <summary className="min-h-11 cursor-pointer py-2 text-ui text-action">Record your judgment</summary>
-    <form action={formAction} className="mt-2 flex flex-col gap-3 border-t border-divider pt-4">
+    <ActionForm state={state} action={formAction} className="mt-2 flex flex-col gap-3 border-t border-divider pt-4">
       <input type="hidden" name="from_track_id" value={transition.fromTrackId} />
       <input type="hidden" name="to_track_id" value={transition.toTrackId} />
       <input type="hidden" name="exit_option_id" value={transition.exitOptionId} />
@@ -147,7 +148,7 @@ function JudgmentForm({ planId, transition }: { planId: string; transition: Tran
         </SubmitButton>
       </div>
       <FormMessage state={state} />
-    </form>
+    </ActionForm>
     </details>
   );
 }
