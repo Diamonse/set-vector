@@ -337,6 +337,40 @@
 }
 
 /*
+ * Landing two-deck screen at the same 124 BPM: waveforms scroll one bar per cycle past a fixed
+ * playhead and the beat meters step with each beat, for two bars, then rest (under five
+ * seconds, WCAG 2.2.2). They hold while the intro covers the page; reduced motion keeps them
+ * still. At rest the downbeat stays lit.
+ */
+@keyframes deck-beat {
+  0%,
+  24.9% {
+    opacity: 1;
+  }
+  25%,
+  100% {
+    opacity: 0.15;
+  }
+}
+.deck-beat {
+  opacity: 0.15;
+}
+.deck-beat:first-child {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .deck-wave {
+    animation: deck-scroll 1.9355s linear 2;
+  }
+  .deck-beat {
+    animation: deck-beat 1.9355s linear 2;
+  }
+}
+html[data-intro="on"] :is(.deck-wave, .deck-beat) {
+  animation-play-state: paused;
+}
+
+/*
  * Kinetic text reveal: each word rises out of its own mask, unblurring. The animation is plain
  * CSS, so headlines paint and finish without waiting for scripts; reduced motion fades only.
  * It holds while the landing intro covers the page, and scroll-triggered reveals wait for

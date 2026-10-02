@@ -6,6 +6,7 @@ import { adoptAlternative, saveEditedOrder } from "@/app/actions/plans";
 import { FormMessage } from "@/components/app/form-message";
 import { StatusBadge, type EvidenceKind } from "@/components/app/status-badge";
 import { EnergyMeter } from "@/components/music/energy-meter";
+import { Platter } from "@/components/music/platter";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,9 +106,11 @@ function SetOrder({
             <li key={`${item.occurrenceId}-${i}`}>
               <div className="flex flex-col gap-3 panel p-4 md:flex-row md:items-center">
                 <div className="flex items-center gap-4 md:w-[45%]">
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-action/40 bg-[radial-gradient(circle,var(--surface)_28%,color-mix(in_oklab,var(--action)_14%,var(--surface))_30%)] font-mono text-[15px] font-semibold text-action">
-                    {i + 1}
-                  </span>
+                  {/* A jog platter per position: the rim marker shows where in the set this track starts. The
+                      list itself gives screen readers the position. */}
+                  <Platter position={plan.metrics.totalSeconds ? item.elapsedStartSeconds / plan.metrics.totalSeconds : 0} className="size-12">
+                    <span className="font-segment text-[13px]">{i + 1}</span>
+                  </Platter>
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-ink">{item.title}</p>
                     <p className="truncate text-caption text-muted">{item.artist || "Unknown artist"}</p>
@@ -116,7 +119,7 @@ function SetOrder({
                 <div className="flex flex-1 flex-col gap-1 text-[14px]">
                   <p>
                     <span className="text-muted">Starts at </span>
-                    <span className="text-data">{formatTime(item.elapsedStartSeconds)}</span>
+                    <span className="font-segment text-[13px] text-ink">{formatTime(item.elapsedStartSeconds)}</span>
                     {dj ? (
                       <>
                         <span className="text-muted"> · plays </span>

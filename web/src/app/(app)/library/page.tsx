@@ -88,7 +88,7 @@ export default async function LibraryPage({ searchParams }: PageProps<"/library"
               Evidence coverage
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <MetricCard label="Tracks" value={n} detail={`${formatTime(totalSeconds)} of music`} />
+              <MetricCard label="Tracks" value={n} segment detail={`${formatTime(totalSeconds)} of music`} />
               <MetricCard label="Usable key" value={share(withKey)} meter={withKey / n} detail={`${withKey} of ${n}; uncertain keys are excluded`} />
               <MetricCard
                 label="Tempo and energy"

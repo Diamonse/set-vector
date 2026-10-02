@@ -8,7 +8,7 @@ import "./globals.css";
 // Fonts are downloaded at build time and served from this origin; no request goes to Google at runtime.
 // Big Shoulders is industrial signage lettering (its optical-size axis picks the display cut at
 // large sizes), Hanken Grotesk carries the interface, and Azeret Mono the data. DSEG7 is a
-// seven-segment face (SIL OFL, see fonts/DSEG-LICENSE.txt) used only for tempo and clock digits.
+// seven-segment face (SIL OFL, see fonts/DSEG-LICENSE.txt) used only for deck readouts: tempo, time, and counts.
 const display = Big_Shoulders({ subsets: ["latin"], axes: ["opsz"], variable: "--font-headline", display: "swap" });
 const sans = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-ui", display: "swap" });
 const mono = Azeret_Mono({ subsets: ["latin"], variable: "--font-data", display: "swap" });

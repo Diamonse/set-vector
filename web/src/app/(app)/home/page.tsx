@@ -57,10 +57,16 @@ export default async function HomePage() {
       <PageHeader
         eyebrow={new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
         title={name ? `Welcome back, ${name}` : "Welcome back"}
-        lead={
+        lead={n ? undefined : "Start by bringing in some music. Audio is analyzed in your browser and never uploaded."}
+        readout={
           n
-            ? `${n} track${n === 1 ? "" : "s"} and ${formatTime(health.totalSeconds)} of music in your library, ${crates.length} crate${crates.length === 1 ? "" : "s"}, and ${plans.length} plan${plans.length === 1 ? "" : "s"}.`
-            : "Start by bringing in some music. Audio is analyzed in your browser and never uploaded."
+            ? [
+                { label: "Tracks", value: n, segment: true },
+                { label: "Music", value: formatTime(health.totalSeconds), segment: true },
+                { label: "Crates", value: crates.length, segment: true },
+                { label: "Plans", value: plans.length, segment: true },
+              ]
+            : undefined
         }
       />
 
@@ -70,19 +76,21 @@ export default async function HomePage() {
         </h2>
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {ACTIONS.map(({ href, label, detail, Icon }) => (
-            <li key={href}>
-              <Link
-                href={href}
-                className="group flex h-full flex-col gap-3 panel p-4 text-ink no-underline transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:border-action/40 hover:text-ink hover:shadow-lift"
-              >
-                <span className="flex size-10 items-center justify-center rounded-inset border border-action/30 bg-action/10 text-action">
-                  <Icon className="size-5" aria-hidden />
-                </span>
-                <span>
-                  <span className="block text-ui">{label}</span>
-                  <span className="block text-caption text-muted">{detail}</span>
-                </span>
-              </Link>
+            // Each action is a rubber pad: the whole pad presses with its link, like the plans list.
+            <li key={href} className="pad flex h-full flex-col gap-3 p-4">
+              <span className="flex size-10 items-center justify-center rounded-full bg-[var(--screen)] text-[var(--led-orange)] shadow-[0_0_0_2px_var(--screen-bezel),inset_0_2px_6px_rgb(0_0_0/0.7)]">
+                <Icon className="size-5" aria-hidden />
+              </span>
+              <span>
+                <Link
+                  href={href}
+                  data-pad-link
+                  className="block text-ui text-ink no-underline after:absolute after:inset-0 after:rounded-card hover:text-ink focus-visible:outline-none"
+                >
+                  {label}
+                </Link>
+                <span className="block text-caption text-muted">{detail}</span>
+              </span>
             </li>
           ))}
         </ul>
@@ -97,9 +105,16 @@ export default async function HomePage() {
                 {doneSteps} of {steps.length} done
               </span>
             </div>
-            <div aria-hidden className="mt-2 flex gap-1">
+            {/* One LED per step, lit green when done, like a deck's status lamps. */}
+            <div aria-hidden className="mt-2 flex gap-1.5">
               {steps.map((s) => (
-                <span key={s.id} className={cn("h-1.5 flex-1 rounded-full", s.done ? "bg-action" : "bg-surface-subtle")} />
+                <span
+                  key={s.id}
+                  className={cn(
+                    "h-2 flex-1 rounded-[2px]",
+                    s.done ? "bg-[var(--led-green)] shadow-[0_0_8px_var(--led-green)]" : "bg-[var(--key-well)] shadow-[inset_0_1px_2px_var(--key-shade)]",
+                  )}
+                />
               ))}
             </div>
             <CardDescription>This card hides once every step is done.</CardDescription>
@@ -108,10 +123,11 @@ export default async function HomePage() {
             {steps.map((s, i) => (
               <li key={s.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
+                  {/* Hot-cue pads: lit green once the step is done. */}
                   <span
                     className={cn(
-                      "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border font-mono text-[13px]",
-                      s.done ? "border-success/40 bg-success/10 text-success" : "border-divider text-muted",
+                      "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-[8px] font-mono text-[13px] font-bold",
+                      s.done ? "key-lit [--led:var(--led-green)]" : "key text-muted",
                     )}
                   >
                     {s.done ? <Check className="size-4" aria-label="Done" /> : i + 1}

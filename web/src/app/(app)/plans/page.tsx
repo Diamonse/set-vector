@@ -19,6 +19,14 @@ export default async function PlansPage() {
       <PageHeader
         title="Plans"
         lead="Ordered proposals with transition suggestions. Open one to inspect, judge, or edit it."
+        readout={
+          plans.length
+            ? [
+                { label: "Plans", value: plans.length, segment: true },
+                { label: "Planned time", value: formatTime(plans.reduce((sum, p) => sum + p.totalSeconds, 0)), segment: true },
+              ]
+            : undefined
+        }
         actions={
           <Button asChild>
             <Link href="/plans/new">
@@ -65,18 +73,19 @@ export default async function PlansPage() {
                     {p.edited ? " · edited" : ""}
                   </p>
                 </div>
-                <dl className="mt-auto grid grid-cols-3 gap-3 border-t border-divider pt-4">
+                {/* The pad's own small screen, reading out the plan like a loaded deck. */}
+                <dl className="deck-screen m-1 mt-auto grid grid-cols-3 gap-3 px-3 py-2.5">
                   <div>
                     <dt className="text-eyebrow text-muted">Tracks</dt>
-                    <dd className="font-mono text-[18px] font-semibold text-ink tabular">{p.trackCount}</dd>
+                    <dd className="mt-1 font-segment text-[18px] leading-none text-ink tabular">{p.trackCount}</dd>
                   </div>
                   <div>
                     <dt className="text-eyebrow text-muted">Length</dt>
-                    <dd className="font-mono text-[18px] font-semibold text-ink tabular">{formatTime(p.totalSeconds)}</dd>
+                    <dd className="mt-1 font-segment text-[18px] leading-none text-ink tabular">{formatTime(p.totalSeconds)}</dd>
                   </div>
                   <div>
                     <dt className="text-eyebrow text-muted">Created</dt>
-                    <dd className="text-[14px] leading-7 text-body">
+                    <dd className="mt-1 text-[14px] leading-[18px] text-body">
                       <time dateTime={p.createdAt}>{new Date(p.createdAt).toLocaleDateString()}</time>
                     </dd>
                   </div>
