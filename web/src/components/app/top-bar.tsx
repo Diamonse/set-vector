@@ -8,7 +8,6 @@ import { signOut } from "@/app/actions/auth";
 import { Logo } from "@/components/app/logo";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/library", label: "Library", Icon: Library },
@@ -41,7 +40,8 @@ export function TopBar({ email }: { email: string }) {
     };
   }, [open]);
 
-  const links = NAV.map((item) => {
+  // Vertical strips (the phone menu) put the indicator LED at the row's right end.
+  const links = (vertical: boolean) => NAV.map((item) => {
     const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
     return (
       <Link
@@ -49,12 +49,13 @@ export function TopBar({ email }: { email: string }) {
         href={item.href}
         aria-current={active ? "page" : undefined}
         onClick={() => setOpen(false)}
-        className={cn(
-          "relative inline-flex min-h-10 items-center gap-2 rounded-full px-3.5 text-ui no-underline transition-colors",
-          active ? "bg-surface-subtle text-ink hover:text-ink" : "text-muted hover:bg-surface-subtle/60 hover:text-ink",
-        )}
+        className={
+          vertical
+            ? "key-select flex min-h-11 items-center gap-2 rounded-control px-3.5 text-ui no-underline before:top-1/2 before:right-3 before:left-auto before:-mt-1.5 before:ml-0 before:h-3 before:w-[3px]"
+            : "key-select inline-flex min-h-10 items-center gap-2 rounded-control px-3.5 pt-1 text-ui no-underline"
+        }
       >
-        <item.Icon className={cn("size-4", active ? "text-action" : "")} aria-hidden />
+        <item.Icon className="size-4" aria-hidden />
         {item.label}
       </Link>
     );
@@ -67,8 +68,8 @@ export function TopBar({ email }: { email: string }) {
           <Link href="/library" className="no-underline" aria-label="SetVector library">
             <Logo />
           </Link>
-          <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-            {links}
+          <nav aria-label="Main" className="key-well hidden items-center gap-1 rounded-[14px] p-1 md:flex">
+            {links(false)}
           </nav>
         </div>
         <div className="hidden items-center gap-3 md:flex">
@@ -97,8 +98,8 @@ export function TopBar({ email }: { email: string }) {
       </div>
       {open ? (
         <div id="mobile-menu" className="border-t border-divider px-4 pb-4 md:hidden">
-          <nav aria-label="Main" className="flex flex-col py-2">
-            {links}
+          <nav aria-label="Main" className="key-well my-3 flex flex-col gap-1 rounded-[14px] p-1">
+            {links(true)}
           </nav>
           <div className="flex items-center justify-between gap-3 border-t border-divider py-3">
             <span className="text-caption text-muted">Theme</span>
