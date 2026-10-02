@@ -1,6 +1,7 @@
 import * as React from "react";
 import { LogoMark } from "@/components/app/logo";
 import { Platter } from "@/components/music/platter";
+import { DitherGradient } from "@/components/ui/dither-gradient";
 
 /**
  * An empty deck: the screen a CDJ shows with no track loaded. Blank readouts frame a jog
@@ -8,7 +9,9 @@ import { Platter } from "@/components/music/platter";
  */
 export function EmptyState({ title, children, action }: { title: string; children?: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="deck-screen m-1 px-6 pt-5 pb-10 text-center">
+    <div className="deck-screen relative isolate m-1 overflow-hidden px-6 pt-5 pb-10 text-center">
+      {/* The screen's idle pattern: a dithered glow that drifts for a moment, then holds. */}
+      <DitherGradient className="-z-10 opacity-70" />
       <div aria-hidden className="flex items-center justify-between font-mono text-[12px] font-semibold tracking-[0.12em] text-muted uppercase">
         <span className="inline-flex items-center gap-2">
           <span className="rounded-[4px] bg-[var(--led-orange)] px-1.5 text-[var(--led-ink)]">1</span>

@@ -1,3 +1,4 @@
+import { LetterCascade } from "@/components/ui/letter-cascade";
 import { cn } from "@/lib/utils";
 
 /** The SetVector mark: four level-meter bars rising into a set. */
@@ -16,11 +17,12 @@ export function LogoMark({ className, animated = false }: { className?: string; 
   );
 }
 
-export function Logo({ className }: { className?: string }) {
+/** The wordmark. With `cascade`, clicking its link sends the letters round in a wave. */
+export function Logo({ className, cascade = false }: { className?: string; cascade?: boolean }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5 font-[family-name:var(--font-display)] text-[22px] leading-none font-extrabold tracking-[0.03em] text-ink uppercase", className)}>
       <LogoMark />
-      SetVector
+      {cascade ? <LetterCascade text="SetVector" /> : "SetVector"}
     </span>
   );
 }

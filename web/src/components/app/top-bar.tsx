@@ -62,7 +62,7 @@ export function TopBar({ email }: { email: string }) {
     <header ref={headerRef} className="sticky top-0 z-40 border-b border-divider bg-[var(--header-bg)] backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-2.5 md:px-6">
         <Link href="/home" className="no-underline" aria-label="SetVector home">
-          <Logo />
+          <Logo cascade />
         </Link>
         {/* On wider screens the sections, theme, and sign out live in the dock (AppDock). */}
         <span className="hidden max-w-[32ch] truncate text-caption text-muted md:inline" title={email}>

@@ -3,12 +3,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/app/logo";
 import { ThemeToggle } from "@/components/app/theme-toggle";
+import { ArcWheel } from "@/components/landing/arc-wheel";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { TwoDeckScreen } from "@/components/landing/two-deck-screen";
 import { IntroSplash } from "@/components/loading/intro-splash";
 import { Button } from "@/components/ui/button";
+import { AnnotatedText, type AnnotationVariant } from "@/components/ui/annotated-text";
 import { KineticTextReveal } from "@/components/ui/kinetic-text-reveal";
-import { ScrollVelocityTicker } from "@/components/ui/scroll-velocity-ticker";
 import { TextMorph } from "@/components/ui/text-morph";
 import { createClient } from "@/lib/supabase/server";
 
@@ -17,6 +18,7 @@ const FEATURES = [
     Icon: AudioLines,
     title: "Analyze in the browser",
     body: "Tempo, beat grid, downbeats, key, loudness, and cue suggestions from your own files. Audio never leaves your device.",
+    mark: { phrase: "never leaves your device", variant: "underline" as const },
   },
   {
     Icon: FileUp,
@@ -42,22 +44,24 @@ const FEATURES = [
     Icon: ShieldCheck,
     title: "Your corrections win",
     body: "Estimates and reviewed values stay separate. Analysis never overwrites what you checked, and every change is kept as a revision.",
+    mark: { phrase: "never overwrites", variant: "circle" as const },
   },
 ];
 
-/** Ticker rows, with LED dots between items. */
-function tickerRow(items: string[]) {
-  return items.map((item) => (
-    <span key={item}>
-      {item}
-      <span aria-hidden className="mx-5 text-action-on-dark">
-        ·
-      </span>
-    </span>
-  ));
+/** Body copy with one phrase marked up in marker, like notes on a setlist. */
+function Marked({ text, phrase, variant }: { text: string; phrase: string; variant: AnnotationVariant }) {
+  const at = text.indexOf(phrase);
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <AnnotatedText variant={variant} delay={0.2}>
+        {phrase}
+      </AnnotatedText>
+      {text.slice(at + phrase.length)}
+    </>
+  );
 }
-const TICKER_TITLES = tickerRow(["8A → 9A", "124.0 BPM", "Long blend", "32 beats", "Energy 6 → 7"]);
-const TICKER_FEATURES = tickerRow(["Tempo", "Beat grid", "Downbeats", "Key", "Loudness", "Cue regions", "Rekordbox import", "Energy arc", "CSV", "JSON"]);
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -72,7 +76,7 @@ export default async function HomePage() {
       <header className="sticky top-0 z-40 border-b border-divider/60 bg-[var(--header-bg)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-4 py-2.5 md:px-6">
           <Link href="/" className="no-underline" aria-label="SetVector home">
-            <Logo />
+            <Logo cascade />
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle className="hidden sm:inline-flex" />
@@ -113,7 +117,9 @@ export default async function HomePage() {
               {/* The line ends after the morphing word, so a longer word never pushes the rest onto a new line. */}
               <br />
               <KineticTextReveal text="from" delay={0.325} />{" "}
-              <KineticTextReveal text="evidence" className="text-action" delay={0.4} />{" "}
+              <AnnotatedText variant="underline" delay={1.1}>
+                <KineticTextReveal text="evidence" className="text-action" delay={0.4} />
+              </AnnotatedText>{" "}
               <KineticTextReveal text="you can inspect." delay={0.475} />
             </h1>
             <p className="mt-6 max-w-[56ch] text-lead text-body">
@@ -145,14 +151,6 @@ export default async function HomePage() {
           <TwoDeckScreen />
         </section>
 
-        {/* Scrolling titles, like a CDJ screen's: they move only as the page scrolls. */}
-        <div className="on-dark border-y border-on-dark/10 bg-dark py-6 text-on-dark">
-          <ScrollVelocityTicker
-            rows={[TICKER_TITLES, TICKER_FEATURES]}
-            rowClassNames={["font-[family-name:var(--font-display)] text-[40px] leading-none font-extrabold tracking-[0.01em] uppercase md:text-[56px]", "text-eyebrow text-on-dark-muted"]}
-          />
-        </div>
-
         <section
           aria-labelledby="features-heading"
           className="mx-auto grid max-w-[1200px] gap-10 px-4 pb-20 md:px-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
@@ -170,17 +168,29 @@ export default async function HomePage() {
               <span className="font-segment text-[14px] tracking-normal text-ink">{FEATURES.length}</span>
             </div>
             <ul className="divide-y divide-divider">
-              {FEATURES.map(({ Icon, title, body }) => (
+              {FEATURES.map(({ Icon, title, body, mark }) => (
                 <li key={title} className="flex gap-4 px-4 py-5 md:px-5">
                   <Icon className="mt-1 size-5 shrink-0 text-[var(--led-orange)] drop-shadow-[0_0_6px_var(--led-orange)]" aria-hidden />
                   <div>
                     <h3 className="text-card-title">{title}</h3>
-                    <p className="mt-1.5 max-w-[60ch] text-body">{body}</p>
+                    <p className="mt-1.5 max-w-[60ch] text-body">{mark ? <Marked text={body} {...mark} /> : body}</p>
                   </div>
                 </li>
               ))}
             </ul>
           </div>
+        </section>
+
+        <section aria-labelledby="arc-heading" className="mx-auto grid max-w-[1200px] gap-8 px-4 pb-20 md:px-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center">
+          <div>
+            <h2 id="arc-heading" className="text-section max-w-[16ch]">
+              <KineticTextReveal text="Pick the shape of the night." trigger="inView" />
+            </h2>
+            <p className="mt-4 max-w-[48ch] text-body">
+              The planner scores each order against an energy arc. Spin the wheel to see the shapes it starts from; you can draw your own too.
+            </p>
+          </div>
+          <ArcWheel />
         </section>
 
         <HowItWorks />
