@@ -18,7 +18,7 @@ export function LogoMark({ className, animated = false }: { className?: string; 
 
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-2.5 font-[family-name:var(--font-display)] text-[17px] font-semibold tracking-[-0.03em] text-ink", className)}>
+    <span className={cn("inline-flex items-center gap-2.5 font-[family-name:var(--font-display)] text-[22px] leading-none font-extrabold tracking-[0.03em] text-ink uppercase", className)}>
       <LogoMark />
       SetVector
     </span>

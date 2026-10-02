@@ -107,6 +107,7 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
           label="Tempo"
           value={track.bpm === null ? null : formatBpm(track.bpm)}
           unit="BPM"
+          segment
           status={<StatusBadge kind={track.bpm === null ? "unavailable" : track.bpmSource === "reviewed" ? "reviewed" : "estimated"} />}
           detail={track.bpmAlternatives.length ? `Alternatives: ${track.bpmAlternatives.join(", ")} BPM` : "No alternative pulse recorded"}
         />
@@ -137,7 +138,7 @@ export default async function TrackPage({ params }: PageProps<"/library/[trackId
                 : "Your rating; used instead of the automatic estimate"
           }
         />
-        <MetricCard label="Duration" value={formatTime(track.durationSeconds)} detail={track.assetId ? `Asset ${track.assetId.slice(0, 16)}` : "No analyzer asset linked"} />
+        <MetricCard label="Duration" segment value={formatTime(track.durationSeconds)} detail={track.assetId ? `Asset ${track.assetId.slice(0, 16)}` : "No analyzer asset linked"} />
       </div>
 
       <Tabs defaultValue="audio" className="mt-12">

@@ -518,7 +518,7 @@ export function AudioEditor({
           <Button variant="dark" size="icon" onClick={togglePlay} disabled={!audioUrl} aria-label={playing ? "Pause" : "Play"}>
             {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
           </Button>
-          <span className="text-data text-on-dark" aria-live="off">
+          <span className="font-segment text-[15px] text-on-dark tabular" aria-live="off">
             {formatTime(time)} / {formatTime(duration)}
           </span>
           <label className="inline-flex min-h-11 items-center gap-2 text-caption text-on-dark-muted">
