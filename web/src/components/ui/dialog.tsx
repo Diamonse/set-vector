@@ -16,7 +16,7 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 w-[calc(100%-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-card border border-divider bg-surface p-6 shadow-lift",
+          "deck-screen fixed top-1/2 left-1/2 z-50 w-[calc(100%-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 p-6",
           className,
         )}
         {...props}
@@ -34,7 +34,13 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
 }
 
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title className={cn("pr-10 text-card-title text-ink", className)} {...props} />;
+  return <DialogPrimitive.Title
+      className={cn(
+        "flex items-center gap-2.5 pr-10 text-card-title text-ink before:size-2 before:shrink-0 before:rounded-full before:bg-[var(--led-amber)] before:shadow-[0_0_8px_var(--led-amber)] before:content-['']",
+        className,
+      )}
+      {...props}
+    />;
 }
 
 function DialogDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {

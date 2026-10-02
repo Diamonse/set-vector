@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, FileAudio, Loader2, Upload, XCircle } from "lucide-react";
+import { CheckCircle2, Disc3, FileAudio, Upload, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAnalyses, type SaveOutcome } from "@/app/actions/analysis";
@@ -200,7 +200,7 @@ export function AnalyzeView({ tracks }: { tracks: LibraryTrackRef[] }) {
         </div>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Button onClick={runQueue} disabled={running || !items.some((it) => it.status === "waiting")} aria-busy={running}>
-            {running ? <Loader2 className="animate-spin" aria-hidden /> : null}
+            {running ? <Disc3 className="animate-spin" aria-hidden /> : null}
             {running ? "Analyzing" : `Analyze ${items.filter((it) => it.status === "waiting").length} file(s)`}
           </Button>
           <Button variant="secondary" onClick={() => setItems((l) => l.filter((it) => it.status === "running"))} disabled={items.length === 0 || running}>
@@ -405,7 +405,7 @@ function ItemRow({ item, tracks, onChange }: { item: Item; tracks: LibraryTrackR
         {item.status === "running" ? (
           <span className="flex flex-col gap-1.5">
             <Badge tone="warning" className="self-start">
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              <Disc3 className="size-3.5 animate-spin" aria-hidden />
               {progressText ?? "Starting"}
             </Badge>
             <SegmentMeter fraction={item.progress?.fraction ?? 0} />

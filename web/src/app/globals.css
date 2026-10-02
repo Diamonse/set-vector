@@ -384,7 +384,8 @@
   &:active,
   &[aria-pressed="true"],
   &[aria-current="page"],
-  &[data-state="active"] {
+  &[data-state="active"],
+  &[data-state="checked"] {
     transform: translateY(3px);
     box-shadow:
       inset 0 1px 2px var(--key-shade),
@@ -589,6 +590,8 @@
   --key-shade: rgb(0 0 0 / 0.6);
   color-scheme: dark;
   color: var(--body);
+  scrollbar-width: thin;
+  scrollbar-color: #3a3c42 transparent;
   border-radius: var(--radius-inset);
   background-color: var(--screen);
   background-image: linear-gradient(170deg, rgb(255 255 255 / 0.05), transparent 38%);
@@ -597,6 +600,54 @@
     0 0 0 4px var(--plate-edge),
     inset 0 0 0 1px rgb(255 255 255 / 0.04),
     inset 0 2px 10px rgb(0 0 0 / 0.7);
+}
+
+/*
+ * Needle search: a range input drawn as the CDJ's touch strip, with ticks every tenth, the
+ * played part lit, and an orange needle. Set --pct (0% to 100%) to light the played part.
+ */
+@utility needle-search {
+  appearance: none;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+  &::-webkit-slider-runnable-track {
+    height: 10px;
+    border-radius: 3px;
+    background:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.14) 0 1px, transparent 1px 10%),
+      linear-gradient(90deg, color-mix(in oklab, var(--led-orange) 45%, transparent) 0 var(--pct, 0%), #000 var(--pct, 0%));
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.8), 0 0 0 1px #2e2f35;
+  }
+  &::-moz-range-track {
+    height: 10px;
+    border-radius: 3px;
+    background:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.14) 0 1px, transparent 1px 10%),
+      linear-gradient(90deg, color-mix(in oklab, var(--led-orange) 45%, transparent) 0 var(--pct, 0%), #000 var(--pct, 0%));
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.8), 0 0 0 1px #2e2f35;
+  }
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 4px;
+    height: 24px;
+    margin-top: -7px;
+    border-radius: 2px;
+    background: var(--led-orange);
+    box-shadow: 0 0 10px var(--led-orange);
+  }
+  &::-moz-range-thumb {
+    width: 4px;
+    height: 24px;
+    border: 0;
+    border-radius: 2px;
+    background: var(--led-orange);
+    box-shadow: 0 0 10px var(--led-orange);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--action-on-dark);
+    outline-offset: 2px;
+  }
 }
 
 /* Recessed display window for text fields and selects, with an LED caret and focus edge. */
