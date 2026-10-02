@@ -92,7 +92,8 @@ export function TrackTable({ tracks }: { tracks: Track[] }) {
         </div>
       </div>
 
-      <div className="panel overflow-hidden">
+      {/* The browse screen: always dark like the CDJ display, with a lit bar on the row in use. */}
+      <div className="deck-screen m-1 overflow-hidden">
         <Table>
           <TableCaption className="px-3 pb-3 text-left" aria-live="polite">
             Showing {rows.length} of {tracks.length} tracks. Energy is your relative 1 to 10 annotation, not a calibrated measurement.
@@ -115,7 +116,10 @@ export function TrackTable({ tracks }: { tracks: Track[] }) {
               const exits = t.cues.filter((c) => c.kind === "exit" && c.reviewStatus !== "rejected");
               const unreviewed = t.cues.some((c) => c.reviewStatus === "pending");
               return (
-                <TableRow key={t.id}>
+                <TableRow
+                  key={t.id}
+                  className="hover:bg-[color-mix(in_oklab,var(--electric)_14%,transparent)] focus-within:bg-[color-mix(in_oklab,var(--electric)_20%,transparent)] [&>td:first-child]:transition-shadow hover:[&>td:first-child]:shadow-[inset_3px_0_0_var(--electric)] focus-within:[&>td:first-child]:shadow-[inset_3px_0_0_var(--electric)]"
+                >
                   <TableCell className="min-w-[220px]">
                     <Link href={`/library/${t.id}`} className="font-semibold text-ink no-underline hover:text-action">
                       {t.title}

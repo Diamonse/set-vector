@@ -43,16 +43,20 @@ export default async function PlansPage() {
           {plans.map((p) => {
             const Icon = p.mode === "dj" ? Disc3 : Headphones;
             return (
-              <li key={p.id} className="group relative flex flex-col gap-4 panel p-5 transition-[box-shadow,transform,border-color] hover:-translate-y-0.5 hover:border-action/40 hover:shadow-lift">
+              <li key={p.id} className="group pad flex flex-col gap-4 p-5">
                 <div className="flex items-start justify-between gap-3">
-                  <span className="flex size-11 items-center justify-center rounded-inset border border-action/30 bg-action/10 text-action">
+                  <span className="flex size-11 items-center justify-center rounded-full bg-[var(--screen)] text-[var(--led-orange)] shadow-[0_0_0_2px_var(--screen-bezel),inset_0_2px_6px_rgb(0_0_0/0.7)]">
                     <Icon className="size-5 transition-transform duration-700 group-hover:rotate-180" aria-hidden />
                   </span>
                   {p.violationCount ? <StatusBadge kind="review" label={`${p.violationCount} unsatisfied`} /> : <StatusBadge kind="reviewed" label="Satisfied" />}
                 </div>
                 <div>
                   <h2 className="text-card-title">
-                    <Link href={`/plans/${p.id}`} className="text-ink no-underline after:absolute after:inset-0 after:rounded-card hover:text-action">
+                    <Link
+                      href={`/plans/${p.id}`}
+                      data-pad-link
+                      className="text-ink no-underline after:absolute after:inset-0 after:rounded-card focus-visible:outline-none"
+                    >
                       {p.name}
                     </Link>
                   </h2>

@@ -26,7 +26,7 @@ export function KeyChip({ musicalKey, estimated = false, className }: { musicalK
         backgroundColor: `color-mix(in oklab, oklch(${tone} ${hue}) 16%, transparent)`,
       }}
     >
-      <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: `oklch(${tone} ${hue})` }} />
+      <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: `oklch(${tone} ${hue})`, boxShadow: `0 0 6px oklch(${tone} ${hue})` }} />
       {formatCamelot(code)}
     </span>
   );
