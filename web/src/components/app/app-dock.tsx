@@ -42,6 +42,7 @@ export function AppDock() {
     {
       id: "theme",
       label: `${current.label} theme, switch to ${THEMES[current.next].label.toLowerCase()}`,
+      legend: current.label,
       icon: <current.Icon />,
       onClick: () => applyThemeChoice(current.next),
       separated: true,

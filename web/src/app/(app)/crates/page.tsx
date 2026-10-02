@@ -20,6 +20,7 @@ export default async function CratesPage() {
       <PageHeader
         title="Crates"
         lead="Groups of tracks to reorder as a fixed list, or to use as a pool the planner selects from."
+        readout={crates.length ? [{ label: "Crates", value: crates.length, segment: true }] : undefined}
         actions={
           <Button asChild>
             <Link href="/crates/new">

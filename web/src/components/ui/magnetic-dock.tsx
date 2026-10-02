@@ -1,18 +1,21 @@
 "use client";
 
-import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring, useTransform, type MotionValue } from "framer-motion";
+import { motion, useMotionValue, useReducedMotion, useSpring, useTransform, type MotionValue } from "framer-motion";
 import Link from "next/link";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
 // Adapted from Componentry's Magnetic Dock (componentry.dev/r/magnetic-dock): the tiles are
-// CDJ rubber keys with an indicator LED, and the labels show on a deck-screen readout.
+// CDJ rubber keys with an indicator LED, and each has its legend printed on the plate below,
+// as deck hardware does, so the labels are always visible rather than shown on hover.
 
 export interface DockItemData {
   /** Unique identifier */
   id: string;
-  /** Display label, also the accessible name */
+  /** Accessible name */
   label: string;
+  /** Short legend printed under the key; defaults to the label */
+  legend?: string;
   /** Icon; it is hidden from assistive technology */
   icon: React.ReactNode;
   /** Renders a link when set, otherwise a button */
@@ -55,8 +58,6 @@ function DockItem({
   reducedMotion: boolean;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
-  const [hovered, setHovered] = React.useState(false);
-  const [focused, setFocused] = React.useState(false);
 
   // Distance from the pointer to this tile's centre drives its size: closer is larger.
   const distance = useTransform(mouseX, (x: number) => {
@@ -81,52 +82,38 @@ function DockItem({
   );
 
   return (
-    <motion.div
-      ref={ref}
-      className="relative shrink-0"
-      style={{ width: reducedMotion ? iconSize : size, height: reducedMotion ? iconSize : size, y: reducedMotion ? 0 : y }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-    >
-      {item.href ? (
-        <Link
-          href={item.href}
-          aria-label={item.label}
-          aria-current={item.isActive ? "page" : undefined}
-          onClick={item.onClick}
-          className={tileClass}
-        >
-          {icon}
-        </Link>
-      ) : (
-        <button type="button" aria-label={item.label} onClick={item.onClick} className={cn(tileClass, "cursor-pointer")}>
-          {icon}
-        </button>
-      )}
-
-      <AnimatePresence initial={false}>
-        {hovered || focused ? (
-          <motion.span
-            aria-hidden
-            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.94 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-            className="pointer-events-none absolute -top-11 left-1/2 z-50 -translate-x-1/2 rounded-[8px] bg-[var(--screen)] px-2.5 py-1.5 text-eyebrow whitespace-nowrap text-on-dark shadow-[0_0_0_2px_var(--screen-bezel),0_0_0_3px_var(--plate-edge),var(--elev-lift)]"
+    <div className="flex shrink-0 flex-col items-center gap-1.5">
+      <motion.div
+        ref={ref}
+        className="relative"
+        style={{ width: reducedMotion ? iconSize : size, height: reducedMotion ? iconSize : size, y: reducedMotion ? 0 : y }}
+      >
+        {item.href ? (
+          <Link
+            href={item.href}
+            aria-label={item.label}
+            aria-current={item.isActive ? "page" : undefined}
+            onClick={item.onClick}
+            className={tileClass}
           >
-            {item.label}
-          </motion.span>
-        ) : null}
-      </AnimatePresence>
-    </motion.div>
+            {icon}
+          </Link>
+        ) : (
+          <button type="button" aria-label={item.label} onClick={item.onClick} className={cn(tileClass, "cursor-pointer")}>
+            {icon}
+          </button>
+        )}
+      </motion.div>
+      <span aria-hidden className={cn("font-mono text-[10px] leading-none font-semibold tracking-[0.12em] whitespace-nowrap uppercase", item.isActive ? "text-ink" : "text-muted")}>
+        {item.legend ?? item.label}
+      </span>
+    </div>
   );
 }
 
 /**
  * A row of keys that swell toward the pointer, like a macOS dock. With reduced motion the
- * keys keep their size and only the labels fade in.
+ * keys keep their size.
  */
 export function MagneticDock({ items, iconSize = 44, maxScale = 1.45, magneticDistance = 120, className }: MagneticDockProps) {
   const mouseX = useMotionValue(Infinity);

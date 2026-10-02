@@ -1,10 +1,14 @@
 import type { Bin, KeyCount, StyleCount } from "@/lib/home/stats";
+import { cn } from "@/lib/utils";
 
 /**
- * Small single-series charts for the home page. Each uses one hue (the accent) for
- * magnitude, shows its value on hover through an SVG title, labels only the peak, and
- * offers the same numbers as a table.
+ * Small single-series charts for the home page, drawn on deck screens as LED level meters.
+ * Each uses one hue (the accent) for magnitude, shows its value on hover through an SVG
+ * title, labels only the peak, and offers the same numbers as a table.
  */
+
+/** Segments in a full histogram column, like the steps of a mixer's level meter. */
+const LEVELS = 12;
 
 function DataTable({ caption, head, rows }: { caption: string; head: [string, string]; rows: [string, number][] }) {
   return (
@@ -41,14 +45,16 @@ export function Histogram({ bins, title, unit, empty }: { bins: Bin[]; title: st
   const gap = 2;
   const bw = W / bins.length;
   const peak = bins.findIndex((b) => b.count === max);
-  const y = (c: number) => (H - AXIS - 14) * (c / max);
+  const plot = H - AXIS - 14;
+  const step = plot / LEVELS;
+  const lit = (c: number) => (c === 0 ? 0 : Math.max(1, Math.round((c / max) * LEVELS)));
   const every = Math.ceil(bins.length / 6);
   return (
-    <figure>
+    <figure className="deck-screen m-1 p-4">
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`${title}: ${total} tracks. Use Show data for the values.`}>
         <line x1={0} x2={W} y1={H - AXIS} y2={H - AXIS} className="stroke-divider" strokeWidth={1} />
         {bins.map((b, i) => {
-          const h = y(b.count);
+          const on = lit(b.count);
           const x = i * bw + gap / 2;
           const w = Math.max(1, bw - gap);
           return (
@@ -56,9 +62,19 @@ export function Histogram({ bins, title, unit, empty }: { bins: Bin[]; title: st
               <title>{`${b.label} ${unit}: ${b.count} track${b.count === 1 ? "" : "s"}`}</title>
               {/* Hit area covers the full column so thin or empty bars still show their tooltip. */}
               <rect x={i * bw} y={0} width={bw} height={H - AXIS} fill="transparent" />
-              {b.count > 0 ? <path d={roundedTop(x, H - AXIS - h, w, h, Math.min(4, w / 2))} className="fill-action" /> : null}
+              {Array.from({ length: LEVELS }, (_, level) => (
+                <rect
+                  key={level}
+                  x={x}
+                  y={H - AXIS - (level + 1) * step + 1}
+                  width={w}
+                  height={step - 2}
+                  rx={1}
+                  className={level < on ? "fill-action" : "fill-surface-subtle"}
+                />
+              ))}
               {i === peak ? (
-                <text x={x + w / 2} y={H - AXIS - h - 4} textAnchor="middle" className="fill-body font-mono text-[10px]">
+                <text x={x + w / 2} y={H - AXIS - on * step - 4} textAnchor="middle" className="fill-body font-mono text-[10px]">
                   {b.count}
                 </text>
               ) : null}
@@ -76,23 +92,19 @@ export function Histogram({ bins, title, unit, empty }: { bins: Bin[]; title: st
   );
 }
 
-/** A bar with rounded top corners anchored flat on the baseline. */
-function roundedTop(x: number, y: number, w: number, h: number, r: number): string {
-  const rr = Math.min(r, h);
-  return `M${x},${y + h} V${y + rr} Q${x},${y} ${x + rr},${y} H${x + w - rr} Q${x + w},${y} ${x + w},${y + rr} V${y + h} Z`;
-}
-
 export function StyleBars({ styles }: { styles: StyleCount[] }) {
   if (!styles.length) return <p className="text-caption text-muted">No style tags yet. Genres from a Rekordbox import become style tags.</p>;
   const max = Math.max(...styles.map((s) => s.count));
   return (
-    <figure>
+    <figure className="deck-screen m-1 p-4">
       <ul className="flex flex-col gap-2">
         {styles.map((s) => (
           <li key={s.style} className="grid grid-cols-[minmax(0,9rem)_1fr_2.5rem] items-center gap-3" title={`${s.style}: ${s.count} track${s.count === 1 ? "" : "s"}`}>
             <span className="truncate text-[14px] text-body">{s.style}</span>
-            <span aria-hidden className="h-3 overflow-hidden rounded-r-[4px] bg-surface-subtle">
-              <span className="block h-full rounded-r-[4px] bg-action" style={{ width: `${Math.max(3, (s.count / max) * 100)}%` }} />
+            <span aria-hidden className="flex h-3 gap-[3px]">
+              {Array.from({ length: 20 }, (_, i) => (
+                <span key={i} className={cn("flex-1 rounded-[1px]", i < Math.max(1, Math.round((s.count / max) * 20)) ? "bg-action" : "bg-surface-subtle")} />
+              ))}
             </span>
             <span className="text-right font-mono text-[13px] text-body tabular">{s.count}</span>
           </li>
@@ -115,8 +127,11 @@ export function KeyWheel({ keys }: { keys: KeyCount[] }) {
   const rings = { A: [44, 74], B: [76, 106] } as const;
   const top = keys.reduce((a, b) => (b.count > a.count ? b : a));
   return (
-    <figure>
+    <figure className="deck-screen m-1 p-4">
       <svg viewBox="0 0 220 220" className="mx-auto h-auto w-full max-w-[260px]" role="img" aria-label={`Keys on the Camelot wheel: ${total} tracks; most common ${top.number}${top.letter}. Use Show data for the values.`}>
+        {/* The wheel sits on a jog platter: a grooved rim outside and a recessed centre display. */}
+        <circle cx={C} cy={C} r={108.5} fill="none" className="stroke-muted" strokeWidth={2.5} strokeDasharray="1 4.6" opacity={0.7} />
+        <circle cx={C} cy={C} r={42} fill="var(--screen)" stroke="#2e2f35" strokeWidth={2} />
         {keys.map((k) => {
           const [r0, r1] = rings[k.letter];
           // 12 o'clock is 12; numbers run clockwise, so 1 sits one step clockwise of 12.
@@ -146,7 +161,7 @@ export function KeyWheel({ keys }: { keys: KeyCount[] }) {
             </g>
           );
         })}
-        <text x={C} y={C - 2} textAnchor="middle" className="fill-ink font-mono text-[18px] font-semibold">
+        <text x={C} y={C - 1} textAnchor="middle" className="fill-ink font-segment text-[17px]">
           {total}
         </text>
         <text x={C} y={C + 13} textAnchor="middle" className="fill-muted text-[9px]">

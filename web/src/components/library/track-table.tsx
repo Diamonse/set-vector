@@ -150,6 +150,18 @@ export function TrackTable({ tracks, initialReview = "all" }: { tracks: Track[];
 
       {/* The browse screen: always dark like the CDJ display, with a lit bar on the row in use. */}
       <div className="deck-screen m-1 overflow-hidden">
+        {/* The screen's title bar: where you are in the browser and how many rows the filters leave. */}
+        <div aria-hidden className="flex items-center justify-between gap-3 border-b border-divider px-3 py-2 text-eyebrow text-muted">
+          <span className="inline-flex items-center gap-2">
+            <span className="size-1.5 rounded-full bg-[var(--led-blue)] shadow-[0_0_6px_var(--led-blue)]" />
+            Browse · Collection
+          </span>
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="font-segment text-[14px] tracking-normal text-ink">{rows.length}</span>
+            of
+            <span className="font-segment text-[14px] tracking-normal">{tracks.length}</span>
+          </span>
+        </div>
         <Table>
           <TableCaption className="px-3 pb-3 text-left">
             Click a column header to sort; click again to reverse. Energy is your relative 1 to 10 rating or the automatic estimate, not a calibrated
@@ -282,7 +294,7 @@ export function TrackTable({ tracks, initialReview = "all" }: { tracks: Track[];
                     )}
                   </TableCell>
                   <TableCell className="text-right text-data">
-                    {t.bpm === null ? <span className="font-sans text-muted">Unavailable</span> : formatBpm(t.bpm)}
+                    {t.bpm === null ? <span className="font-sans text-muted">Unavailable</span> : <span className="font-segment text-[14px]">{formatBpm(t.bpm)}</span>}
                     {t.bpmSource === "estimate" ? <div className="font-sans text-caption text-muted">Estimated</div> : null}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
@@ -297,7 +309,9 @@ export function TrackTable({ tracks, initialReview = "all" }: { tracks: Track[];
                     {t.energy === null ? <span className="font-sans text-muted">Unavailable</span> : <EnergyMeter value={t.energy} />}
                     {t.energy !== null && t.energySource === "estimate" ? <div className="font-sans text-caption text-muted">Estimated</div> : null}
                   </TableCell>
-                  <TableCell className="text-right text-data">{formatTime(t.durationSeconds)}</TableCell>
+                  <TableCell className="text-right text-data">
+                    <span className="font-segment text-[14px]">{formatTime(t.durationSeconds)}</span>
+                  </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {entries.length === 0 && exits.length === 0 ? (
                       <StatusBadge kind="fallback" />
