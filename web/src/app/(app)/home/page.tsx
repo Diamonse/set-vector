@@ -8,8 +8,11 @@ import { Histogram, KeyWheel, StyleBars } from "@/components/home/charts";
 import { describeAnnotation } from "@/components/library/annotation-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LedCalendar } from "@/components/ui/led-calendar";
+import { PixelCanvas } from "@/components/ui/pixel-canvas";
+import { SplitFlapDisplay } from "@/components/ui/split-flap-display";
 import { formatTime } from "@/lib/domain/format";
-import { listCrates, listPlans, listRecentAnalyses, listRecentAnnotations, listTracks } from "@/lib/data/queries";
+import { listActivityTimestamps, listCrates, listPlans, listRecentAnalyses, listRecentAnnotations, listTracks } from "@/lib/data/queries";
 import { bpmHistogram, energyHistogram, gettingStarted, keyCounts, libraryHealth, styleCounts } from "@/lib/home/stats";
 import { requireUser } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -35,13 +38,16 @@ function when(iso: string): string {
 
 export default async function HomePage() {
   const { supabase, user } = await requireUser();
-  const [tracks, plans, crates, analyses, annotations, profile] = await Promise.all([
+  // A year and a week back, so the calendar's first column is full whatever today's weekday.
+  const since = new Date(Date.now() - 372 * 86_400_000).toISOString();
+  const [tracks, plans, crates, analyses, annotations, profile, activity] = await Promise.all([
     listTracks(supabase),
     listPlans(supabase),
     listCrates(supabase),
     listRecentAnalyses(supabase),
     listRecentAnnotations(supabase, 6),
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
+    listActivityTimestamps(supabase, since),
   ]);
   const name = (profile.data as { display_name: string | null } | null)?.display_name?.trim();
   const health = libraryHealth(tracks);
@@ -77,7 +83,8 @@ export default async function HomePage() {
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {ACTIONS.map(({ href, label, detail, Icon }) => (
             // Each action is a rubber pad: the whole pad presses with its link, like the plans list.
-            <li key={href} className="pad flex h-full flex-col gap-3 p-4">
+            <li key={href} className="pad isolate flex h-full flex-col gap-3 p-4">
+              <PixelCanvas />
               <span className="flex size-10 items-center justify-center rounded-full bg-[var(--screen)] text-[var(--led-orange)] shadow-[0_0_0_2px_var(--screen-bezel),inset_0_2px_6px_rgb(0_0_0/0.7)]">
                 <Icon className="size-5" aria-hidden />
               </span>
@@ -150,6 +157,25 @@ export default async function HomePage() {
         </Card>
       ) : null}
 
+      {plans[0] ? (
+        <section aria-labelledby="latest-plan-heading" className="mt-10">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <h2 id="latest-plan-heading" className="text-card-title">
+              Latest plan
+            </h2>
+            <Link href={`/plans/${plans[0].id}`} className="inline-flex items-center gap-1 text-ui">
+              Open plan <ArrowRight className="size-4" aria-hidden />
+            </Link>
+          </div>
+          {/* A departure board for the newest plan: name, size, and length flip into place. */}
+          <SplitFlapDisplay
+            rows={[plans[0].name, `${plans[0].trackCount} tracks`, `Length ${formatTime(plans[0].totalSeconds)}`]}
+            label={`Latest plan: ${plans[0].name}, ${plans[0].trackCount} tracks, ${formatTime(plans[0].totalSeconds)} long.`}
+            columns={20}
+          />
+        </section>
+      ) : null}
+
       {n > 0 ? (
         <>
           <section aria-labelledby="health-heading" className="mt-10">
@@ -215,6 +241,13 @@ export default async function HomePage() {
           </section>
         </>
       ) : null}
+
+      <section aria-labelledby="activity-heading" className="mt-10">
+        <h2 id="activity-heading" className="mb-4 text-card-title">
+          Activity
+        </h2>
+        <LedCalendar timestamps={activity} noun="change" />
+      </section>
 
       <section aria-labelledby="recent-heading" className="mt-10">
         <h2 id="recent-heading" className="mb-4 text-card-title">

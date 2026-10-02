@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
+import { PixelCanvas } from "@/components/ui/pixel-canvas";
 import { formatTime } from "@/lib/domain/format";
 import { listPlans } from "@/lib/data/queries";
 import { requireUser } from "@/lib/supabase/server";
@@ -51,7 +52,8 @@ export default async function PlansPage() {
           {plans.map((p) => {
             const Icon = p.mode === "dj" ? Disc3 : Headphones;
             return (
-              <li key={p.id} className="group pad flex flex-col gap-4 p-5">
+              <li key={p.id} className="group pad isolate flex flex-col gap-4 p-5">
+                <PixelCanvas />
                 <div className="flex items-start justify-between gap-3">
                   <span className="flex size-11 items-center justify-center rounded-full bg-[var(--screen)] text-[var(--led-orange)] shadow-[0_0_0_2px_var(--screen-bezel),inset_0_2px_6px_rgb(0_0_0/0.7)]">
                     <Icon className="size-5 transition-transform duration-700 group-hover:rotate-180" aria-hidden />
