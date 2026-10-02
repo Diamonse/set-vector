@@ -30,7 +30,7 @@ The web app is optional and sits beside the offline Python analyzer. It analyzes
   - Alternatives and constraint violations.
   - Comparison with random, BPM-sorted, Camelot-walk, and greedy orderings, plus an exhaustive optimum for crates of up to 8 tracks.
   - Live re-scoring while you edit the order.
-  - CSV and JSON export.
+  - CSV and JSON export, plus an M3U8 playlist for Rekordbox's File > Import > Import Playlist. Each line is the file path from the track's Rekordbox link; tracks without one (browser uploads) are written as comments and listed in a warning on the plan page.
 
 ## Planner design
 

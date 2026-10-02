@@ -7,8 +7,9 @@ import { PageHeader } from "@/components/app/page-header";
 import { PlanView } from "@/components/plans/plan-view";
 import { SplitFlapDisplay } from "@/components/ui/split-flap-display";
 import { formatTime } from "@/lib/domain/format";
-import { getPlan, listPlanAnnotations, listTracks } from "@/lib/data/queries";
+import { getPlan, listPlanAnnotations, listPlaylistEntries, listTracks } from "@/lib/data/queries";
 import { toPlannerTrack } from "@/lib/data/rows";
+import { playlistPath } from "@/lib/rekordbox/playlist";
 import { requireUser } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/schemas";
 
@@ -22,6 +23,10 @@ export default async function PlanPage({ params }: PageProps<"/plans/[planId]">)
   if (!plan) notFound();
 
   const proposal = plan.result.proposal;
+  // Tracks the M3U8 export must leave out: Rekordbox needs a local file path for each line.
+  const playlistGaps = (await listPlaylistEntries(supabase, proposal.items))
+    .filter((e) => playlistPath(e.location) === null)
+    .map((e) => (e.artist ? `${e.artist} - ${e.title}` : e.title));
   // Only tracks the request could use are sent to the editor.
   const candidates = new Set([...plan.request.candidateTrackIds, ...plan.result.proposal.items.map((i) => i.trackId)]);
   const plannerTracks = tracks.filter((t) => candidates.has(t.id)).map(toPlannerTrack);
@@ -59,7 +64,7 @@ export default async function PlanPage({ params }: PageProps<"/plans/[planId]">)
         rows={[`Open  ${proposal.items[0]?.title ?? ""}`, `Close ${proposal.items.at(-1)?.title ?? ""}`, `${proposal.metrics.trackCount} tracks ${formatTime(proposal.metrics.totalSeconds)}`]}
         label={`Saved order: opens with ${proposal.items[0]?.title ?? "no track"}, closes with ${proposal.items.at(-1)?.title ?? "no track"}, ${proposal.metrics.trackCount} tracks, ${formatTime(proposal.metrics.totalSeconds)}.`}
       />
-      <PlanView planId={plan.id} request={plan.request} result={plan.result} plannerTracks={plannerTracks} judgments={judgments} />
+      <PlanView planId={plan.id} request={plan.request} result={plan.result} plannerTracks={plannerTracks} judgments={judgments} playlistGaps={playlistGaps} />
     </>
   );
 }

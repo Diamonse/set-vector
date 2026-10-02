@@ -314,12 +314,15 @@ export function PlanView({
   result,
   plannerTracks,
   judgments,
+  playlistGaps,
 }: {
   planId: string;
   request: PlanRequest;
   result: PlanResult;
   plannerTracks: PlannerTrack[];
   judgments: Record<string, string>;
+  /** Saved-order tracks without a Rekordbox file path, which the M3U8 export leaves out. */
+  playlistGaps: string[];
 }) {
   const [editing, setEditing] = useState(false);
   const [order, setOrder] = useState<string[]>(() => result.proposal.items.map((i) => i.trackId));
@@ -418,9 +421,30 @@ export function PlanView({
                     <Download aria-hidden /> JSON
                   </a>
                 </Button>
+                <Button asChild variant="secondary">
+                  <a href={`/plans/${planId}/export?format=m3u8`}>
+                    <Download aria-hidden /> M3U8 for Rekordbox
+                  </a>
+                </Button>
               </>
             )}
           </div>
+
+          {!editing && playlistGaps.length > 0 ? (
+            <Alert tone="warning">
+              <AlertTitle>
+                The M3U8 leaves out {playlistGaps.length === result.proposal.items.length ? "every track" : `${playlistGaps.length} of ${result.proposal.items.length} tracks`}
+              </AlertTitle>
+              <p className="mt-2">
+                Rekordbox imports a playlist by file path, and these tracks have none. <a href="/library/import/rekordbox">Import your Rekordbox collection XML</a> to link them, then download again.
+              </p>
+              <ul className="mt-2 list-disc pl-5">
+                {playlistGaps.map((g, i) => (
+                  <li key={i}>{g}</li>
+                ))}
+              </ul>
+            </Alert>
+          ) : null}
 
           <SignalFlow plan={shown} />
 

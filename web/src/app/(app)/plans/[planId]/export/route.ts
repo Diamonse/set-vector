@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getPlan } from "@/lib/data/queries";
+import { getPlan, listPlaylistEntries } from "@/lib/data/queries";
+import { buildM3u8 } from "@/lib/rekordbox/playlist";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/schemas";
 
@@ -12,7 +13,10 @@ function slug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "plan";
 }
 
-/** Downloads the current proposal as CSV (one row per track) or the full plan as JSON. */
+const FORMATS = ["csv", "json", "m3u8"] as const;
+type ExportFormat = (typeof FORMATS)[number];
+
+/** Downloads the current proposal as CSV (one row per track), the full plan as JSON, or an M3U8 playlist for Rekordbox. */
 export async function GET(request: NextRequest, { params }: RouteContext<"/plans/[planId]/export">) {
   const { planId } = await params;
   if (!isUuid(planId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -24,8 +28,20 @@ export async function GET(request: NextRequest, { params }: RouteContext<"/plans
   const plan = await getPlan(supabase, planId);
   if (!plan) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const format = request.nextUrl.searchParams.get("format") === "json" ? "json" : "csv";
+  const requested = request.nextUrl.searchParams.get("format");
+  const format: ExportFormat = FORMATS.find((f) => f === requested) ?? "csv";
   const filename = `${slug(plan.name)}.${format}`;
+
+  if (format === "m3u8") {
+    // Rekordbox reads paths from the linked collection entries; tracks without one are commented out.
+    const { text } = buildM3u8(await listPlaylistEntries(supabase, plan.result.proposal.items));
+    return new NextResponse(text, {
+      headers: {
+        "content-type": "audio/x-mpegurl; charset=utf-8",
+        "content-disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  }
 
   if (format === "json") {
     return new NextResponse(JSON.stringify({ name: plan.name, request: plan.request, result: plan.result }, null, 2), {

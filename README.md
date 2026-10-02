@@ -87,7 +87,8 @@ Supabase, with each user's rows visible only to that user.
 - **Edit and export.** Reorder or remove tracks with live re-scoring, adopt a suggested
   alternative, compare the plan with
   simple baselines (random, BPM-sorted, Camelot walk), record your own judgment of each
-  transition, and export the plan as CSV or JSON.
+  transition, and export the plan as CSV, JSON, or an M3U8 playlist for Rekordbox's
+  Import Playlist (tracks linked through a Rekordbox XML import keep their file paths).
 - **Home dashboard.** After signing in you land on a home page with quick actions, a
   getting-started checklist, library health, charts of your tempos, keys, energy, and
   styles, and your recent plans, analyses, and changes.
