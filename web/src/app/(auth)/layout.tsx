@@ -4,6 +4,7 @@ import { Logo } from "@/components/app/logo";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { DeckVector } from "@/components/loading/cdj-loader";
 import { STAGE_ASPECT } from "@/components/loading/deck-layout";
+import { KineticTextReveal } from "@/components/ui/kinetic-text-reveal";
 
 const POINTS = [
   "Analyze audio in your browser; files never leave your device",
@@ -22,7 +23,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="relative mt-auto">
           <p className="text-eyebrow text-action-on-dark">Set planning for DJs</p>
           <p className="mt-4 max-w-[16ch] font-[family-name:var(--font-display)] text-[58px] leading-[0.92] font-extrabold tracking-[0.005em] uppercase text-on-dark">
-            Every transition, explained.
+            <KineticTextReveal text="Every transition, explained." delay={0.15} />
           </p>
           {/* The same vector deck as the page loader, playing on the beat. */}
           <DeckVector aspect={STAGE_ASPECT.wide} className="-mx-4 mt-6 w-[calc(100%+2rem)] max-w-[520px]" />

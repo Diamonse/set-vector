@@ -1,3 +1,4 @@
+import { AppDock } from "@/components/app/app-dock";
 import { TopBar } from "@/components/app/top-bar";
 import { PrefetchCdj } from "@/components/loading/prefetch-cdj";
 import { requireUser } from "@/lib/supabase/server";
@@ -8,9 +9,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <>
       <TopBar email={user.email ?? ""} />
       <PrefetchCdj />
-      <main id="main" className="mx-auto max-w-[1200px] px-4 pt-10 pb-24 md:px-6">
+      <main id="main" className="mx-auto max-w-[1200px] px-4 pt-10 pb-24 md:px-6 md:pb-36">
         {children}
       </main>
+      <AppDock />
     </>
   );
 }
