@@ -513,7 +513,7 @@ export function AudioEditor({
         </Alert>
       ) : null}
 
-      <div className="on-dark mt-6 rounded-card border border-on-dark/10 bg-dark p-4 shadow-lift text-on-dark">
+      <div className="on-dark deck-screen mx-1 mt-6 p-4 text-on-dark">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="dark" size="icon" onClick={togglePlay} disabled={!audioUrl} aria-label={playing ? "Pause" : "Play"}>
             {playing ? <Pause aria-hidden /> : <Play aria-hidden />}

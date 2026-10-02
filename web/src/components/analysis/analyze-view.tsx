@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAnalyses, type SaveOutcome } from "@/app/actions/analysis";
 import { StatusBadge } from "@/components/app/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -220,27 +221,30 @@ export function AnalyzeView({ tracks }: { tracks: LibraryTrackRef[] }) {
               you to check on the track page.
             </CardDescription>
           </CardHeader>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  <span className="sr-only">Include</span>
-                </TableHead>
-                <TableHead>File and track</TableHead>
-                <TableHead>Save to</TableHead>
-                <TableHead className="text-right">Tempo</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead className="text-right">Loudness</TableHead>
-                <TableHead>Beat grid</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((it) => (
-                <ItemRow key={it.key} item={it} tracks={tracks} onChange={(patch) => update(it.key, patch)} />
-              ))}
-            </TableBody>
-          </Table>
+          {/* The loading list: files queue on the deck screen, each with its state LED. */}
+          <div className="deck-screen m-1 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <span className="sr-only">Include</span>
+                  </TableHead>
+                  <TableHead>File and track</TableHead>
+                  <TableHead>Save to</TableHead>
+                  <TableHead className="text-right">Tempo</TableHead>
+                  <TableHead>Key</TableHead>
+                  <TableHead className="text-right">Loudness</TableHead>
+                  <TableHead>Beat grid</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((it) => (
+                  <ItemRow key={it.key} item={it} tracks={tracks} onChange={(patch) => update(it.key, patch)} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Button onClick={save} disabled={saving || running || ready.length === 0} aria-busy={saving}>
               {saving ? "Saving" : `Save ${ready.length} analysis result(s)`}
@@ -272,6 +276,18 @@ function ModelNotice({ model }: { model: ModelState }) {
         start at the first beat rather than the first bar. {model.kind === "error" ? `(${model.message})` : "See the web README to publish the model."}
       </p>
     </Alert>
+  );
+}
+
+/** Twelve-segment load meter, like a deck's loading bar; the badge beside it states the percentage. */
+function SegmentMeter({ fraction }: { fraction: number }) {
+  const lit = Math.round(Math.max(0, Math.min(1, fraction)) * 12);
+  return (
+    <span aria-hidden className="flex gap-[2px]">
+      {Array.from({ length: 12 }, (_, i) => (
+        <span key={i} className={`h-1.5 w-2.5 rounded-[1px] ${i < lit ? "bg-[var(--led-orange)] shadow-[0_0_4px_var(--led-orange)]" : "bg-surface-subtle"}`} />
+      ))}
+    </span>
   );
 }
 
@@ -383,11 +399,16 @@ function ItemRow({ item, tracks, onChange }: { item: Item; tracks: LibraryTrackR
         ) : null}
       </TableCell>
       <TableCell className="min-w-[180px]" aria-live="polite">
-        {item.status === "waiting" ? <span className="text-muted">Waiting</span> : null}
+        {item.status === "waiting" ? (
+          <Badge led="unlit">Waiting</Badge>
+        ) : null}
         {item.status === "running" ? (
-          <span className="inline-flex items-center gap-2">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            {progressText ?? "Starting"}
+          <span className="flex flex-col gap-1.5">
+            <Badge tone="warning" className="self-start">
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              {progressText ?? "Starting"}
+            </Badge>
+            <SegmentMeter fraction={item.progress?.fraction ?? 0} />
           </span>
         ) : null}
         {item.status === "error" ? (
@@ -396,7 +417,7 @@ function ItemRow({ item, tracks, onChange }: { item: Item; tracks: LibraryTrackR
             {item.error}
           </span>
         ) : null}
-        {item.status === "done" && !item.outcome ? <span className="text-muted">Ready to save</span> : null}
+        {item.status === "done" && !item.outcome ? <Badge tone="success">Ready to save</Badge> : null}
         {item.outcome ? (
           item.outcome.ok ? (
             <div className="flex flex-col gap-1">
