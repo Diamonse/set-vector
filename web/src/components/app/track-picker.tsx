@@ -213,29 +213,48 @@ export function TrackPicker({
         {selected.length} selected · {visible.length} of {tracks.length} shown
         {active ? ` · ${active} filter${active === 1 ? "" : "s"} on` : ""}
       </p>
-      <ul className="divide-y divide-divider overflow-y-auto rounded-control border border-control-border/50 bg-surface" style={{ maxHeight }}>
-        {visible.map((t) => {
-          const key = usableKey(t.keyTonic, t.keyMode, t.keyStatus);
-          const checkboxId = `${id}-${t.id}`;
-          return (
-            <li key={t.id} className="flex min-h-11 items-center gap-3 px-3 py-2">
-              <Checkbox id={checkboxId} checked={selectedSet.has(t.id)} onCheckedChange={(v) => toggle(t.id, v === true)} />
-              <label htmlFor={checkboxId} className="flex min-w-0 flex-1 cursor-pointer flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <span className="truncate">
-                  <span className="text-ink">{t.title}</span>
-                  {t.versionLabel ? <span className="text-muted"> ({t.versionLabel})</span> : null}
-                  <span className="text-muted"> · {t.artist || "Unknown artist"}</span>
-                </span>
-                <span className="shrink-0 text-data text-[13px] text-muted">
-                  {t.bpm === null ? "BPM n/a" : `${formatBpm(t.bpm)} BPM`} · {key ? formatCamelot(toCamelot(key)) : "key n/a"} · E{" "}
-                  {t.energy ?? "n/a"} · {formatTime(t.durationSeconds)}
-                </span>
-              </label>
-            </li>
-          );
-        })}
-        {visible.length === 0 ? <li className="px-3 py-4 text-muted">No tracks match.</li> : null}
-      </ul>
+      {/* The list is the deck's browse screen: a title bar with the selection count, and a lit bar on chosen rows. */}
+      <div className="deck-screen m-1 overflow-hidden">
+        <div aria-hidden className="flex items-center justify-between gap-3 border-b border-divider px-3 py-2 text-eyebrow text-muted">
+          <span className="inline-flex items-center gap-2">
+            <span className="size-1.5 rounded-full bg-[var(--led-blue)] shadow-[0_0_6px_var(--led-blue)]" />
+            Browse · Collection
+          </span>
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="font-segment text-[14px] tracking-normal text-ink">{selected.length}</span>
+            selected
+          </span>
+        </div>
+        <ul className="divide-y divide-divider overflow-y-auto" style={{ maxHeight }}>
+          {visible.map((t) => {
+            const key = usableKey(t.keyTonic, t.keyMode, t.keyStatus);
+            const checkboxId = `${id}-${t.id}`;
+            return (
+              <li
+                key={t.id}
+                className={cn(
+                  "flex min-h-11 items-center gap-3 px-3 py-2 transition-colors",
+                  selectedSet.has(t.id) && "bg-[color-mix(in_oklab,var(--electric)_16%,transparent)] shadow-[inset_3px_0_0_var(--electric)]",
+                )}
+              >
+                <Checkbox id={checkboxId} checked={selectedSet.has(t.id)} onCheckedChange={(v) => toggle(t.id, v === true)} />
+                <label htmlFor={checkboxId} className="flex min-w-0 flex-1 cursor-pointer flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <span className="truncate">
+                    <span className="text-ink">{t.title}</span>
+                    {t.versionLabel ? <span className="text-muted"> ({t.versionLabel})</span> : null}
+                    <span className="text-muted"> · {t.artist || "Unknown artist"}</span>
+                  </span>
+                  <span className="shrink-0 text-data text-[13px] text-muted">
+                    {t.bpm === null ? "BPM n/a" : <><span className="font-segment text-ink">{formatBpm(t.bpm)}</span> BPM</>} · {key ? formatCamelot(toCamelot(key)) : "key n/a"} · E{" "}
+                    {t.energy ?? "n/a"} · {formatTime(t.durationSeconds)}
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+          {visible.length === 0 ? <li className="px-3 py-4 text-muted">No tracks match.</li> : null}
+        </ul>
+      </div>
       {name ? selected.map((trackId) => <input key={trackId} type="hidden" name={name} value={trackId} />) : null}
     </fieldset>
   );

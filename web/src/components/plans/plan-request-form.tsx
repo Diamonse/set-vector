@@ -84,6 +84,22 @@ function NumberField({
   );
 }
 
+/** An arc's shape in miniature for its preset pad: elapsed time across, energy 1 to 10 up. */
+function ArcGlyph({ points }: { points: ArcPoint[] }) {
+  const W = 56;
+  const H = 22;
+  const line = points.map((p) => `${(p.t * W).toFixed(1)},${(H - 2 - ((p.energy - 1) / 9) * (H - 4)).toFixed(1)}`).join(" ");
+  return (
+    <svg aria-hidden viewBox={`0 0 ${W} ${H}`} className="h-[22px] w-14 overflow-visible">
+      {points.length ? (
+        <polyline points={line} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      ) : (
+        <line x1={0} x2={W} y1={H / 2} y2={H / 2} stroke="currentColor" strokeWidth={2} strokeDasharray="3 4" strokeLinecap="round" opacity={0.6} />
+      )}
+    </svg>
+  );
+}
+
 /** Options as selector pads: the chosen pad presses in and its indicator LED lights blue. */
 function RadioCards<T extends string>({
   name,
@@ -411,18 +427,42 @@ export function PlanRequestForm({
           </CardDescription>
         </CardHeader>
         <div className="flex flex-col gap-6">
-          <div className="max-w-sm">
-            <Label htmlFor="arc-preset">Shape</Label>
-            <div className="mt-2">
-              <NativeSelect id="arc-preset" value={request.energyArc.preset} onChange={(e) => setArcPreset(e.target.value as ArcPreset)}>
-                {(Object.keys(ARC_PRESET_LABELS) as ArcPreset[]).map((p) => (
-                  <option key={p} value={p}>
-                    {ARC_PRESET_LABELS[p]}
-                  </option>
-                ))}
-              </NativeSelect>
+          {/* Presets as a bank of hot-cue pads, each drawing its own shape; the chosen pad presses in and lights. */}
+          <fieldset>
+            <legend className="mb-3 text-ui text-ink">Shape</legend>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {(Object.keys(ARC_PRESET_LABELS) as ArcPreset[]).map((p) => (
+                <label key={p} className="key key-focus flex cursor-pointer flex-col items-center gap-2 rounded-[10px] px-3 pt-4 pb-3 text-center">
+                  <input
+                    type="radio"
+                    name="energy_arc_preset"
+                    value={p}
+                    checked={request.energyArc.preset === p}
+                    onChange={() => setArcPreset(p)}
+                    className="peer sr-only"
+                  />
+                  <span
+                    aria-hidden
+                    className="absolute top-2 right-2 size-2 rounded-full border border-[var(--key-edge)] bg-[var(--key-well)] peer-checked:border-transparent peer-checked:bg-[var(--led-blue)] peer-checked:shadow-[0_0_8px_var(--led-blue)]"
+                  />
+                  <span className="text-muted peer-checked:text-action">
+                    <ArcGlyph
+                      points={
+                        p === "none"
+                          ? []
+                          : p === "custom"
+                            ? request.energyArc.points.length
+                              ? request.energyArc.points
+                              : ARC_PRESETS.peak.points
+                            : ARC_PRESETS[p].points
+                      }
+                    />
+                  </span>
+                  <span className="text-[13px] leading-tight font-semibold">{ARC_PRESET_LABELS[p]}</span>
+                </label>
+              ))}
             </div>
-          </div>
+          </fieldset>
           {request.energyArc.preset !== "none" ? (
             <fieldset className="flex flex-col gap-3">
               <legend className="mb-2 text-ui text-ink">Control points (editing switches to Custom)</legend>

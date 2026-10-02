@@ -6,6 +6,7 @@ import { ConfirmDelete } from "@/components/app/confirm-delete";
 import { PageHeader } from "@/components/app/page-header";
 import { CrateForm } from "@/components/crates/crate-form";
 import { Button } from "@/components/ui/button";
+import { formatTime } from "@/lib/domain/format";
 import { getCrate, listTracks } from "@/lib/data/queries";
 import { requireUser } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/schemas";
@@ -28,7 +29,14 @@ export default async function CratePage({ params }: PageProps<"/crates/[crateId]
           </Link>
         }
         title={crate.name}
-        lead={`${crate.trackIds.length} tracks`}
+        readout={[
+          { label: "Tracks", value: crate.trackIds.length, segment: true },
+          {
+            label: "Total time",
+            value: formatTime(tracks.filter((t) => crate.trackIds.includes(t.id)).reduce((sum, t) => sum + t.durationSeconds, 0)),
+            segment: true,
+          },
+        ]}
         actions={
           <>
             <Button asChild>

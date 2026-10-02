@@ -232,6 +232,19 @@ export function AnalyzeView({ tracks }: { tracks: LibraryTrackRef[] }) {
           </CardHeader>
           {/* The loading list: files queue on the deck screen, each with its state LED. */}
           <div className="deck-screen m-1 overflow-hidden">
+            {/* Title bar: the source, as a player names the USB it is reading, and files analyzed so far. */}
+            <div aria-hidden className="flex items-center justify-between gap-3 border-b border-divider px-3 py-2 text-eyebrow text-muted">
+              <span className="inline-flex items-center gap-2">
+                <span className="size-1.5 rounded-full bg-[var(--led-blue)] shadow-[0_0_6px_var(--led-blue)]" />
+                Browse · USB
+              </span>
+              <span className="inline-flex items-baseline gap-1.5">
+                <span className="font-segment text-[14px] tracking-normal text-ink">{doneCount}</span>
+                of
+                <span className="font-segment text-[14px] tracking-normal">{items.length}</span>
+                analyzed
+              </span>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -358,7 +371,7 @@ function ItemRow({ item, tracks, onChange }: { item: Item; tracks: LibraryTrackR
       <TableCell className="text-right whitespace-nowrap">
         {r ? (
           <>
-            <span className="text-data">{r.tempo.bpm === null ? "n/a" : r.tempo.bpm.toFixed(1)}</span>
+            {r.tempo.bpm === null ? <span className="text-data">n/a</span> : <span className="font-segment text-[14px] text-ink">{r.tempo.bpm.toFixed(1)}</span>}
             <div className="text-caption text-muted">{tempoSourceLabel(r.tempo.source)}</div>
             {r.tempo.alternatives.length ? <div className="text-caption text-muted">alt. {r.tempo.alternatives.map((b) => b.toFixed(0)).join(", ")}</div> : null}
           </>
