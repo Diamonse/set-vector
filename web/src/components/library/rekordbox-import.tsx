@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Disc3 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { importRekordboxBatch, type RekordboxOutcome } from "@/app/actions/rekordbox";
@@ -156,7 +156,7 @@ export function RekordboxImport() {
         </FormField>
         {reading ? (
           <p className="mt-3 flex items-center gap-2 text-caption text-muted">
-            <Loader2 className="size-4 animate-spin" aria-hidden /> Reading the collection
+            <Disc3 className="size-4 animate-spin" aria-hidden /> Reading the collection
           </p>
         ) : null}
         {error ? (
@@ -252,7 +252,7 @@ export function RekordboxImport() {
           ) : null}
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <Button type="button" disabled={busy || selected.size === 0} onClick={() => void runImport()}>
-              {busy ? <Loader2 className="animate-spin" aria-hidden /> : null}
+              {busy ? <Disc3 className="animate-spin" aria-hidden /> : null}
               {busy ? `Importing ${progress!.done} of ${progress!.total}` : `Import ${selected.size} track(s)`}
             </Button>
             <span className="text-caption text-muted">Sent in batches of {REKORDBOX_BATCH}. Importing again updates the same links.</span>
