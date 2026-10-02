@@ -4,6 +4,7 @@ import { Logo } from "@/components/app/logo";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { DeckVector } from "@/components/loading/cdj-loader";
 import { STAGE_ASPECT } from "@/components/loading/deck-layout";
+import { MagnetLines } from "@/components/ui/magnet-lines";
 import { KineticTextReveal } from "@/components/ui/kinetic-text-reveal";
 
 const POINTS = [
@@ -17,6 +18,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
       <aside className="on-dark relative hidden overflow-hidden bg-dark p-12 text-on-dark lg:flex lg:flex-col">
         <div aria-hidden className="absolute inset-0 stage-glow" />
+        {/* A field of needles that turn toward the cursor, like a bank of tonearms. */}
+        <MagnetLines rows={11} columns={9} className="opacity-40" />
         <Link href="/" className="relative no-underline [&_span]:text-on-dark">
           <Logo />
         </Link>
@@ -40,7 +43,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <main id="main" className="relative flex flex-col px-4 py-6 md:px-10">
         <div className="flex items-center justify-between">
           <Link href="/" className="no-underline lg:invisible">
-            <Logo />
+            <Logo cascade />
           </Link>
           <ThemeToggle />
         </div>
