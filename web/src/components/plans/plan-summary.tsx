@@ -11,6 +11,7 @@ export function PlanSummary({ plan, mode }: { plan: EvaluatedPlan; mode: PlanMod
       <MetricCard
         label={mode === "dj" ? "Planned playback" : "Total length"}
         value={formatTime(m.totalSeconds)}
+        segment
         detail={`${m.trackCount} tracks${mode === "dj" ? "; played spans and overlaps, not full lengths" : "; whole tracks"}${
           m.durationErrorSeconds ? `; ${formatTime(m.durationErrorSeconds)} outside target` : ""
         }`}

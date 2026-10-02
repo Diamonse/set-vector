@@ -1,12 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans, JetBrains_Mono, Unbounded } from "next/font/google";
+import { Azeret_Mono, Big_Shoulders, Hanken_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 // Fonts are downloaded at build time and served from this origin; no request goes to Google at runtime.
-const display = Unbounded({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-unbounded", display: "swap" });
-const sans = Instrument_Sans({ subsets: ["latin"], variable: "--font-instrument", display: "swap" });
-const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-jetbrains", display: "swap" });
+// Big Shoulders is industrial signage lettering (its optical-size axis picks the display cut at
+// large sizes), Hanken Grotesk carries the interface, and Azeret Mono the data. DSEG7 is a
+// seven-segment face (SIL OFL, see fonts/DSEG-LICENSE.txt) used only for tempo and clock digits.
+const display = Big_Shoulders({ subsets: ["latin"], axes: ["opsz"], variable: "--font-headline", display: "swap" });
+const sans = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-ui", display: "swap" });
+const mono = Azeret_Mono({ subsets: ["latin"], variable: "--font-data", display: "swap" });
+const segment = localFont({ src: "./fonts/DSEG7Classic-Bold.woff2", weight: "700", variable: "--font-segment-face", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "SetVector", template: "%s · SetVector" },
@@ -23,7 +28,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // The theme script sets data-theme before hydration, so React must not warn about it.
-    <html lang="en" suppressHydrationWarning className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${display.variable} ${sans.variable} ${mono.variable} ${segment.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

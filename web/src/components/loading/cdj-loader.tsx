@@ -25,9 +25,10 @@ function readTokens(): { palette: DeckPalette; fonts: DeckFonts } {
       softBlue: token("--data-rhythm-dark", "#78b8ff"),
     },
     fonts: {
-      sans: `${token("--font-instrument", "system-ui")}, system-ui, sans-serif`,
-      mono: `${token("--font-jetbrains", "ui-monospace")}, ui-monospace, monospace`,
-      display: `${token("--font-unbounded", "system-ui")}, system-ui, sans-serif`,
+      sans: `${token("--font-ui", "system-ui")}, system-ui, sans-serif`,
+      mono: `${token("--font-data", "ui-monospace")}, ui-monospace, monospace`,
+      display: `${token("--font-headline", "system-ui")}, system-ui, sans-serif`,
+      segment: `${token("--font-segment-face", "ui-monospace")}, ${token("--font-data", "ui-monospace")}, monospace`,
     },
   };
 }
@@ -248,7 +249,7 @@ export function DeckVector({ aspect, className }: { aspect: number; className?: 
         <text x="104" y="58" fill="#e9eef5" fontSize="34" fontWeight="600" className="font-sans">
           Cueing up
         </text>
-        <text x="972" y="62" textAnchor="end" fill={ORANGE} fontSize="44" fontWeight="600" className="font-mono">
+        <text x="972" y="62" textAnchor="end" fill={ORANGE} fontSize="40" fontWeight="700" className="font-segment">
           124.0
         </text>
         <rect x="470" y="28" width="62" height="34" rx="17" fill="none" stroke={BLUE} strokeWidth="2.5" />

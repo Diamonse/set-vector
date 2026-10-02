@@ -23,7 +23,7 @@ export function DeckError({
           Error
         </span>
         <span aria-hidden className="deck-blink">
-          ---.- BPM
+          <span className="font-segment tracking-normal">---.-</span> BPM
         </span>
       </div>
       <p className="mt-8 font-mono text-[44px] leading-none font-bold tracking-[0.04em] text-[var(--led-red)] [text-shadow:0_0_18px_rgb(255_90_80/0.45)]">

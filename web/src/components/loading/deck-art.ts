@@ -20,6 +20,8 @@ export interface DeckFonts {
   sans: string;
   mono: string;
   display: string;
+  /** Seven-segment face for tempo and clock digits. */
+  segment: string;
 }
 
 const SCREEN_BG = "#04070c";
@@ -133,7 +135,7 @@ export function drawScreen(
   ctx.textAlign = "right";
   withGlow(ctx, palette.orange, 14, () => {
     ctx.fillStyle = palette.orange;
-    ctx.font = `600 ${headerH * 0.5}px ${fonts.mono}`;
+    ctx.font = `700 ${headerH * 0.46}px ${fonts.segment}`;
     ctx.fillText(BPM.toFixed(1), w - pad - headerH * 0.75, pad + headerH * 0.48);
   });
   ctx.fillStyle = SCREEN_MUTED;
@@ -152,7 +154,7 @@ export function drawScreen(
   ctx.fillText("8A", keyX + headerH * 0.35, pad + headerH * 0.37);
   ctx.textAlign = "left";
   ctx.fillStyle = SCREEN_INK;
-  ctx.font = `500 ${headerH * 0.26}px ${fonts.mono}`;
+  ctx.font = `700 ${headerH * 0.24}px ${fonts.segment}`;
   ctx.fillText(formatClock(seconds), keyX + headerH * 0.85, pad + headerH * 0.38);
   const inBar = Math.floor(beat) % 4;
   for (let i = 0; i < 4; i++) {
@@ -321,7 +323,7 @@ export function drawJogDisplay(ctx: CanvasRenderingContext2D, size: number, beat
     });
   });
   ctx.fillStyle = palette.softBlue;
-  ctx.font = `600 ${r * 0.13}px ${fonts.mono}`;
+  ctx.font = `700 ${r * 0.12}px ${fonts.segment}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(`${BPM.toFixed(1)}`, c, c + r * 0.42);
@@ -388,13 +390,13 @@ export function drawTopPlate(ctx: CanvasRenderingContext2D, w: number, h: number
 
   // Wordmark, front right.
   ctx.fillStyle = "#c9d2de";
-  ctx.font = `700 30px ${fonts.display}`;
+  ctx.font = `800 36px ${fonts.display}`;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   const right = u(layout.width / 2 - 0.12);
   const baseline = v(layout.depth / 2 - 0.16);
-  ctx.fillText("SetVector", right, baseline);
-  const markLeft = right - ctx.measureText("SetVector").width - 46;
+  ctx.fillText("SETVECTOR", right, baseline);
+  const markLeft = right - ctx.measureText("SETVECTOR").width - 46;
   [0.45, 0.8, 0.6, 1].forEach((b, i) => {
     ctx.fillStyle = palette.orange;
     const bh = 26 * b;
