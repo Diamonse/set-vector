@@ -41,9 +41,9 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { n: "01", title: "Analyze or import", body: "Drop audio files or a Rekordbox export." },
-  { n: "02", title: "Review the evidence", body: "Confirm keys, tempos, and cue regions on the waveform." },
-  { n: "03", title: "Plan and export", body: "Generate an order, edit it, and export CSV or JSON." },
+  { n: "A", title: "Analyze or import", body: "Drop audio files or a Rekordbox export." },
+  { n: "B", title: "Review the evidence", body: "Confirm keys, tempos, and cue regions on the waveform." },
+  { n: "C", title: "Plan and export", body: "Generate an order, edit it, and export CSV or JSON." },
 ];
 
 export default async function HomePage() {
@@ -187,10 +187,16 @@ export default async function HomePage() {
             <h2 id="steps-heading" className="sr-only">
               How it works
             </h2>
+            {/* The steps are hot cue pads A to C, lit in alternating cue colours. */}
             <ol className="grid gap-8 md:grid-cols-3">
-              {STEPS.map((s) => (
+              {STEPS.map((s, i) => (
                 <li key={s.n} className="flex gap-4">
-                  <span className="font-[family-name:var(--font-display)] text-[40px] leading-none font-semibold tracking-[-0.04em] text-action">{s.n}</span>
+                  <span
+                    aria-hidden
+                    className={`key-lit flex size-14 shrink-0 items-center justify-center rounded-[10px] font-mono text-[24px] font-bold ${i === 1 ? "[--led:var(--electric)]" : ""}`}
+                  >
+                    {s.n}
+                  </span>
                   <div>
                     <h3 className="text-card-title">{s.title}</h3>
                     <p className="mt-1 text-body">{s.body}</p>

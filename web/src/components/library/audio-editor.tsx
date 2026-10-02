@@ -522,11 +522,11 @@ export function AudioEditor({
             {formatTime(time)} / {formatTime(duration)}
           </span>
           <label className="inline-flex min-h-11 items-center gap-2 text-caption text-on-dark-muted">
-            <Checkbox checked={loop} onCheckedChange={(v) => setLoop(v === true)} className="border-on-dark-muted bg-dark-elevated" />
+            <Checkbox checked={loop} onCheckedChange={(v) => setLoop(v === true)} />
             <Repeat className="size-4" aria-hidden /> Loop selection
           </label>
           <label className="inline-flex min-h-11 items-center gap-2 text-caption text-on-dark-muted">
-            <Checkbox checked={snap} onCheckedChange={(v) => setSnap(v === true)} disabled={beats.length === 0} className="border-on-dark-muted bg-dark-elevated" />
+            <Checkbox checked={snap} onCheckedChange={(v) => setSnap(v === true)} disabled={beats.length === 0} />
             Snap to beats
           </label>
           {grids.length > 1 ? (
@@ -578,7 +578,8 @@ export function AudioEditor({
           value={time}
           onChange={(e) => seek(Number(e.target.value))}
           aria-label="Playback position"
-          className="mt-3 w-full accent-[var(--action-on-dark)]"
+          className="needle-search mt-3 w-full"
+          style={{ "--pct": `${duration ? (time / duration) * 100 : 0}%` } as React.CSSProperties}
         />
         <p className="mt-2 text-caption text-on-dark-muted">
           Blue regions are entries, red are exits; dashed edges are pending review. Tall blue ticks are bar lines and short ticks are beats
