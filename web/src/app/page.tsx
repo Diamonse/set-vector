@@ -8,6 +8,8 @@ import { TwoDeckScreen } from "@/components/landing/two-deck-screen";
 import { IntroSplash } from "@/components/loading/intro-splash";
 import { Button } from "@/components/ui/button";
 import { KineticTextReveal } from "@/components/ui/kinetic-text-reveal";
+import { ScrollVelocityTicker } from "@/components/ui/scroll-velocity-ticker";
+import { TextMorph } from "@/components/ui/text-morph";
 import { createClient } from "@/lib/supabase/server";
 
 const FEATURES = [
@@ -42,6 +44,20 @@ const FEATURES = [
     body: "Estimates and reviewed values stay separate. Analysis never overwrites what you checked, and every change is kept as a revision.",
   },
 ];
+
+/** Ticker rows, with LED dots between items. */
+function tickerRow(items: string[]) {
+  return items.map((item) => (
+    <span key={item}>
+      {item}
+      <span aria-hidden className="mx-5 text-action-on-dark">
+        ·
+      </span>
+    </span>
+  ));
+}
+const TICKER_TITLES = tickerRow(["8A → 9A", "124.0 BPM", "Long blend", "32 beats", "Energy 6 → 7"]);
+const TICKER_FEATURES = tickerRow(["Tempo", "Beat grid", "Downbeats", "Key", "Loudness", "Cue regions", "Rekordbox import", "Energy arc", "CSV", "JSON"]);
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -85,9 +101,18 @@ export default async function HomePage() {
               <span aria-hidden className="size-1.5 rounded-full bg-action" />
               For DJs and playlist builders
             </p>
-            {/* Three reveals in one heading, so "evidence" can take the action colour; the delays continue the stagger. */}
-            <h1 className="mt-6 text-display max-w-[14ch]">
-              <KineticTextReveal text="Shape a set from" delay={0.1} />{" "}
+            {/* Several reveals in one heading, so "set" can morph and "evidence" can take the action colour; the
+                delays continue the stagger, one beat per word. */}
+            <h1 className="mt-6 text-display max-w-[15ch]">
+              <KineticTextReveal text="Shape a" delay={0.1} />{" "}
+              <span className="-my-[0.12em] inline-block overflow-hidden py-[0.12em] align-bottom">
+                <span className="kinetic-segment" style={{ "--kinetic-delay": "0.25s" } as React.CSSProperties}>
+                  <TextMorph words={["set", "playlist", "warm-up"]} />
+                </span>
+              </span>
+              {/* The line ends after the morphing word, so a longer word never pushes the rest onto a new line. */}
+              <br />
+              <KineticTextReveal text="from" delay={0.325} />{" "}
               <KineticTextReveal text="evidence" className="text-action" delay={0.4} />{" "}
               <KineticTextReveal text="you can inspect." delay={0.475} />
             </h1>
@@ -119,6 +144,14 @@ export default async function HomePage() {
 
           <TwoDeckScreen />
         </section>
+
+        {/* Scrolling titles, like a CDJ screen's: they move only as the page scrolls. */}
+        <div className="on-dark border-y border-on-dark/10 bg-dark py-6 text-on-dark">
+          <ScrollVelocityTicker
+            rows={[TICKER_TITLES, TICKER_FEATURES]}
+            rowClassNames={["font-[family-name:var(--font-display)] text-[40px] leading-none font-extrabold tracking-[0.01em] uppercase md:text-[56px]", "text-eyebrow text-on-dark-muted"]}
+          />
+        </div>
 
         <section
           aria-labelledby="features-heading"
