@@ -13,6 +13,7 @@ export function MetricCard({
   detail,
   status,
   meter,
+  segment = false,
   className,
 }: {
   label: string;
@@ -21,6 +22,8 @@ export function MetricCard({
   detail?: React.ReactNode;
   status?: React.ReactNode;
   meter?: number | null;
+  /** Show the value in seven-segment digits, for tempo and time readouts. */
+  segment?: boolean;
   className?: string;
 }) {
   const unavailable = value === null || value === undefined || value === "";
@@ -31,7 +34,7 @@ export function MetricCard({
         <span className="text-eyebrow text-muted">{label}</span>
         {status}
       </div>
-      <div className="font-mono text-[30px] leading-none font-semibold tracking-[-0.02em] text-ink tabular">
+      <div className={cn("font-mono text-[30px] leading-none font-semibold tracking-[-0.02em] text-ink tabular", segment && "font-segment font-bold tracking-normal")}>
         {unavailable ? <span className="font-sans text-[18px] font-medium tracking-normal text-muted">Unavailable</span> : value}
         {!unavailable && unit ? <span className="ml-1.5 font-sans text-[14px] font-normal tracking-normal text-muted">{unit}</span> : null}
       </div>

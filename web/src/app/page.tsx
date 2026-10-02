@@ -140,9 +140,9 @@ export default async function HomePage() {
                       <p className="truncate text-caption text-on-dark-muted">{d.artist}</p>
                     </div>
                     <KeyChip musicalKey={d.key} className="text-on-dark" />
-                    <span className="font-mono text-[15px] text-on-dark tabular">
+                    <span className="font-segment text-[14px] text-on-dark tabular">
                       {d.bpm}
-                      <span className="ml-1 font-sans text-[11px] text-on-dark-muted">BPM</span>
+                      <span className="sr-only font-sans text-[11px] text-on-dark-muted sm:not-sr-only sm:ml-1">BPM</span>
                     </span>
                   </div>
                   <WaveformArt seed={d.seed} bars={56} animated className="mt-3 h-14" />

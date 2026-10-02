@@ -13,7 +13,7 @@ export function EmptyState({ title, children, action }: { title: string; childre
           <span className="rounded-[4px] bg-[var(--led-orange)] px-1.5 text-[var(--led-ink)]">1</span>
           No track loaded
         </span>
-        <span className="deck-blink tabular">---.- BPM</span>
+        <span className="deck-blink tabular"><span className="font-segment tracking-normal">---.-</span> BPM</span>
       </div>
       <div className="relative mx-auto mt-6 mb-6 flex size-28 items-center justify-center">
         <span
