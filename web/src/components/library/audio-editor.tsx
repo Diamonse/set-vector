@@ -498,7 +498,7 @@ export function AudioEditor({
             id={`audio-file-${trackId}`}
             type="file"
             accept="audio/*"
-            className="text-[14px] file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-control file:border file:border-control-border file:bg-surface file:px-4 file:text-ui file:text-ink"
+            className="text-[14px] file:mr-3 file:min-h-11 file:cursor-pointer file:key file:rounded-control file:px-4 file:text-ui"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void openFile(f);
