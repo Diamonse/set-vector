@@ -60,6 +60,25 @@
   --glow-b: light-dark(rgb(29 95 209 / 0.07), rgb(111 178 255 / 0.07));
   --header-bg: light-dark(rgb(246 244 239 / 0.85), rgb(10 13 18 / 0.8));
 
+  /*
+   * CDJ keys: rubber buttons like a CDJ's, in the white edition on the light theme and the
+   * black edition on the dark one. Edges hold 3:1 against every surface; LEDs are the same
+   * hardware colours in both, except the selection LED, which deepens on white for contrast.
+   */
+  --key-face-top: light-dark(#fbfaf7, #36373d);
+  --key-face: light-dark(#e9e6df, #1c1d21);
+  --key-skirt: light-dark(#c4c0b7, #040405);
+  --key-edge: light-dark(#7d7a73, #717379);
+  --key-ink: light-dark(#24262b, #e8eaee);
+  --key-well: light-dark(#e2ded6, #08090b);
+  --key-highlight: light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.16));
+  --key-well-edge: light-dark(rgb(64 52 32 / 0.08), rgb(255 255 255 / 0.07));
+  --key-shade: light-dark(rgb(64 52 32 / 0.2), rgb(0 0 0 / 0.6));
+  --led-orange: #ff8a3d;
+  --led-red: #ff5a50;
+  --led-blue: light-dark(#1d5fd1, #3d9bff);
+  --led-ink: #1a0d03;
+
   --background: var(--canvas);
   --foreground: var(--ink);
   --card: var(--surface);
@@ -313,6 +332,142 @@
   background-image:
     radial-gradient(70% 60% at 0% 0%, color-mix(in oklab, var(--action-on-dark) 16%, transparent), transparent 70%),
     radial-gradient(70% 60% at 100% 100%, color-mix(in oklab, var(--data-rhythm-dark) 12%, transparent), transparent 70%);
+}
+
+/* Matte rubber grain for keys: a tiny static noise tile, drawn once by the browser. */
+@utility key {
+  position: relative;
+  isolation: isolate;
+  color: var(--key-ink);
+  border: 1px solid var(--key-edge);
+  background-color: var(--key-face);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, var(--key-face-top), var(--key-face) 72%);
+  box-shadow:
+    inset 0 1px 0 var(--key-highlight),
+    inset 0 -1px 0 var(--key-shade),
+    0 2px 0 var(--key-skirt),
+    0 3px 0 var(--key-skirt),
+    0 6px 10px -4px var(--key-shade);
+  transition:
+    transform 70ms ease-out,
+    box-shadow 70ms ease-out,
+    filter 120ms ease-out,
+    color 120ms ease-out;
+  &:hover {
+    filter: brightness(1.05);
+  }
+  /* Pressed: the key travels down onto its skirt. */
+  &:active,
+  &[aria-pressed="true"],
+  &[aria-current="page"],
+  &[data-state="active"] {
+    transform: translateY(3px);
+    box-shadow:
+      inset 0 1px 2px var(--key-shade),
+      inset 0 -1px 0 var(--key-highlight),
+      0 0 0 var(--key-skirt);
+  }
+}
+
+/* Backlit pad, like a lit hot cue: translucent rubber over an LED. Set --led to recolour it (orange by default). */
+@utility key-lit {
+  position: relative;
+  isolation: isolate;
+  color: var(--led-ink);
+  border: 1px solid color-mix(in oklab, var(--led, var(--led-orange)) 55%, #000);
+  background-color: var(--led, var(--led-orange));
+  background-image:
+    radial-gradient(130% 150% at 50% 0%, color-mix(in oklab, var(--led, var(--led-orange)) 55%, #fff) 0%, var(--led, var(--led-orange)) 48%, color-mix(in oklab, var(--led, var(--led-orange)) 78%, #000) 100%);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.3);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    inset 0 -2px 5px rgb(0 0 0 / 0.2),
+    0 2px 0 color-mix(in oklab, var(--led, var(--led-orange)) 40%, #000),
+    0 3px 0 color-mix(in oklab, var(--led, var(--led-orange)) 40%, #000),
+    0 0 20px -5px var(--led, var(--led-orange));
+  transition:
+    transform 70ms ease-out,
+    box-shadow 70ms ease-out,
+    filter 120ms ease-out;
+  &:hover {
+    filter: brightness(1.07) saturate(1.05);
+  }
+  &:active {
+    transform: translateY(3px);
+    box-shadow:
+      inset 0 1px 3px rgb(0 0 0 / 0.3),
+      0 0 0 color-mix(in oklab, var(--led, var(--led-orange)) 40%, #000),
+      0 0 26px -4px var(--led, var(--led-orange));
+  }
+}
+
+/* Black-edition key in either theme, for controls on the always-dark panels. */
+@utility key-black {
+  --key-face-top: #36373d;
+  --key-face: #1c1d21;
+  --key-skirt: #040405;
+  --key-edge: #717379;
+  --key-ink: #e8eaee;
+  --key-highlight: rgb(255 255 255 / 0.16);
+  --key-shade: rgb(0 0 0 / 0.6);
+}
+
+/* Recessed panel strip holding a row of selector keys (tabs, theme, navigation). */
+@utility key-well {
+  background-color: var(--key-well);
+  box-shadow:
+    inset 0 0 0 1px var(--key-well-edge),
+    inset 0 1px 3px var(--key-shade),
+    inset 0 -1px 0 var(--key-highlight);
+}
+
+/*
+ * Selector key: a printed legend in the strip until chosen, then a pressed key with its
+ * indicator LED lit above the label. The LED and the pressed key both carry the state.
+ */
+@utility key-select {
+  position: relative;
+  color: color-mix(in oklab, var(--key-ink) 72%, transparent);
+  border: 1px solid transparent;
+  transition:
+    color 120ms ease-out,
+    background-color 120ms ease-out;
+  &::before {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    width: 12px;
+    height: 3px;
+    margin-left: -6px;
+    border-radius: 2px;
+    background: color-mix(in oklab, var(--key-ink) 22%, transparent);
+    transition:
+      background-color 120ms ease-out,
+      box-shadow 120ms ease-out;
+  }
+  &:hover {
+    color: var(--key-ink);
+  }
+  &[aria-pressed="true"],
+  &[aria-current="page"],
+  &[data-state="active"] {
+    color: var(--key-ink);
+    border-color: var(--key-edge);
+    background-color: var(--key-face);
+    background-image: linear-gradient(180deg, var(--key-face-top), var(--key-face) 72%);
+    box-shadow:
+      inset 0 1px 0 var(--key-highlight),
+      0 1px 0 var(--key-skirt);
+  }
+  &[aria-pressed="true"]::before,
+  &[aria-current="page"]::before,
+  &[data-state="active"]::before {
+    background: var(--led-blue);
+    box-shadow: 0 0 6px var(--led-blue);
+  }
 }
 
 /* Card shell shared by cards, tables, and panels. */

@@ -25,7 +25,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   // The server cannot know the stored choice, so it renders "system" and the client corrects it.
   const choice = useSyncExternalStore(subscribe, readThemeChoice, () => "system" as ThemeChoice);
   return (
-    <div role="group" aria-label="Color theme" className={cn("inline-flex items-center gap-0.5 rounded-full border border-divider bg-surface-subtle/70 p-0.5", className)}>
+    <div role="group" aria-label="Color theme" className={cn("key-well inline-flex items-center gap-1 rounded-[12px] p-1", className)}>
       {OPTIONS.map(({ value, label, Icon }) => {
         const active = choice === value;
         return (
@@ -35,10 +35,7 @@ export function ThemeToggle({ className }: { className?: string }) {
             aria-pressed={active}
             title={`${label} theme`}
             onClick={() => applyThemeChoice(value)}
-            className={cn(
-              "inline-flex size-9 items-center pointer-coarse:size-11 justify-center rounded-full text-muted transition-colors hover:text-ink",
-              active && "bg-surface text-ink shadow-card",
-            )}
+            className="key-select inline-flex size-9 items-center justify-center rounded-control pt-1 pointer-coarse:size-11"
           >
             <Icon className="size-4" aria-hidden />
             <span className="sr-only">{label} theme</span>
