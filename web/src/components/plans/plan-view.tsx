@@ -29,6 +29,7 @@ import {
 import { initialActionState, type ActionState } from "@/lib/validation/schemas";
 import { EnergyArcChart, type ArcChartItem } from "./energy-arc-chart";
 import { PlanSummary } from "./plan-summary";
+import { SignalFlow } from "./signal-flow";
 import { TransitionCard } from "./transition-card";
 
 const ORIGIN_BADGE: Record<OptionOrigin, EvidenceKind | null> = {
@@ -420,6 +421,8 @@ export function PlanView({
               </>
             )}
           </div>
+
+          <SignalFlow plan={shown} />
 
           {editing ? (
             <Card>

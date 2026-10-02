@@ -5,6 +5,8 @@ import { deletePlan } from "@/app/actions/plans";
 import { ConfirmDelete } from "@/components/app/confirm-delete";
 import { PageHeader } from "@/components/app/page-header";
 import { PlanView } from "@/components/plans/plan-view";
+import { SplitFlapDisplay } from "@/components/ui/split-flap-display";
+import { formatTime } from "@/lib/domain/format";
 import { getPlan, listPlanAnnotations, listTracks } from "@/lib/data/queries";
 import { toPlannerTrack } from "@/lib/data/rows";
 import { requireUser } from "@/lib/supabase/server";
@@ -19,6 +21,7 @@ export default async function PlanPage({ params }: PageProps<"/plans/[planId]">)
   const [plan, tracks, annotations] = await Promise.all([getPlan(supabase, planId), listTracks(supabase), listPlanAnnotations(supabase, planId)]);
   if (!plan) notFound();
 
+  const proposal = plan.result.proposal;
   // Only tracks the request could use are sent to the editor.
   const candidates = new Set([...plan.request.candidateTrackIds, ...plan.result.proposal.items.map((i) => i.trackId)]);
   const plannerTracks = tracks.filter((t) => candidates.has(t.id)).map(toPlannerTrack);
@@ -48,6 +51,13 @@ export default async function PlanPage({ params }: PageProps<"/plans/[planId]">)
             onConfirm={deletePlan.bind(null, plan.id)}
           />
         }
+      />
+      {/* The saved order on a departure board: where the set opens, where it closes, and how long it runs. */}
+      <SplitFlapDisplay
+        className="mb-8"
+        columns={22}
+        rows={[`Open  ${proposal.items[0]?.title ?? ""}`, `Close ${proposal.items.at(-1)?.title ?? ""}`, `${proposal.metrics.trackCount} tracks ${formatTime(proposal.metrics.totalSeconds)}`]}
+        label={`Saved order: opens with ${proposal.items[0]?.title ?? "no track"}, closes with ${proposal.items.at(-1)?.title ?? "no track"}, ${proposal.metrics.trackCount} tracks, ${formatTime(proposal.metrics.totalSeconds)}.`}
       />
       <PlanView planId={plan.id} request={plan.request} result={plan.result} plannerTracks={plannerTracks} judgments={judgments} />
     </>

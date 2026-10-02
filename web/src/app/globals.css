@@ -371,6 +371,35 @@ html[data-intro="on"] :is(.deck-wave, .deck-beat) {
 }
 
 /*
+ * Circuit board traces: one pulse runs along each trace in turn, once (paths use
+ * pathLength="100" and a 12-unit dash whose gap outruns the path, parked off both ends at rest, so
+ * nothing shows before or after it runs). Reduced motion skips it.
+ */
+@keyframes trace-pulse {
+  from {
+    stroke-dashoffset: 12;
+  }
+  to {
+    stroke-dashoffset: -101;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .trace-pulse {
+    animation: trace-pulse var(--pulse-duration, 0.5s) linear var(--pulse-delay, 0s) 1 both;
+  }
+}
+
+/* Split-flap board: the upper leaf of a character falls onto the lower half as it changes. */
+@keyframes flap-fall {
+  from {
+    transform: rotateX(0deg);
+  }
+  to {
+    transform: rotateX(-90deg);
+  }
+}
+
+/*
  * Kinetic text reveal: each word rises out of its own mask, unblurring. The animation is plain
  * CSS, so headlines paint and finish without waiting for scripts; reduced motion fades only.
  * It holds while the landing intro covers the page, and scroll-triggered reveals wait for

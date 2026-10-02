@@ -202,6 +202,33 @@ export async function listRecentAnnotations(supabase: ServerClient, limit = 8): 
   return ((data ?? []) as AnnotationRow[]).map(toAnnotation);
 }
 
+/**
+ * When each revision and saved analysis was made since `sinceIso`, for the activity calendar.
+ * Pages through both tables (PostgREST caps a response at 1,000 rows) up to a bound that a year
+ * of heavy use stays under; a failed read contributes nothing rather than breaking the page.
+ */
+export async function listActivityTimestamps(supabase: ServerClient, sinceIso: string): Promise<string[]> {
+  const PAGE = 1000;
+  const MAX_PAGES = 20;
+  const read = async (table: "annotations" | "track_analyses") => {
+    const out: string[] = [];
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("created_at")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: true })
+        .range(page * PAGE, page * PAGE + PAGE - 1);
+      if (error || !data) break;
+      out.push(...(data as { created_at: string }[]).map((r) => r.created_at));
+      if (data.length < PAGE) break;
+    }
+    return out;
+  };
+  const [annotations, analyses] = await Promise.all([read("annotations"), read("track_analyses")]);
+  return [...annotations, ...analyses];
+}
+
 export interface RecentAnalysis {
   trackId: string;
   title: string;
