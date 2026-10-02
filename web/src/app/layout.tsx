@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Azeret_Mono, Big_Shoulders, Hanken_Grotesk } from "next/font/google";
 import localFont from "next/font/local";
-import { IntroSplash } from "@/components/loading/intro-splash";
 import { INTRO_INIT_SCRIPT } from "@/lib/intro";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -29,9 +28,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // The theme and intro scripts set attributes before hydration, so React must not warn about them.
+    // The head scripts set attributes before hydration, so React must not warn about them.
     <html lang="en" suppressHydrationWarning className={`${display.variable} ${sans.variable} ${mono.variable} ${segment.variable}`}>
       <head>
+        {/* data-js tells CSS that scripts run, so scroll-triggered reveals may wait for them. */}
+        <script dangerouslySetInnerHTML={{ __html: 'document.documentElement.setAttribute("data-js","")' }} />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: INTRO_INIT_SCRIPT }} />
       </head>
@@ -43,7 +44,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         {children}
-        <IntroSplash />
       </body>
     </html>
   );

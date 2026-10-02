@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { INTRO_FADE_MS, INTRO_INIT_SCRIPT, INTRO_MS, INTRO_REDUCED_MS, INTRO_SEEN_KEY } from "@/lib/intro";
 
 /** Run the head script against a minimal browser stand-in. */
-function boot({ seen = false, reduced = false } = {}) {
+function boot({ seen = false, reduced = false, path = "/" } = {}) {
   const attrs = new Map<string, string>();
   const store = new Map<string, string>(seen ? [[INTRO_SEEN_KEY, "1"]] : []);
   const listeners = new Map<string, () => void>();
   const win = {
+    location: { pathname: path },
     sessionStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) },
     matchMedia: () => ({ matches: reduced }),
     addEventListener: (type: string, fn: () => void) => listeners.set(type, fn),
@@ -43,6 +44,14 @@ describe("first-load intro script", () => {
 
   it("does not show again in the same tab session", () => {
     expect(boot({ seen: true }).intro()).toBeNull();
+  });
+
+  it("plays only on the landing page, without spending the tab's first visit elsewhere", () => {
+    for (const path of ["/login", "/signup", "/library", "/plans/abc"]) {
+      const b = boot({ path });
+      expect(b.intro()).toBeNull();
+      expect(b.store.has(INTRO_SEEN_KEY)).toBe(false);
+    }
   });
 
   it("ends early on a key press, click, or the Skip button, and stops listening", () => {

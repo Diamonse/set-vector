@@ -1,7 +1,7 @@
 "use client";
 
 import "lenis/dist/lenis.css";
-import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform, type MotionStyle, type MotionValue } from "framer-motion";
 import ReactLenis from "lenis/react";
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -35,32 +35,35 @@ function StackCard({
   index,
   total,
   progress,
-  reduceMotion,
   className,
 }: {
   card: StickyScrollCardItem;
   index: number;
   total: number;
   progress: MotionValue<number>;
-  reduceMotion: boolean;
   className?: string;
 }) {
   // Each card starts shrinking once it is pinned, so earlier cards settle smaller behind later ones.
   const start = total > 1 ? index / (total + 1) : 0;
   const restingScale = Math.max(0.56, 1 - (total - index - 1) * 0.095);
-  const scale = useTransform(progress, [start, 1], reduceMotion ? [1, 1] : [1, restingScale]);
+  const scale = useTransform(progress, [start, 1], [1, restingScale]);
 
   return (
     <div role="listitem" className="sticky top-0 grid h-dvh w-full place-items-center px-4">
+      {/* Tilt and scale drop out under reduced motion in CSS rather than in render, so the server's
+          markup (which cannot know the preference) matches the client's. */}
       <motion.div
-        className={cn("panel plate-screws relative w-[min(100%,620px)] origin-top", className)}
+        className={cn(
+          "panel plate-screws relative w-[min(100%,620px)] origin-top [rotate:var(--tilt)] motion-reduce:[rotate:none] motion-reduce:[transform:none]!",
+          className,
+        )}
         style={{
           scale,
-          rotate: reduceMotion ? 0 : TILT_PATTERN[index % TILT_PATTERN.length],
+          "--tilt": `${TILT_PATTERN[index % TILT_PATTERN.length]}deg`,
           // Later cards sit a little lower, so the top edges of the ones behind stay in view.
           top: `${index * 22 - 24}px`,
           boxShadow: "inset 0 1px 0 var(--key-highlight), var(--elev-lift)",
-        }}
+        } as MotionStyle}
       >
         {card.content}
       </motion.div>
@@ -97,7 +100,6 @@ export function StickyScrollCards({ cards, hint, className, cardClassName }: Sti
             index={index}
             total={cards.length}
             progress={scrollYProgress}
-            reduceMotion={reduceMotion}
             className={cardClassName}
           />
         ))}

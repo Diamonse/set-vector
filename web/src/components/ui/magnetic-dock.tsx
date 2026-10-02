@@ -114,7 +114,7 @@ function DockItem({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.94 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="pointer-events-none absolute -top-11 left-1/2 z-50 -translate-x-1/2 rounded-[8px] bg-[var(--screen)] px-2.5 py-1.5 text-eyebrow whitespace-nowrap text-[#eef1f5] shadow-[0_0_0_2px_var(--screen-bezel),0_0_0_3px_var(--plate-edge),var(--elev-lift)]"
+            className="pointer-events-none absolute -top-11 left-1/2 z-50 -translate-x-1/2 rounded-[8px] bg-[var(--screen)] px-2.5 py-1.5 text-eyebrow whitespace-nowrap text-on-dark shadow-[0_0_0_2px_var(--screen-bezel),0_0_0_3px_var(--plate-edge),var(--elev-lift)]"
           >
             {item.label}
           </motion.span>

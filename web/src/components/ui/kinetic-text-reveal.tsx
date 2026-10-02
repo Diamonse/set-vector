@@ -1,10 +1,11 @@
 "use client";
 
-import { motion, useInView, useReducedMotion, type Transition, type Variants } from "framer-motion";
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type HTMLAttributes } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type CSSProperties, type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-// Adapted from Componentry's Kinetic Text Reveal (componentry.dev/r/kinetic-text-reveal).
+// Adapted from Componentry's Kinetic Text Reveal (componentry.dev/r/kinetic-text-reveal). The
+// motion runs as a CSS animation (.kinetic-segment in globals.css) instead of framer-motion, so
+// the server and client render the same markup and the text never waits on hydration to appear.
 
 type SplitMode = "words" | "characters" | "lines";
 type RevealDirection = "up" | "down" | "left" | "right";
@@ -34,13 +35,13 @@ interface KineticTextRevealProps extends Omit<HTMLAttributes<HTMLSpanElement>, "
   stagger?: number;
   /** Where the stagger wave begins. */
   staggerFrom?: StaggerOrigin;
-  /** Animation transition for each segment. */
-  transition?: Transition;
+  /** Duration of each segment's reveal in seconds. */
+  duration?: number;
   /** Adds blur while segments are hidden. */
   blur?: boolean;
-  /** Plays after mount, when scrolled into view, or only through the ref. */
+  /** Plays from first paint, when scrolled into view, or only through the ref. */
   trigger?: "mount" | "inView" | "manual";
-  /** Delay before an automatic reveal begins, in seconds. */
+  /** Delay before the reveal begins, in seconds. */
   delay?: number;
   /** Called when the reveal begins. */
   onRevealStart?: () => void;
@@ -100,6 +101,7 @@ export const KineticTextReveal = forwardRef<KineticTextRevealRef, KineticTextRev
     {
       text,
       className,
+      style,
       segmentClassName,
       maskClassName,
       splitBy = "words",
@@ -107,7 +109,7 @@ export const KineticTextReveal = forwardRef<KineticTextRevealRef, KineticTextRev
       distance = 20,
       stagger = 0.075,
       staggerFrom = "start",
-      transition = { duration: 0.72, ease: [0.22, 1, 0.36, 1] },
+      duration = 0.72,
       blur = true,
       trigger = "mount",
       delay = 0,
@@ -117,52 +119,57 @@ export const KineticTextReveal = forwardRef<KineticTextRevealRef, KineticTextRev
     },
     ref,
   ) => {
-    const shouldReduceMotion = useReducedMotion();
     const rootRef = useRef<HTMLSpanElement>(null);
-    const inView = useInView(rootRef, { once: true, margin: "0px 0px -12% 0px" });
+    // Changing the run remounts the segments, which restarts their CSS animation.
     const [run, setRun] = useState(0);
-    const [visible, setVisible] = useState(false);
+    const [waiting, setWaiting] = useState(trigger !== "mount");
 
     const segments = useMemo(() => getSegments(text, splitBy), [text, splitBy]);
     const animatedTotal = segments.filter((segment) => segment.animated).length;
 
     useImperativeHandle(ref, () => ({
       play: () => {
-        setVisible(false);
-        requestAnimationFrame(() => {
-          setRun((current) => current + 1);
-          setVisible(true);
-          onRevealStart?.();
-        });
+        setRun((current) => current + 1);
+        setWaiting(false);
       },
-      reset: () => setVisible(false),
+      reset: () => {
+        setRun((current) => current + 1);
+        setWaiting(true);
+      },
     }));
 
-    const armed = trigger === "mount" || (trigger === "inView" && inView);
     useEffect(() => {
-      if (!armed) return;
-      const timeout = window.setTimeout(() => {
-        setRun((current) => current + 1);
-        setVisible(true);
-        onRevealStart?.();
-      }, delay * 1000);
-      return () => window.clearTimeout(timeout);
-    }, [armed, delay, text, onRevealStart]);
+      const el = rootRef.current;
+      if (trigger !== "inView" || !el) return;
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry?.isIntersecting) return;
+          setWaiting(false);
+          observer.disconnect();
+        },
+        { rootMargin: "0px 0px -12% 0px" },
+      );
+      observer.observe(el);
+      return () => observer.disconnect();
+    }, [trigger]);
 
     const offset = getOffset(direction, distance);
-    const variants: Variants = {
-      hidden: shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: offset.x, y: offset.y, filter: blur ? "blur(6px)" : "blur(0px)" },
-      visible: (index: number) => ({
-        opacity: 1,
-        x: 0,
-        y: 0,
-        filter: "blur(0px)",
-        transition: shouldReduceMotion ? { duration: 0.2 } : { ...transition, delay: getDelay(index, animatedTotal, stagger, staggerFrom) },
-      }),
-    };
+    const rootStyle = {
+      "--kinetic-x": `${offset.x}px`,
+      "--kinetic-y": `${offset.y}px`,
+      "--kinetic-blur": blur ? "6px" : "0px",
+      "--kinetic-duration": `${duration}s`,
+      ...style,
+    } as CSSProperties;
 
     return (
-      <span ref={rootRef} className={cn(splitBy === "lines" ? "inline-flex flex-col items-start" : "inline", className)} {...props}>
+      <span
+        ref={rootRef}
+        data-kinetic={waiting ? "waiting" : "playing"}
+        className={cn(splitBy === "lines" ? "inline-flex flex-col items-start" : "inline", className)}
+        style={rootStyle}
+        {...props}
+      >
         <span className="sr-only">{text}</span>
         {segments.map((segment, index) => {
           if (!segment.animated) {
@@ -172,6 +179,8 @@ export const KineticTextReveal = forwardRef<KineticTextRevealRef, KineticTextRev
               </span>
             );
           }
+          const first = segment.index === 0;
+          const last = segment.index === animatedTotal - 1;
           return (
             // Padding cancelled by negative margins lets glyphs overhang tight display line heights
             // without being clipped, while each mask still takes exactly one line's height.
@@ -180,16 +189,14 @@ export const KineticTextReveal = forwardRef<KineticTextRevealRef, KineticTextRev
               className={cn("-my-[0.12em] inline-block overflow-hidden py-[0.12em] align-bottom", maskClassName)}
               aria-hidden="true"
             >
-              <motion.span
-                custom={segment.index}
-                variants={variants}
-                initial="hidden"
-                animate={visible ? "visible" : "hidden"}
-                className={cn("inline-block will-change-transform", segmentClassName)}
-                onAnimationComplete={segment.index === animatedTotal - 1 ? onRevealComplete : undefined}
+              <span
+                className={cn("kinetic-segment", segmentClassName)}
+                style={{ "--kinetic-delay": `${delay + getDelay(segment.index, animatedTotal, stagger, staggerFrom)}s` } as CSSProperties}
+                onAnimationStart={first ? onRevealStart : undefined}
+                onAnimationEnd={last ? onRevealComplete : undefined}
               >
                 {segment.value}
-              </motion.span>
+              </span>
             </span>
           );
         })}

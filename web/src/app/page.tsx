@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Logo } from "@/components/app/logo";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { HowItWorks } from "@/components/landing/how-it-works";
+import { IntroSplash } from "@/components/loading/intro-splash";
 import { KeyChip } from "@/components/music/key-chip";
 import { WaveformArt } from "@/components/music/waveform-art";
 import { Button } from "@/components/ui/button";
@@ -198,6 +199,8 @@ export default async function HomePage() {
           your machine; only the measurements and metadata you save are stored.
         </p>
       </footer>
+      {/* The first-load intro plays only here; the head script (lib/intro.ts) checks the path. */}
+      <IntroSplash />
     </>
   );
 }

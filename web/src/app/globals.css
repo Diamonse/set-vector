@@ -336,6 +336,34 @@
   }
 }
 
+/*
+ * Kinetic text reveal: each word rises out of its own mask, unblurring. The animation is plain
+ * CSS, so headlines paint and finish without waiting for scripts; reduced motion fades only.
+ * It holds while the landing intro covers the page, and scroll-triggered reveals wait for
+ * their script (html[data-js]) to see them; without scripts they simply play.
+ */
+@keyframes kinetic-reveal {
+  from {
+    opacity: 0;
+    transform: translate(var(--kinetic-x, 0), var(--kinetic-y, 20px));
+    filter: blur(var(--kinetic-blur, 6px));
+  }
+}
+.kinetic-segment {
+  display: inline-block;
+  animation: kinetic-reveal var(--kinetic-duration, 0.72s) cubic-bezier(0.22, 1, 0.36, 1) var(--kinetic-delay, 0s) both;
+}
+html[data-js] [data-kinetic="waiting"] .kinetic-segment,
+html[data-intro="on"] .kinetic-segment {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kinetic-segment {
+    animation-name: fade-in;
+    animation-duration: 0.2s;
+  }
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
