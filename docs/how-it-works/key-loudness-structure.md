@@ -1,6 +1,6 @@
 # Key, loudness, and structure
 
-The web app estimates a track's musical key, measures its loudness, finds likely section boundaries, and suggests an entry (intro) and exit (outro) region for mixing. All four steps are deterministic signal processing that runs in the browser's analysis worker; none uses a trained model. The Python CLI does not implement any of them yet.
+The web app estimates a track's musical key, measures its loudness, finds likely section boundaries, and suggests phrase-aligned entry (intro) and exit (outro) regions for mixing. All four steps are deterministic signal processing that runs in the browser's analysis worker; none uses a trained model. The Python CLI does not implement any of them yet.
 
 Every output is saved as an estimate. A key or cue the user has reviewed is never overwritten by a later analysis.
 
@@ -11,7 +11,7 @@ Every output is saved as an estimate. A key or cue the user has reviewed is neve
 3. Sum the chromagram over the track and correlate it with 24 **key templates**. The best match is the key, and the gap to the runner-up decides whether it is `estimated` or `uncertain`.
 4. Measure **loudness** on the original channels with ITU-R BS.1770-4 (integrated LUFS, loudness range, short-term curve, sample peak).
 5. Build one feature vector per beat (chroma, loudness, brightness, bass), compute a **novelty curve** from their self-similarity, and keep its peaks as **section boundaries**.
-6. Suggest one **entry** and one **exit** cue region from the beat grid and the boundaries, and estimate the key inside each region.
+6. Suggest up to three **entry** and three **exit** cue regions on 8-bar phrase starts, using the beat grid and the boundaries, and estimate the key inside each region.
 7. On save, write key and tempo onto the track only if the user has not reviewed them, and insert the cue regions as `pending` for review.
 
 Code: `web/src/lib/analysis/analyze.ts` → `analyzeAudio` (stages `key`, `loudness`, `structure`).
@@ -237,28 +237,46 @@ Code: `web/src/lib/analysis/structure.ts` → `unitFeatures`, `novelty`, `findBo
 
 ## 6. Entry and exit cue suggestions
 
-**What and why.** These are mix-in and mix-out regions to start reviewing from, each about 32 beats (8 bars of 4/4).
+**What and why.** These are mix-in and mix-out regions to start reviewing from. Dance music is built in phrases of 8 bars (32 beats in 4/4), and DJs mix on phrase starts, so suggestions are placed on phrase starts. Up to three are offered per kind, so the planner can choose the pair that fits each transition (see [set-planner.md](set-planner.md)). The same function also turns a Rekordbox grid into suggestions during a Rekordbox import ([rekordbox-bridge.md](rekordbox-bridge.md)).
 
-| Constant | Value |
-|---|---|
-| `REGION_BEATS` | 32 |
-| `MIN_REGION_BEATS` | 16 |
+| Constant | Value | Meaning |
+|---|---|---|
+| `PHRASE_BARS` | 8 | Bars per phrase when bar lines are known |
+| `REGION_BEATS` | 32 | Region length, and phrase length when bar lines are unknown |
+| `MIN_REGION_BEATS` | 16 | Beats that must remain after a region start |
+| `MAX_CANDIDATES` | 3 | Suggestions per kind |
+| `ENTRY_ZONE` | 0.35 | Entries start in the first 35 % of the track |
+| `EXIT_ZONE` | 0.6 | Exits start in the last 40 % |
 
-**With a beat grid** (at least $32 + 16 = 48$ beats):
+**Phrase starts.** With bar lines, each downbeat is matched to its nearest beat (`barStartIndices`, consecutive duplicates removed) and every 8th bar start is a phrase start: bars 1, 9, 17, …, counted from the first detected downbeat. Without bar lines (the fallback tracker has no downbeats), phrase starts fall every 32 beats from the first beat, and labels add "bar phase unknown", because beat 1 may not be a downbeat.
 
-- **Entry:** starts at the beat nearest the first downbeat, or at the first beat if no downbeats were detected. It ends 32 beats later, or at the last beat if the track is shorter.
-- **Exit:** take the latest boundary that satisfies all of
-  - $t \ge 0.6 \cdot \text{duration}$,
-  - $t \le \text{duration} - 16 \cdot \overline{\Delta\text{beat}}$, where $\overline{\Delta\text{beat}} = (b_{\text{last}} - b_0)/(n-1)$, so at least 16 beats remain,
-  - strength $\ge 0.3$.
+**With a beat grid** (at least $32 + 16 = 48$ beats), with $\overline{\Delta} = (b_\text{last} - b_0)/(n-1)$ the mean beat interval:
 
-  The exit starts at the beat nearest that boundary. If no boundary qualifies, it starts at $\max(\text{entry end},\ n - 1 - 32)$, i.e. the last 32 beats. It ends 32 beats later, capped at the last beat or the duration.
+- A start is **near a section boundary** when a boundary of strength $\ge 0.3$ lies within $1.5\,\overline{\Delta}$ of it. This only affects labels and exit ranking; boundaries are not moved onto phrases.
+- **Entries:** the first three phrase starts with $t \le 0.35 \cdot \text{duration}$ and at least 16 beats after them. The first is labelled "intro", the others "entry".
+- **Exits:** phrase starts with $t \ge 0.6 \cdot \text{duration}$ and at least 16 beats after them. Starts near a boundary rank first, then later starts; the top three are returned in time order. If none qualify, a single exit starts 32 beats before the last beat.
+- Every region runs 32 beats, or to the end of the track if fewer remain.
 
 **Without a grid:** the entry is $[0, \ell]$ and the exit is $[\text{duration} - \ell, \text{duration}]$ with $\ell = \min(30\text{ s}, \text{duration}/3)$.
 
-Regions that are empty or extend past the duration are dropped. Times are rounded to milliseconds.
+Regions that are empty or extend past the duration are dropped. Times are rounded to milliseconds. The key is then estimated separately inside each region (`regionKeys`).
 
-Code: `web/src/lib/analysis/structure.ts` → `suggestCues`.
+### Worked example
+
+A 360 s track at 125 BPM (beats every 0.48 s from 0.5 s, 749 beats, a downbeat every 4 beats, 188 bars) with boundaries at 100 s (strength 0.9) and 292 s (strength 0.6). The entry zone ends at 126 s and the exit zone starts at 216 s.
+
+| Kind | Start (s) | End (s) | Label |
+|---|---|---|---|
+| entry | 0.50 | 15.86 | Suggested intro at bar 1 |
+| entry | 15.86 | 31.22 | Suggested entry at bar 9 |
+| entry | 31.22 | 46.58 | Suggested entry at bar 17 |
+| exit | 292.34 | 307.70 | Suggested outro at bar 153, section boundary |
+| exit | 323.06 | 338.42 | Suggested outro at bar 169 |
+| exit | 338.42 | 353.78 | Suggested outro at bar 177 |
+
+Bar 185 is a phrase start in the exit zone but has fewer than 16 beats after it, so it is skipped. Bar 153 ranks first because it is within $1.5 \times 0.48 = 0.72$ s of the 292 s boundary; 177 and 169 follow as the latest. The 100 s boundary does not move the entries. Without downbeats the same starts are labelled by beat (beat 1, 33, 65; 609, 673, 705) with "; bar phase unknown". These rows were produced by running `phraseCues`.
+
+Code: `web/src/lib/cues/phrases.ts` → `phraseCues`, `barStartIndices`; `web/src/lib/analysis/structure.ts` → `suggestCues`.
 
 ## 7. Saving results onto a track
 
@@ -282,5 +300,5 @@ Code: `web/src/lib/analysis/apply.ts` → `planTrackUpdate`, `fittingCues`. `web
 - **Frame-time convention differs.** Key regions use the window start, $f\cdot\text{hop}/f_s$. Structure units use $(f+0.5)\cdot\text{hop}/f_s$. The true window centre is $f\cdot\text{hop}/f_s + N/(2f_s) = (f+1)\cdot\text{hop}/f_s$. The effect is a sub-second shift at region edges.
 - **ID3 `TKEY` is read but unused.** `readId3` extracts the tag's key text, but analysis saves only title and artist from tags. A key embedded by other software is not imported through the analyze flow; it can be brought in via CSV/JSON import.
 - **Sample peak, not true peak.** Inter-sample overs above 0 dBFS are not detected.
-- **Boundaries are not phrases.** Novelty peaks are not snapped to bars or 8/16-bar phrases. The 90th-percentile threshold and the 0.3 strength cut-off for exits are heuristics. Quiet intros and outros with little change may yield no boundary, in which case the exit falls back to the last 32 beats.
+- **Boundaries are not phrases.** Novelty peaks are not snapped to bars. Cue suggestions sit on 8-bar phrases counted from the first detected downbeat, which assumes every phrase is 8 bars and that the first downbeat starts a phrase; a track with a pickup bar or a 6-bar phrase shifts every suggestion. The 90th-percentile threshold, the 0.3 strength cut-off and the 35 % / 60 % zones are heuristics. Without downbeats, suggestions fall every 32 beats from the first beat and may be off the bar.
 - **Not in the Python CLI.** Key, loudness, structure and cue suggestions exist only in the web app. The CLI's analysis covers baseline features and rhythm.

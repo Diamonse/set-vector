@@ -339,7 +339,7 @@ Code: `rhythm.py` → `extract_rhythm`; `domain/rhythm.py` → `RhythmAnalysis`,
 - **Near-equal tempos merge.** A range is accepted at 90% inliers within 40 ms, so sections whose tempos differ by about 0.2 BPM or less can share one averaged segment, with outer beats up to about 50 ms off.
 - **Continuous drift.** Grid fitting assumes piecewise-constant tempo. Live drums or rubato either split into up to 8 segments or fail `grid_fit` and fall back.
 - **No beats-only Beat This! grid.** If the downbeats fail a bar check, the Beat This! beats are discarded too, even when they are good.
-- **Fallback has no bars.** A `setvector_fallback` grid has `null` bar positions, so anything that needs downbeats (phrase and cue logic) cannot use it.
+- **Fallback has no bars.** A `setvector_fallback` grid has `null` bar positions, so anything that needs downbeats cannot use it. The web app's cue suggestions still use its beats, every 32 beats from the first beat, labelled "bar phase unknown" ([key-loudness-structure.md](key-loudness-structure.md)).
 - **Metrical level.** The BPM follows the model's metrical level. Half- and double-time readings are not folded into a preferred range; the web app only lists ×2 and ÷2 as alternatives.
 - **Bar phase across a gap.** A new segment after a detection gap keeps the previous bar phase until 4 downbeats confirm a new one. A segment that restarts mid-bar can therefore show one short bar and a wrong `first_bar_position`.
 - **Short phase shifts are ignored.** A bar shift lasting fewer than 4 downbeats is treated as detector noise.

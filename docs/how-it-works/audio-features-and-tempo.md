@@ -299,7 +299,7 @@ Code: `baseline.py` → `_estimate_beats`; `identity.py` → `BEAT_TRIM`; `tempo
 - `PARAMETERS`: `bass_cutoff_hz` 250.0, `beat_onset_band_hz` 150.0, `beat_trim` false, `spectral_window` "hann", `onset_method` "positive_spectral_flux", `onset_normalization` "track_peak", `resampler` "soxr_hq_when_requested".
 - The installed versions of numpy, scipy, soundfile, librosa, and soxr.
 
-Changing any of these yields a new feature ID (see [data-and-storage.md](data-and-storage.md)). The web app labels its result `extractor: { name: "web-analysis", version: 1 }` with a smaller parameter set: frame/hop length, `channel_policy: "mono_mean"`, the 150 Hz and 250 Hz bands, `tempo_prior_bpm: 120`, and `analysis_sample_rate: 22050`.
+Changing any of these yields a new feature ID (see [data-and-storage.md](data-and-storage.md)). The web app labels its result `extractor: { name: "web-analysis", version: 3 }` (version 2 added the energy inputs, version 3 phrase-aligned cue suggestions) with a smaller parameter set: frame/hop length, `channel_policy: "mono_mean"`, the 150 Hz and 250 Hz bands, `tempo_prior_bpm: 120`, and `analysis_sample_rate: 22050`.
 
 Code: `src/setvector/analysis/identity.py` → `baseline_identity`, `PARAMETERS`; `web/src/lib/analysis/types.ts` → `EXTRACTOR_NAME`, `EXTRACTOR_VERSION`; `analyze.ts` → `analyzeAudio`.
 

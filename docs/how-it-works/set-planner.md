@@ -96,6 +96,8 @@ Code: `web/src/lib/planner/index.ts` → `pruneCandidates`, `resolveTargetCount`
 
 with 30 s in place of the 32-beat phrase when BPM is unknown. At 124 BPM that is 15.5 s. The 32 beats are an assumed phrase length, not a detected one.
 
+Where the options come from: the browser analyzer suggests up to three entries and three exits on 8-bar phrase starts (`pending`, so origin `pending` until reviewed; see [key-loudness-structure.md](key-loudness-structure.md)). A Rekordbox import turns the user's own cues into `reviewed`, `approved` regions (origin `reviewed`, cue cost 0), and adds `pending` phrase suggestions from the Rekordbox grid for a role with no usable cue ([rekordbox-bridge.md](rekordbox-bridge.md)). With several options per kind, the joint cue assignment (section 9) picks the pair that fits each transition.
+
 **Listening mode.** One option each: "Track start" $[0, w]$ and "Track end" $[\text{duration}-w, \text{duration}]$ with $w = \min(20, \text{duration}/4)$, origin `full_track`, vocal activity unknown.
 
 **Typical played span** is used before cues are assigned (pruning, target count, beam search): in DJ mode the last exit option's start minus the first entry option's start (or the full duration if that is not positive); in listening mode the full duration.
@@ -200,7 +202,7 @@ Weight: $W_\text{tempo}$.
 
 ### 6.3 Energy step
 
-Energy is the track's relative energy on a 1–10 scale. A step of up to 1 is free, and the cost reaches 1 at a step of 5:
+Energy is the track's relative energy on a 1–10 scale: the user's rating when there is one, otherwise the automatic library-relative estimate ([energy-estimate.md](energy-estimate.md)). The planner reads both the same way. A step of up to 1 is free, and the cost reaches 1 at a step of 5:
 
 ```math
 c_\text{energy} = \min\!\left(1,\ \frac{\max(0,\ \lvert E_B - E_A\rvert - 1)}{4}\right)
@@ -496,8 +498,8 @@ Code: `web/src/app/actions/plans.ts` → `createPlan`, `saveEditedOrder`, `adopt
 ## Limitations and open questions
 
 - **Weights are unvalidated.** Every weight, cost table and threshold is a declared hypothesis. The research plan calls for held-out listening judgments before any are treated as established ([playlist-engine-evaluation.md](../research/playlist-engine-evaluation.md)).
-- **Whole-track features.** Key, BPM and energy are track-level. The planner does not use local key or energy inside the overlap region, phrase or downbeat positions, or beat phase; the 32/16/8/4-beat lengths are assumptions.
-- **Energy comparability.** The arc and energy step assume energy values are comparable across tracks on the 1–10 scale. That holds for user annotations, not for uncalibrated measurements.
+- **Whole-track features.** Key, BPM and energy are track-level. The planner does not use local key or energy inside the overlap region, or beat phase. Phrase positions reach it only through where cue regions start (analyzer and Rekordbox suggestions sit on 8-bar phrases); the planner itself does not check that two regions line up on bars, and the 32/16/8/4-beat lengths are assumptions.
+- **Energy comparability.** The arc and energy step assume energy values are comparable across tracks on the 1–10 scale. A library can mix user ratings with model estimates that are ranked within the library and not calibrated against those ratings, and the planner does not tell them apart.
 - **`maxTempoAdjustPct = 0` produces `NaN`.** The schema allows 0. Two tracks at exactly the same tempo then give $p/L = 0/0$, which the clamp does not catch, so the transition cost and the objective become `NaN`.
 - **`use_all` with more than `maxCandidates` tracks.** Pruning drops tracks but the target count is the pruned pool size, so the plan always misses supplied tracks and pays a `count` penalty. Default `maxCandidates` is 160; the schema allows up to 5000 candidates.
 - **The seed only affects the Random baseline.** It is shown as a search setting but does not change the proposal.

@@ -1,6 +1,6 @@
 # System overview
 
-SetVector has three parts that share ideas but not code: an offline **Python library and CLI**, an optional **web app** (Next.js and Supabase), and a **Rekordbox bridge** inside the Python package. Both the CLI and the web app turn local audio into measurements (beat grid, tempo, and so on). The web app adds key, loudness, cue suggestions, and a set planner on top. The measurements are evidence for a DJ to review, not verdicts, and that principle explains most of the design.
+SetVector has three parts that share ideas but not code: an offline **Python library and CLI**, an optional **web app** (Next.js and Supabase), and a **Rekordbox bridge** inside the Python package. Both the CLI and the web app turn local audio into measurements (beat grid, tempo, and so on). The web app adds key, loudness, phrase-aligned cue suggestions, an experimental energy estimate, a read-only Rekordbox import, and a set planner on top. The measurements are evidence for a DJ to review, not verdicts, and that principle explains most of the design.
 
 ## The three parts
 
@@ -15,7 +15,10 @@ flowchart LR
         STO --> RB[rekordbox: XML in, XML out]
     end
     subgraph WEB["Web app (web/) — optional"]
-        BR[Browser worker: decode, features, tempo, Beat This! ONNX, grid, key, loudness, structure] --> SA[Server actions]
+        BR[Browser worker: decode, features, tempo, Beat This! ONNX, grid, key, loudness, structure, energy inputs] --> SA[Server actions]
+        RBIN[Browser: Rekordbox XML reader] --> SA
+        SA --> EN[Energy estimate: rank against the library]
+        EN --> DB
         SA --> DB[(Supabase Postgres + RLS)]
         DB --> PL[Planner: transitions, arc, search]
         PL --> UI[Plan review + export]
@@ -23,13 +26,16 @@ flowchart LR
     AUDIO[(Local audio files)] --> ING
     AUDIO --> BR
     RBXML[(Rekordbox XML export)] --> RB
+    RBXML --> RBIN
     RB --> RBOUT[(Importable XML)]
 ```
 
 | Part | Where it runs | Measures | Stores | Main doc |
 |---|---|---|---|---|
 | Python CLI and library | Your machine, offline, CPU | Baseline features, tempo, beat grid and downbeats | Content-addressed artifacts in a workspace folder (`.setvector/`), plus self-contained HTML reports | [audio-features-and-tempo.md](audio-features-and-tempo.md), [rhythm-and-beat-grid.md](rhythm-and-beat-grid.md), [data-and-storage.md](data-and-storage.md) |
-| Web app: analysis | The browser's Web Worker; audio is never uploaded | Same as the CLI, plus key, loudness, section boundaries, cue suggestions | Measurements only, in Supabase (`tracks`, `track_analyses`, `cue_regions`, `annotations`) | [key-loudness-structure.md](key-loudness-structure.md), [data-and-storage.md](data-and-storage.md) |
+| Web app: analysis | The browser's Web Worker; audio is never uploaded | Same as the CLI, plus key, loudness, section boundaries, phrase-aligned cue suggestions, energy inputs | Measurements only, in Supabase (`tracks`, `track_analyses`, `cue_regions`, `annotations`) | [key-loudness-structure.md](key-loudness-structure.md), [data-and-storage.md](data-and-storage.md) |
+| Web app: energy estimate | Server-side TypeScript | — (ranks stored measurements against the library) | `tracks.energy`, marked by `energy_model` | [energy-estimate.md](energy-estimate.md) |
+| Web app: Rekordbox import | XML parsed in the browser, saved by a server action | — (reads Rekordbox's grid, cues, tempo and key) | `tracks`, `rekordbox_links`, `cue_regions` | [rekordbox-bridge.md](rekordbox-bridge.md) |
 | Web app: planner | Server-side TypeScript, no network calls | — (uses stored evidence) | Plans and transition judgments | [set-planner.md](set-planner.md) |
 | Rekordbox bridge | Python CLI, offline | — (converts SetVector grids and cues) | A new Rekordbox XML file | [rekordbox-bridge.md](rekordbox-bridge.md) |
 
@@ -43,7 +49,7 @@ These rules come from `AGENTS.md`, `docs/architecture.md` and the code, and they
 4. **Diagnostics are not probabilities.** Margins, correlations, novelty strengths and planner costs are ranking heuristics. Their thresholds and weights are declared assumptions, and many are marked provisional until calibrated against reviewed data.
 5. **Reproducible and content-addressed.** A track's identity is the SHA-256 of its file bytes (the *asset ID*), computed identically by the CLI and the browser. Analysis outputs are keyed by asset, configuration and extractor version, so the same input gives the same cached result. The planner is deterministic for a given seed.
 6. **Never destroy user work.** The analyzer never modifies source audio. Revisions are appended to an `annotations` log rather than overwritten. The Rekordbox export never replaces existing grids or user cues. A re-analysis never re-suggests a cue the user already approved or rejected.
-7. **Parallel implementations kept in step.** Rhythm analysis exists in Python (NumPy, librosa, PyTorch) and in TypeScript (hand-written DSP, ONNX Runtime Web). Parity fixtures generated from the Python code (`web/scripts/make_analysis_fixtures.py`, `make_model_reference.py`) check that the browser port gives the same answers.
+7. **Parallel implementations kept in step.** Rhythm analysis exists in Python (NumPy, librosa, PyTorch) and in TypeScript (hand-written DSP, ONNX Runtime Web). Parity fixtures generated from the Python code (`web/scripts/make_analysis_fixtures.py`, `make_model_reference.py`, `make_rekordbox_fixtures.py`) check that the browser port gives the same answers, and a drift test fails when the Python analyzer's versions or thresholds move past the port (`web/tests/analysis/cli-drift.test.ts`).
 
 ## Life of a track
 
@@ -59,10 +65,12 @@ These rules come from `AGENTS.md`, `docs/architecture.md` and the code, and they
 **Through the web app**
 
 1. On **Library › Analyze audio**, the browser reads the file, computes the same SHA-256 asset ID, and decodes it with Web Audio.
-2. A Web Worker runs the full analysis: features, tempo, Beat This! via ONNX (if available), grid selection, key, loudness, boundaries and cue suggestions.
-3. A server action validates the result with a Zod schema. It stores the full JSON in `track_analyses`, writes BPM and key onto the track only where the user has not reviewed them, and inserts cue suggestions as `pending`.
+2. A Web Worker runs the full analysis: features, tempo, Beat This! via ONNX (if available), grid selection, key, loudness, boundaries, phrase-aligned cue suggestions and the energy inputs.
+3. A server action validates the result with a Zod schema. It stores the full JSON in `track_analyses`, writes BPM and key onto the track only where the user has not reviewed them, and inserts cue suggestions as `pending`. It then rescores the energy estimate of every track the user has not rated.
 4. The user reviews values and cues in the track editor (waveform, beat markers, drag-to-resize regions). Each change is appended to `annotations`.
 5. The planner builds an order from a crate or pool. It scores directional transitions (exit region of A into entry region of B), assigns cues jointly, matches the result against an energy arc, and searches for a low-cost order. Each step is explained in the plan view and can be exported as CSV or JSON.
+
+**From Rekordbox (web app).** Instead of steps 1–3, **Library › Import › Import a Rekordbox collection** reads a collection export in the browser and adds or links tracks with Rekordbox's tempo, key, grid and cues. Cues become approved entry and exit regions; tracks without usable cues get phrase suggestions from the Rekordbox grid. Analyzing the audio later, with the imported track picked as the target, adds the browser measurements and the energy inputs.
 
 ## Where things live
 
@@ -77,6 +85,10 @@ These rules come from `AGENTS.md`, `docs/architecture.md` and the code, and they
 | `src/setvector/rekordbox` | Rekordbox XML read, write, compare |
 | `src/setvector/cli` | `argparse` front end |
 | `web/src/lib/analysis` | Browser analysis pipeline and worker |
+| `web/src/lib/energy` | Library-relative energy estimate |
+| `web/src/lib/cues` | Phrase-aligned entry and exit suggestions, shared by analysis and Rekordbox import |
+| `web/src/lib/rekordbox` | Browser XML reader, grid expansion and cue mapping for the Rekordbox import |
+| `web/src/lib/library`, `web/src/lib/home` | Library filters and sorting; home dashboard statistics |
 | `web/src/lib/planner` | Set planner (framework-free TypeScript) |
 | `web/src/lib/domain` | Shared types, Camelot logic, formatting |
 | `web/src/lib/data`, `web/src/app/actions` | Supabase queries and server actions |
@@ -86,6 +98,7 @@ These rules come from `AGENTS.md`, `docs/architecture.md` and the code, and they
 
 ## What does not exist yet
 
-- **Energy model.** `docs/architecture.md` plans an energy module (calibrated curves with explanations). Today, track "energy" in the web app is a 1–10 value the user enters or imports, and the planner uses that.
-- **Key, loudness and structure in Python.** These exist only in the web app.
+- **Calibrated energy model.** `docs/architecture.md` plans an energy module (calibrated curves with explanations). Today the web app has an experimental, library-relative 1–10 estimate with fixed, unvalidated weights ([energy-estimate.md](energy-estimate.md)), used only where the user has no rating of their own. There are no energy curves within a track.
+- **Key, loudness, structure and energy in Python.** These exist only in the web app.
+- **Writing back to Rekordbox from the web app.** The web import only reads; writing XML is done by the Python bridge.
 - **Transitions and playlists in Python.** The planner lives only in the web app.

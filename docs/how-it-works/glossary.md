@@ -36,6 +36,10 @@ Short definitions of the terms used in this folder. The page in brackets has the
 | Novelty curve | How strongly the music changes at each beat, from a checkerboard kernel slid along a self-similarity matrix (Foote). [structure](key-loudness-structure.md) |
 | Self-similarity | Cosine similarity between the feature vectors of two beats. |
 | Section boundary | A peak in the novelty curve. It marks where the music changes, not a verified phrase or drop. [structure](key-loudness-structure.md) |
+| Phrase | 8 bars (32 beats in 4/4), counted from the first bar line. Cue suggestions start on phrases; the length is assumed, not detected. [structure](key-loudness-structure.md) |
+| Phrase-aligned suggestion | An entry or exit region of 32 beats starting on a phrase. Up to three per kind, from the analyzer (`Suggested …`) or a Rekordbox grid (`Grid …`). [structure](key-loudness-structure.md) |
+| Onset rate | Detected note and drum attacks per second of non-silent audio, from peak-picking the onset envelope. An energy input. [energy](energy-estimate.md) |
+| Loud-section loudness | 90th percentile of the 3 s short-term loudness: how loud the main sections are, unaffected by quiet intros. [energy](energy-estimate.md) |
 
 ## Rhythm
 
@@ -80,6 +84,12 @@ Short definitions of the terms used in this folder. The page in brackets has the
 | RLS | Postgres row-level security. Every row is visible only to its owner (`owner_id = auth.uid()`). |
 | Server action | A Next.js function that runs only on the server. All web writes go through one. |
 | Track analysis (`track_analyses`) | The full JSON result of one browser analysis, keyed by asset ID plus extractor identity. |
+| Energy estimate | A 1–10 energy value computed by ranking a track's measurements against the rest of the library (`library-percentile-v1`). Experimental and uncalibrated. [energy](energy-estimate.md) |
+| Mid-rank percentile | The share of other tracks below a value, counting ties as half: $(b + (q-1)/2)/(n-1)$. [energy](energy-estimate.md) |
+| Reference range / prior weight | A fixed low–high range per energy input that each library rank is blended with, weighted as 8 tracks, so small libraries still score sensibly. [energy](energy-estimate.md) |
+| `energy_model` | Column naming the model that wrote a track's energy. Null means the user or an import set it, and the estimator then never touches it. [energy](energy-estimate.md) |
+| Rekordbox link (`rekordbox_links`) | One Rekordbox collection entry linked to a library track, holding its `Location`, grid and cue points. [rekordbox](rekordbox-bridge.md) |
+| Drift test | A web test that reads the Python analyzer's constants and versions and fails when the browser port no longer matches them. [data](data-and-storage.md) |
 
 ## Planner
 
@@ -118,3 +128,5 @@ Short definitions of the terms used in this folder. The page in brackets has the
 | Bridging marker | An extra TEMPO marker on a segment's last beat, so Rekordbox does not predict a phantom beat inside a gap between segments. |
 | Capability profile | The import behaviour measured for one Rekordbox version (hot-cue slots, memory-cue limit, colours, re-import behaviour). It is filled only from probe results. |
 | Drift tolerance | 5 ms: the most accumulated BPM-rounding error allowed before a new TEMPO marker is started. |
+| Web import | The web app's read-only Rekordbox import. It links tracks by `Location`, then by title and artist, and turns cues into approved entry and exit regions. [rekordbox](rekordbox-bridge.md) |
+| Cue role | Whether a Rekordbox cue becomes an entry or an exit: from its type (fade-in, fade-out), then its name (Intro, Mix out, …), then its position (first or last third). [rekordbox](rekordbox-bridge.md) |

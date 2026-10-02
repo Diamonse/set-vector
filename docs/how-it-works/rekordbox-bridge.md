@@ -2,7 +2,9 @@
 
 The Rekordbox bridge reads a Rekordbox XML collection export, matches its tracks to local audio files, and writes a second XML file that Rekordbox can import: SetVector's beat grid for tracks Rekordbox has not analyzed, and SetVector's cues on top of whatever the user already has. It never touches Rekordbox's own database, and it never replaces an existing grid or an existing (non-SetVector) cue. A companion script, `scripts/rekordbox_probe.py`, measures what a given Rekordbox version actually does with an imported file, because the bridge will not change a track already in the collection until that version has been measured.
 
-This page covers the XML shapes involved, how a track is matched between the two sides, the grid-conversion math, how cues are placed, the comparison report used by the probe, and the safety rules. Beat and downbeat detection itself (the Beat This! model and its fallback) is covered in `rhythm-and-beat-grid.md`; where artifacts are cached on disk is covered in `data-and-storage.md`.
+The web app has a separate, read-only **Rekordbox import** (section 9). It parses the same export in the browser, adds or links library tracks, keeps each track's Rekordbox grid and cue points, and turns the cues into entry and exit regions for the planner. It never writes XML back.
+
+This page covers the XML shapes involved, how a track is matched between the two sides, the grid-conversion math, how cues are placed, the comparison report used by the probe, the safety rules, and the web import. Beat and downbeat detection itself (the Beat This! model and its fallback) is covered in `rhythm-and-beat-grid.md`; where artifacts are cached on disk is covered in `data-and-storage.md`.
 
 ## Pipeline at a glance
 
@@ -300,6 +302,103 @@ Code: `scripts/rekordbox_probe.py` → `generate`, `stage2`, `check`; `src/setve
 
 ---
 
+## 9. Web app import
+
+**What and why.** Most of a DJ's tracks already have a Rekordbox grid, and some have hand-placed cues. The web import brings those into the web library so the planner can use them: Rekordbox cues become approved mix points, and a Rekordbox grid gives bar lines that the browser analyzer may not have (it has none without the Beat This! model). Rekordbox values are treated as evidence, not ground truth: tempo and key come in as estimates, and the grid is shown beside the analyzer's grid for review.
+
+**Flow.**
+
+1. **Parse in the browser.** The user picks a file made with *File › Export Collection in xml format*. It is parsed locally; playlists are not read.
+2. **Preview.** Each `TRACK` becomes a candidate with its mapped fields, beat count, and the cue regions the import would create. Blocked candidates cannot be selected; cautioned ones start unselected.
+3. **Send in batches.** Only the selected tracks' metadata, tempo markers and cue points (never audio) are sent to the server action, 100 tracks per batch.
+4. **Match or create** a library track, fill only its empty fields, and upsert a `rekordbox_links` row holding the grid and cue points.
+5. **Create cue regions** from the cues and the grid, replacing only regions an earlier import created and the user has not touched.
+6. **Record** one `rekordbox_import` annotation per batch with the counts of created, linked, updated and skipped tracks.
+
+Code: `web/src/components/library/rekordbox-import.tsx`; `web/src/app/actions/rekordbox.ts` → `importRekordboxBatch`.
+
+### 9.1 Reading the XML in TypeScript
+
+The browser has no XML reader that behaves the same in Node, so `xml.ts` is a small strict parser. It builds an element tree with attributes only (Rekordbox uses no character data), refuses `DOCTYPE` and entity declarations as the Python reader does, and fails on malformed markup (duplicate or unquoted attributes, mismatched tags, a raw `<` or unescaped `&` in a value, text outside the root) instead of guessing. Attribute values get standard XML normalization (tabs and line breaks become spaces) and only the five predefined entities plus numeric character references are decoded. The encoding comes from a UTF-16 byte-order mark or the XML declaration (UTF-8 by default), decoded with a fatal decoder so invalid bytes are an error.
+
+`read.ts` ports `read_library` and the record validation in `model.py`: the same `TEMPO` fields (`Inizio`, `Bpm`, `Metro`, `Battito`) and `POSITION_MARK` fields, the same type codes (0 cue, 1 fade-in, 2 fade-out, 3 load, 4 loop), the same range checks, and the same `file://localhost/` location decoding. An unsupported attribute on a `TEMPO` or `POSITION_MARK`, or a duplicate `TrackID`, rejects the whole file with a message naming the track.
+
+`grid.ts` ports `expand_tempo` (section 3.3) unchanged, including the 120 ms guard, the 1 ms collapse and the 200,000-beat limit. `tests/rekordbox/` checks the reader and the expansion against fixtures generated from the Python code by `web/scripts/make_rekordbox_fixtures.py`.
+
+Code: `web/src/lib/rekordbox/xml.ts` → `parseXml`, `decodeXml`; `web/src/lib/rekordbox/read.ts` → `parseLibrary`, `pathFromLocation`; `web/src/lib/rekordbox/grid.ts` → `expandTempo`, `gridForDisplay`.
+
+### 9.2 Mapping a track
+
+| Rekordbox | Library field | Rule |
+|---|---|---|
+| `Name`, else the file name without extension | Title | Trimmed, at most 300 characters |
+| `Artist`, `Mix` | Artist, version | At most 300 and 200 characters |
+| `Genre` | Style tags | Split on `,` `;` `/` `\|`, trimmed, case-insensitive duplicates and tags over 40 characters dropped, at most 12 |
+| `TotalTime` | Duration | Required, in (0, 86400) seconds |
+| `AverageBpm` | BPM, `estimate` | Kept when in [40, 250], rounded to 0.001 |
+| `Tonality` | Key, `estimated` | Parsed with `parseKey` (Camelot or a key name); an unrecognized value is noted and left out |
+| `TEMPO` markers | `rekordbox_links.tempo` | At most 2000 markers; a grid that fails to expand is dropped with a note |
+| `POSITION_MARK` | `rekordbox_links.marks` | The first 200 are kept |
+
+| Status | Condition |
+|---|---|
+| Blocked | A streaming or other non-file location, no title or file name, or no usable duration |
+| Caution (unselected by default) | Shorter than 30 s (`SHORT_SAMPLE_SECONDS`), or inside a `/rekordbox/Sampler/` folder |
+
+Code: `web/src/lib/rekordbox/map.ts` → `candidateFor`, `styleTagsFrom`; `web/src/lib/rekordbox/schema.ts` → `rekordboxImportSchema` (the server re-validates every field).
+
+### 9.3 Matching to the library
+
+Each entry is matched in this order:
+
+1. **Earlier link.** A `rekordbox_links` row with the same `Location` URI → status `updated`.
+2. **Title and artist.** Library tracks whose normalized title and artist (trimmed, lower-cased, whitespace collapsed) are equal, which this import has not already matched, and which are either unlinked or linked elsewhere but within 2 s of the same duration (`DURATION_TOLERANCE_SECONDS`; Rekordbox's `TotalTime` is whole seconds). A linked track with a matching length is treated as a file that moved in Rekordbox; a different length is another file with the same name. If several remain, narrow by version label, then by duration. Exactly one → `linked`; still several → `skipped` and reported.
+3. **Otherwise** a new track is created → `created`.
+
+Within one import run, each library track takes at most one entry, so duplicates in the collection become separate tracks. Because batches are separate server calls, the browser passes the IDs matched by earlier batches (`claimedTrackIds`).
+
+For a matched track only empty fields are filled: BPM when it is empty, key when its status is `unknown`, style tags when there are none, version when it is blank. Existing and reviewed values are kept. The link is upserted on `(owner_id, track_id)`, so importing again updates the stored grid and cue points; the unique `(owner_id, location)` constraint stops two library tracks linking to one file.
+
+Code: `web/src/app/actions/rekordbox.ts` → `importRekordboxBatch`, `fillEmpty`.
+
+### 9.4 Cue regions from Rekordbox cues
+
+**Role.** Each mark's role is decided by, in order:
+
+1. Its type: fade-in → entry, fade-out → exit, load → ignored.
+2. Its name, as whole words, case-insensitive: `intro`, `mix in`, `in`, `start`, `entry`, `begin` → entry; `outro`, `mix out`, `out`, `end`, `ending`, `exit` → exit. A name matching both or neither falls through.
+3. Its position: before $\tfrac13$ of the duration → entry; after $\tfrac23$ → exit; otherwise ignored and counted in the preview.
+
+**Span.** A loop keeps its own `[Start, End]`. Any other cue starts a region of 32 beats on the Rekordbox grid: from the first grid beat at or after $\text{start} - 0.05$ s, to the beat 32 later, or extrapolated at the grid's mean interval if the grid ends first. Without a grid the region is $32 \cdot 60/\text{AverageBpm}$ seconds long. Regions are clamped to the track end, and regions shorter than 2 s (`MIN_REGION_SECONDS`) are dropped.
+
+**Duplicates and limits.** Rekordbox often stores a memory cue and a hot cue at the same point. Same-kind regions starting within 0.5 s are kept once, preferring the hot cue. At most four entries (the earliest) and four exits (the latest) are kept (`MAX_REGIONS_PER_KIND`).
+
+**Grid suggestions.** If the track has a grid but no usable cue for a role, the import adds up to three phrase-aligned suggestions for that role from the grid, using the same `phraseCues` as the analyzer (see [key-loudness-structure.md](key-loudness-structure.md)) with bar starts taken from grid positions of 1 and the label prefix "Grid" (for example "Grid outro at bar 161"). No section boundaries are used, since the import has no audio.
+
+**Status.** Regions from cues are saved as `provenance = reviewed`, `review_status = approved`, because the user placed those cues; the planner gives them cue cost 0. Grid suggestions are `estimate` and `pending`.
+
+**Re-imports.** Each region keeps `rekordbox_link_id`. A later import first deletes the regions that still carry the link, then skips any new region within 0.5 s (start and end) of an existing region of the same kind. A trigger (`detach_edited_rekordbox_cue`) clears `rekordbox_link_id` whenever the user edits, approves or rejects a region, so the user's decision survives later imports.
+
+Code: `web/src/lib/rekordbox/cues.ts` → `roleOf`, `mapRekordboxCues`; `web/src/app/actions/rekordbox.ts` → `applyCueRegions`; `web/supabase/migrations/20261002010000_rekordbox_cue_regions.sql`.
+
+### 9.5 Display
+
+The track page draws the Rekordbox grid (beats, and bar lines where the position is 1) next to the analyzer's grid when both exist, and shows every Rekordbox mark as a labelled point (hot cue letter, name, colour). A stored grid that no longer expands is left out instead of breaking the page.
+
+Code: `web/src/app/(app)/library/[trackId]/page.tsx`; `web/src/lib/data/queries.ts` → `getRekordboxLink`.
+
+### 9.6 Differences from the Python bridge
+
+| | Python bridge | Web import |
+|---|---|---|
+| Direction | Reads and writes XML | Reads only |
+| Track matching | Decoded file path | `Location` URI, then title and artist (and version, duration) |
+| Grid | Converts SetVector grids into `TEMPO` markers | Keeps Rekordbox markers and expands them for display and suggestions |
+| Cues | Writes `SV …` cues into free slots | Reads every cue and maps it to an entry or exit region |
+| Audio | Analyzes local files | Uses no audio; `asset_id` stays empty until the file is analyzed in the browser |
+
+---
+
 ## Limitations and open questions
 
 As of this writing, `PROFILES` is **empty** — no Rekordbox version has actually been qualified by running the probe end to end. Everything below is unverified against real Rekordbox behaviour, per `docs/rekordbox-compatibility.md`:
@@ -314,3 +413,12 @@ As of this writing, `PROFILES` is **empty** — no Rekordbox version has actuall
 - **Stale export risk is procedural, not enforced.** The bridge cannot detect that an export is stale relative to Rekordbox's live state — it can only warn when a track ends up written as "new" because it is missing from the given export (section 2).
 - **A literal line break inside an XML attribute** (e.g. a multi-line `Comments` field) is already collapsed to spaces by XML attribute-value normalization before SetVector ever sees it; this is standard XML behaviour, not something the bridge does, but it means a round-tripped `Comments` field will never regain its original line breaks.
 - One line of a code comment in `application/rekordbox.py`'s `_process` function (explaining why marks are compared as a multiset rather than by order) is duplicated verbatim — harmless, but worth a cleanup pass.
+
+Web import:
+
+- **Name matching can pick the wrong track.** Two different files with the same title and artist, and lengths within 2 s, are indistinguishable from the export alone. The result list reports what was linked so the user can check.
+- **Cue roles are guessed.** Name matching is English-only and literal. A cue named for its content ("Vocal", "Drop") falls back to its position, and a cue in the middle third is ignored. Every mapped cue is saved as `reviewed` and `approved` even though the role was inferred.
+- **Phrase suggestions assume 8-bar phrases from the first bar line** of the Rekordbox grid, and Rekordbox's default grids are often not hand-checked.
+- **Partial results on a link failure.** The track is created or its empty fields filled before the link is written. If the link then fails (for example, another track is already linked to the same location), the track change stays but its grid and cues are not saved; the outcome says so.
+- **No audio identity.** The import cannot fill `asset_id`. Analyzing the file later must target the imported track explicitly, or the analysis creates a second track.
+- **Energy estimates are not refreshed** after an import, even when it fills a BPM that the estimate uses ([energy-estimate.md](energy-estimate.md)).

@@ -23,6 +23,12 @@ flowchart TD
     L --> P["fittingCues"]
     P --> Q[("cue_regions rows")]
     K --> R[("annotations row")]
+    K --> S["refreshEnergyEstimates\n(whole library)"]
+    S --> O
+    T["Rekordbox XML, parsed in browser"] --> U["importRekordboxBatch"]
+    U --> O
+    U --> V[("rekordbox_links row")]
+    U --> Q
   end
   E -. "asset_id / feature_id stored as plain text, never dereferenced" .-> O
 ```
@@ -148,13 +154,14 @@ Code: `src/setvector/visualization/model.py` (`build_report_model`, `ReportModel
 
 ## Web: Postgres schema
 
-The web app's schema is additive across three migrations, all under `web/supabase/migrations/`. Every table has an `owner_id` defaulting to `auth.uid()` and row-level security restricting all operations to rows the caller owns (see below).
+The web app's schema is additive across six migrations, all under `web/supabase/migrations/`. Every table has an `owner_id` defaulting to `auth.uid()` and row-level security restricting all operations to rows the caller owns (see below).
 
 | Table | Purpose | Notable columns |
 |---|---|---|
 | `profiles` | one row per `auth.users` row, created by a trigger on signup | `display_name` |
-| `tracks` | the mutable library | `bpm`, `bpm_source`, `key_tonic`/`key_mode`/`key_status`, `energy`, `energy_source`, `asset_id`/`feature_id` (opaque text, validated as 64-hex when present only on the `track_analyses.asset_id` column, not constrained on `tracks`), `style_tags text[]` |
-| `cue_regions` | entry/exit intervals `[start, end)` on a track | `kind`, `provenance`, `review_status`, `vocal_activity`, `analysis_id` (added in migration 3) |
+| `tracks` | the mutable library | `bpm`, `bpm_source`, `key_tonic`/`key_mode`/`key_status`, `energy`, `energy_source`, `energy_model` (the model that wrote `energy`, or null), `asset_id`/`feature_id` (opaque text, validated as 64-hex when present only on the `track_analyses.asset_id` column, not constrained on `tracks`), `style_tags text[]` |
+| `cue_regions` | entry/exit intervals `[start, end)` on a track | `kind`, `provenance`, `review_status`, `vocal_activity`, `analysis_id` (the analysis that suggested it), `rekordbox_link_id` (the Rekordbox import that created it; cleared when the user edits or reviews the region) |
+| `rekordbox_links` | one Rekordbox collection entry per library track | `rekordbox_track_id`, `location` (the Rekordbox `Location` URI, the match key for later imports), `product jsonb`, `tempo jsonb` (TEMPO markers), `marks jsonb` (cue points), `imported_at`; unique on `(owner_id, track_id)` and `(owner_id, location)` |
 | `annotations` | append-only audit log, never updated | `level`, `task`, `payload jsonb`, `revision`, `supersedes_id` |
 | `crates` / `crate_tracks` | named track selections | `crate_tracks` is a join table with `position` |
 | `plans` / `plan_items` | saved planner runs; `plan_items` is the editable ordered occurrence list | `plans.request`/`result` are `jsonb`; `replace_plan_items` RPC rewrites `plan_items` and `plans.result` atomically |
@@ -164,13 +171,13 @@ A plan deliberately keeps two representations side by side: `plans.request`/`pla
 
 Enumerated types: `measurement_source` (`estimate`/`reviewed`), `key_status` (`unknown`/`estimated`/`reviewed`/`uncertain`/`not_meaningful`), `key_mode` (`major`/`minor`), `cue_kind` (`entry`/`exit`), `review_status` (`pending`/`approved`/`rejected`), `vocal_activity` (`unknown`/`none`/`present`), `annotation_level` (`track`/`region`/`pair`/`sequence`), `plan_mode` (`dj`/`listening`), `selection_policy` (`use_all`/`choose_from_pool`).
 
-Database-enforced invariants worth knowing: `cue_regions` cannot reference a region past its track's duration (trigger `check_cue_bounds`), and a track's duration cannot be shortened below an existing cue region (trigger `check_track_duration_covers_cues`) — both directions of this constraint are enforced in the database, not just in the UI. `tracks_key_pair`/`tracks_bpm_source`/`tracks_energy_source` check constraints keep a value and its provenance column in lock-step (both null or both set).
+Database-enforced invariants worth knowing: `cue_regions` cannot reference a region past its track's duration (trigger `check_cue_bounds`), and a track's duration cannot be shortened below an existing cue region (trigger `check_track_duration_covers_cues`) — both directions of this constraint are enforced in the database, not just in the UI. `tracks_key_pair`/`tracks_bpm_source`/`tracks_energy_source` check constraints keep a value and its provenance column in lock-step (both null or both set). `tracks_energy_model` allows `energy_model` only when `energy` is set and `energy_source = 'estimate'`. Two triggers hand values back to the user: `tracks_clear_energy_model` clears `energy_model` on any energy change not made by `apply_energy_estimates`, and `cue_regions_detach_rekordbox` clears `rekordbox_link_id` when a region's kind, times, label, provenance, review status or vocal activity changes.
 
-Code: `web/supabase/migrations/20260925000000_setvector_init.sql` (`tracks`, `cue_regions`, `annotations`, `check_cue_bounds`), `web/supabase/migrations/20260925020000_track_analyses.sql` (`track_analyses`)
+Code: `web/supabase/migrations/20260925000000_setvector_init.sql` (`tracks`, `cue_regions`, `annotations`, `check_cue_bounds`), `web/supabase/migrations/20260925020000_track_analyses.sql` (`track_analyses`), `web/supabase/migrations/20261001000000_rekordbox_links.sql`, `web/supabase/migrations/20261002000000_energy_estimates.sql` (`energy_model`, `apply_energy_estimates`), `web/supabase/migrations/20261002010000_rekordbox_cue_regions.sql` (`rekordbox_link_id`, `detach_edited_rekordbox_cue`)
 
 ## Row-level security
 
-Every table is `enable row level security`, and every policy follows the same shape: `using ((select auth.uid()) = owner_id)` plus, for tables with a foreign key into another owned table, a `with check (... and exists (select 1 from <parent> where ... owner_id = auth.uid()))` to stop a row being attached to someone else's parent record. `replace_plan_items` is `security invoker`, so it runs as the calling user and is still subject to RLS on every statement inside it, even though it is a privileged-looking multi-table RPC. The one `security definer` function, `handle_new_user`, is pinned with `set search_path = ''` and has `execute` revoked from `public`/`anon`/`authenticated` so it can only run as the signup trigger, never be called directly.
+Every table is `enable row level security`, and every policy follows the same shape: `using ((select auth.uid()) = owner_id)` plus, for tables with a foreign key into another owned table, a `with check (... and exists (select 1 from <parent> where ... owner_id = auth.uid()))` to stop a row being attached to someone else's parent record. `replace_plan_items` is `security invoker`, so it runs as the calling user and is still subject to RLS on every statement inside it, even though it is a privileged-looking multi-table RPC. The one `security definer` function, `handle_new_user`, is pinned with `set search_path = ''` and has `execute` revoked from `public`/`anon`/`authenticated` so it can only run as the signup trigger, never be called directly. The later trigger functions (`clear_energy_model`, `detach_edited_rekordbox_cue`) also have `execute` revoked from every role. `apply_energy_estimates` is `security invoker`, granted to `authenticated` only, and updates only rows where `owner_id = auth.uid()`. `rekordbox_links` follows the usual policy shape, with a `with check` that the linked track belongs to the caller.
 
 Code: `web/supabase/migrations/20260925000000_setvector_init.sql` (policies `"tracks are private"`, `"plan items are private"`, function `replace_plan_items`), `web/supabase/migrations/20260925010000_setvector_function_hardening.sql`
 
@@ -186,7 +193,7 @@ Two different status vocabularies are used for two different kinds of field:
 | Musical key | `key_status`, type `key_status` | `unknown` \| `estimated` \| `reviewed` \| `uncertain` \| `not_meaningful` | Key detection needs to distinguish "no evidence yet" from "the detector tried but wasn't confident" (`uncertain`) and from "a person decided this track has no single tonal center" (`not_meaningful`) — both of the latter are human or low-confidence states that a later automatic pass must not clobber |
 | Cue region | `provenance` (`measurement_source`) **and** `review_status` (`pending`/`approved`/`rejected`) | — | Two independent axes: *where the suggestion came from* and *what a person decided to do about it* — a `reviewed` cue can still be `pending` review, and an `estimate` can be `approved` without changing its provenance |
 
-The overwrite rule is enforced in application code, not the database, in exactly one place: `planTrackUpdate`. It only ever replaces `bpm`/`bpm_alternatives` when the track's current `bpmSource` is `null` or `"estimate"` — a `"reviewed"` BPM is left untouched and reported back as `kept`. For key, it only replaces `key_tonic`/`key_mode`/`key_status` when the current status is `unknown`, `estimated`, or `uncertain`; a status of `reviewed` or `not_meaningful` is left alone. A fresh estimate is always written with `*_source: "estimate"` / the detector's own `status` (`estimated` or `uncertain`), so an automatic value can never claim to be `reviewed`.
+For BPM and key, the overwrite rule is enforced in application code, not the database, in exactly one place: `planTrackUpdate`. (Energy has its own rule, enforced in the database as well; see below.) It only ever replaces `bpm`/`bpm_alternatives` when the track's current `bpmSource` is `null` or `"estimate"` — a `"reviewed"` BPM is left untouched and reported back as `kept`. For key, it only replaces `key_tonic`/`key_mode`/`key_status` when the current status is `unknown`, `estimated`, or `uncertain`; a status of `reviewed` or `not_meaningful` is left alone. A fresh estimate is always written with `*_source: "estimate"` / the detector's own `status` (`estimated` or `uncertain`), so an automatic value can never claim to be `reviewed`.
 
 Worked through, a new analysis result interacting with each possible stored state behaves as:
 
@@ -208,9 +215,16 @@ Worked through, a new analysis result interacting with each possible stored stat
 
 Cue suggestions follow the parallel rule in `fittingCues`: a new suggestion is dropped if an existing region of the same kind already sits within 0.5 s of it, whether that existing region was `approved` *or* `rejected` — so re-analyzing a file never re-litigates a decision the user already made, in either direction. Separately, `saveOne` deletes only cue rows that are simultaneously `estimate`, `pending`, and linked to a previous `analysis_id` before inserting new suggestions, so a user's own pending drafts or already-reviewed cues are never swept away by a re-analysis.
 
-Analysis never writes a track's `energy` value, because the codebase has no automatic energy estimator. Energy comes from the track form or from an import. An imported value is stored as an `estimate` unless the file marks it `energy_reviewed` or `energy_source: reviewed`.
+Energy has three possible owners, so `energy_source` alone is not enough. A value from the track form or a CSV/JSON import has `energy_model = null`; an imported value is stored as an `estimate` unless the file marks it `energy_reviewed` or `energy_source: reviewed`. A value written by the automatic estimator has `energy_source = estimate` and `energy_model = 'library-percentile-v1'`. The estimator writes only tracks whose energy is empty or model-written, and the `tracks_clear_energy_model` trigger hands a value to the user the moment anything else changes it. The full rule is in [energy-estimate.md](energy-estimate.md).
 
-Code: `web/src/lib/analysis/apply.ts` (`planTrackUpdate`, `fittingCues`, `DUPLICATE_TOLERANCE_SECONDS`), `web/src/app/actions/analysis.ts` (`saveOne`)
+| Current energy | Estimator result | Outcome |
+|---|---|---|
+| empty | a score | written, `estimate`, `energy_model` set |
+| model-written | a different score (by ≥ 0.05) or another model | overwritten |
+| model-written | `null` (too few inputs) | cleared |
+| user or import value (`energy_model` null) | anything | kept |
+
+Code: `web/src/lib/analysis/apply.ts` (`planTrackUpdate`, `fittingCues`, `DUPLICATE_TOLERANCE_SECONDS`), `web/src/app/actions/analysis.ts` (`saveOne`), `web/src/lib/data/energy.ts` (`refreshEnergyEstimates`)
 
 ## Annotations: the append-only audit trail
 
@@ -230,6 +244,31 @@ Code: `web/src/lib/domain/types.ts` (`Track`, `CueRegion`), `web/src/lib/data/ro
 
 Code: `web/src/lib/import/parse.ts` (`parseLibrary`, `normalize`, `parseCsv`), `web/src/app/actions/import.ts` (`importLibrary`)
 
+## Rekordbox import
+
+A Rekordbox collection export is parsed in the browser, and only the selected tracks' metadata, tempo markers and cue points are sent to `importRekordboxBatch`, 100 tracks per call, re-validated by `rekordboxImportSchema`. Each entry is matched to a library track by an earlier link to the same `Location`, then by title and artist, or a new track is created. Only empty fields are filled, with tempo as `estimate` and key as `estimated`. The grid and cue points are stored on a `rekordbox_links` row, and cues become `cue_regions` that carry `rekordbox_link_id`, so a later import replaces only regions the user has not touched. One `rekordbox_import` annotation per batch records the counts. Matching, cue mapping and the XML reader are covered in [rekordbox-bridge.md](rekordbox-bridge.md) section 9.
+
+Code: `web/src/app/actions/rekordbox.ts` (`importRekordboxBatch`, `applyCueRegions`), `web/src/lib/rekordbox/schema.ts`
+
+## Library views: filters, sorting and the home dashboard
+
+The library table and the track picker (used by plans and crates) share one set of pure filter and sort rules, so both views and their tests agree.
+
+| Filter | Rule |
+|---|---|
+| Text | Case-insensitive substring of title, artist and version |
+| Style | Exact style tag |
+| BPM range | Inclusive. With "half or double", a track matches if its BPM, BPM/2 or BPM×2 is in range. No BPM never matches a range |
+| Key | A Camelot code: exact tonic and mode, or with "compatible", any key whose relation to it is `same`, `adjacent` or `relative` (the planner's harmonic relations, [set-planner.md](set-planner.md)). `none` finds tracks without a usable key (status `uncertain`, `not_meaningful` or `unknown`) |
+| Energy, length | Inclusive ranges; length accepts `m:ss`, `h:mm:ss` or seconds |
+| Cue state | `ready` (approved entry and approved exit), `pending` (some pending region), `partial` (otherwise some non-rejected region), `none` |
+
+Sorting puts missing values last in either direction and breaks ties by title. Key sorts by Camelot position ($2n$ for A, $2n + 1$ for B); cue state sorts `ready` > `pending` > `partial` > `none`.
+
+The home dashboard summarizes the same tracks: coverage counts (tempo, usable key, energy, model-estimated energy, cue-ready), a tempo histogram in 5 BPM bins spanning the library's range, an energy histogram with one bin per rounded whole value 1–10, counts for all 24 Camelot codes (unusable keys left out), and the eight most common style tags with the rest folded into "Other styles". A track **needs review** when its BPM is missing or an estimate, its key is unusable or `estimated`, its energy is missing, or its cue state is not `ready`. A getting-started checklist ticks off from the data (any track, any analysis, any approved cue, any crate, any plan).
+
+Code: `web/src/lib/library/filters.ts` (`filterTracks`, `sortTracks`, `cueStateOf`, `parseLength`), `web/src/lib/home/stats.ts` (`libraryHealth`, `needsReview`, `bpmHistogram`, `energyHistogram`, `keyCounts`, `styleCounts`, `gettingStarted`)
+
 ## The in-browser `AnalysisResult` shape
 
 `web/src/lib/analysis/types.ts` defines `AnalysisResult`, the one JSON object a worker run produces and the server stores verbatim (after validation) as `track_analyses.result`. Its top-level shape:
@@ -243,8 +282,11 @@ Code: `web/src/lib/import/parse.ts` (`parseLibrary`, `normalize`, `parseCsv`), `
 | `key` (`KeyEstimate`) | tonic/mode or `null`, a `status` of `estimated` or `uncertain`, correlation, margin, voiced-share, and a ranking of alternative keys |
 | `regionKeys` | the same key estimate shape, run separately over each cue region |
 | `loudness` | BS.1770 integrated loudness, loudness range, sample peak, and a short-term series |
-| `summary`, `boundaries`, `cues`, `waveform` | whole-track means, structural boundary candidates, cue suggestions, and a decimated peak waveform for drawing |
+| `summary`, `boundaries`, `cues`, `waveform` | whole-track means, structural boundary candidates, up to three phrase-aligned cue suggestions per kind, and a decimated peak waveform for drawing |
+| `energyFeatures` | optional: loud-section and integrated loudness, loudness range, onset rate, mean bass ratio, mean centroid — the inputs to the energy estimate ([energy-estimate.md](energy-estimate.md)). Absent in results saved before extractor version 2 |
 | `warnings` | free-text notices surfaced to the user (e.g. no model available, no reliable grid) |
+
+The extractor is `web-analysis` version 3: version 2 added `energyFeatures`, and version 3 changed cue suggestions to phrase-aligned candidates. Because the version is part of the `analysis_key`, re-analyzing a file after an upgrade stores a new row rather than reusing the old one.
 
 This shape is deliberately the single source of truth validated by `analysisResultSchema`; nothing about *how* tempo, key, loudness, or structure are computed belongs here — see [audio-features-and-tempo.md](audio-features-and-tempo.md), [rhythm-and-beat-grid.md](rhythm-and-beat-grid.md), and [key-loudness-structure.md](key-loudness-structure.md).
 
@@ -254,7 +296,7 @@ Code: `web/src/lib/analysis/types.ts` (`AnalysisResult`, `ExtractorInfo`)
 
 The browser is explicitly untrusted: `web/src/lib/analysis/schema.ts`'s `analysisResultSchema` (Zod) re-validates every field of an `AnalysisResult` the client claims to have computed — ranges on tempo/key/loudness, array length caps, enum membership — before any of it is written to Postgres or used to patch a track. `saveAnalysisSchema` wraps it with the asset ID (64-hex regex), file name, title/artist, and an optional target `trackId`.
 
-The server action `saveOne` (in `web/src/app/actions/analysis.ts`) then: resolves which track the analysis belongs to (`resolveTrack` — by explicit `trackId` with an asset-ID-mismatch guard, or by matching `asset_id`, or by creating a new track); computes an `analysisKey` as `sha256(canonical({asset_id, extractor}))`, a TypeScript analogue of the Python side's `compute_feature_id` used here to deduplicate analyzer runs via the `track_analyses` table's `unique(owner_id, analysis_key)` constraint; runs `planTrackUpdate` to decide the track patch; upserts the `track_analyses` row; applies the patch; deletes only stale pending/estimate cue suggestions tied to a previous analysis; inserts new suggestions from `fittingCues`; and records one `audio_analysis` annotation. Each item in a batch is saved independently, so one bad file in a multi-file drop does not fail the others.
+The server action `saveOne` (in `web/src/app/actions/analysis.ts`) then: resolves which track the analysis belongs to (`resolveTrack` — by explicit `trackId` with an asset-ID-mismatch guard, or by matching `asset_id`, or by creating a new track); computes an `analysisKey` as `sha256(canonical({asset_id, extractor}))`, a TypeScript analogue of the Python side's `compute_feature_id` used here to deduplicate analyzer runs via the `track_analyses` table's `unique(owner_id, analysis_key)` constraint; runs `planTrackUpdate` to decide the track patch; upserts the `track_analyses` row; applies the patch; deletes only stale pending/estimate cue suggestions tied to a previous analysis; inserts new suggestions from `fittingCues`; and records one `audio_analysis` annotation. Each item in a batch is saved independently, so one bad file in a multi-file drop does not fail the others. When at least one item saved, `saveAnalyses` rescores the energy estimate of the whole library, because new measurements change the distribution every track is ranked against.
 
 Code: `web/src/lib/analysis/schema.ts` (`analysisResultSchema`, `saveAnalysisSchema`), `web/src/app/actions/analysis.ts` (`saveOne`, `resolveTrack`, `canonical`)
 
@@ -266,7 +308,20 @@ Code: `web/src/lib/data/queries.ts` (`listTracks`), `web/src/lib/supabase/server
 
 ## Offline-first principles in the web app
 
-Per `web/README.md` and the project's offline-operation rule in `AGENTS.md`/`docs/architecture.md`, the web app's own analysis path never uploads audio: files are decoded and analyzed in a Web Worker in the browser, the asset ID is computed client-side as the SHA-256 of the file bytes (the same identity scheme the CLI uses), and only the resulting `AnalysisResult` JSON — never the audio — is sent to the server, and only when the user clicks Save. The web app is explicitly optional and sits beside the offline Python path; nothing in `src/setvector` depends on it.
+Per `web/README.md` and the project's offline-operation rule in `AGENTS.md`/`docs/architecture.md`, the web app's own analysis path never uploads audio: files are decoded and analyzed in a Web Worker in the browser, the asset ID is computed client-side as the SHA-256 of the file bytes (the same identity scheme the CLI uses), and only the resulting `AnalysisResult` JSON — never the audio — is sent to the server, and only when the user clicks Save. The web app is explicitly optional and sits beside the offline Python path; nothing in `src/setvector` depends on it. The Rekordbox import follows the same rule: the XML is parsed in the browser, and only the selected tracks' fields are sent.
+
+## Keeping the browser port in step with the CLI
+
+Two kinds of test tie the TypeScript analysis to the Python code. **Parity fixtures** (`npm run fixtures`, which runs `web/scripts/make_analysis_fixtures.py` and `make_rekordbox_fixtures.py`; the Beat This! reference comes from `make_model_reference.py`) record Python outputs for synthetic inputs, and the web tests must reproduce them. The **drift test** reads the Python sources directly: it parses module-level constants (numbers, strings, booleans and number tuples) from `src/setvector/analysis/identity.py` and the Beat This! inference modules, and fails when any of these differs from the browser copy:
+
+- extractor names and algorithm versions, recorded in `web/src/lib/analysis/port.ts` as `PORTED_FROM` (`baseline-v1` version 3, `rhythm-v1` version 1);
+- baseline parameters (`BASS_CUTOFF_HZ`, `BEAT_ONSET_BAND_HZ`, `BEAT_TRIM = False`, and frame and hop length from `examples/analysis-config.json`);
+- grid fitting and acceptance thresholds (`GRID_TOLERANCE_SECONDS`, `GRID_ACCEPT_FRACTION`, `GRID_MIN_SPLIT_BEATS`, `GRID_MAX_SEGMENTS`, `MIN_BEATS`, `MAX_INTERVAL_CV`, `INTERVAL_GAP_RATIO`, `MIN_GRID_FIT`, `MIN_BAR_REGULARITY`, `BAR_LENGTHS`, `BAR_PHASE_CONFIRM`, `MIN_DETECTION_SECONDS`);
+- the Beat This! front end and post-processing (`FPS`, `SAMPLE_RATE`, `N_FFT`, `HOP_LENGTH`, `F_MIN`, `F_MAX`, `N_MELS`, `CHUNK_FRAMES`, `BORDER_FRAMES`, `PEAK_WINDOW_FRAMES`).
+
+A change to the Python analyzer therefore cannot leave the web app silently behind: the fix is to port the change, regenerate the fixtures, and update `PORTED_FROM`. The test checks constants, not algorithms, so a logic change that keeps every constant and version passes it.
+
+Code: `web/tests/analysis/cli-drift.test.ts` (`pythonConstants`), `web/src/lib/analysis/port.ts` (`PORTED_FROM`)
 
 ## Limitations and open questions
 
@@ -275,4 +330,5 @@ Per `web/README.md` and the project's offline-operation rule in `AGENTS.md`/`doc
 - The Python side's `compute_feature_id`/`compute_rhythm_id` and the web side's `analysisKey` hash are conceptually the same idea (content + extractor identity to SHA-256) but are two independent implementations (`canonical_json` in Python vs. the hand-rolled `canonical()` in `web/src/app/actions/analysis.ts`) with no shared test or shared code; they are not interchangeable and a feature/rhythm ID from the CLI is never compared against an `analysis_key` from the browser.
 - `web/README.md` documents that browser analysis is checked against the CLI's Python output only on synthetic fixtures (`tests/analysis`), not on real-world accuracy — this doc describes how results are stored and gated, not whether either analyzer's numbers are correct (see [audio-features-and-tempo.md](audio-features-and-tempo.md), [rhythm-and-beat-grid.md](rhythm-and-beat-grid.md), [key-loudness-structure.md](key-loudness-structure.md)).
 - `cue_regions.analysis_id` is nullable and only set for analyzer-suggested cues; manually created or CSV-imported cues have no link back to any originating analysis, so the "delete stale suggestions" logic in `saveOne` only ever touches analyzer-sourced rows by construction, not by an explicit filter on origin beyond `provenance`/`review_status`.
-- No automatic energy estimator exists anywhere in the codebase, Python or web. `energy` and `energy_source` are filled only by the track form or by an import, never by analysis.
+- The energy estimate exists only in the web app, and it is library-relative, so stored `energy` values written by the model change whenever the library is rescored ([energy-estimate.md](energy-estimate.md)). CSV and Rekordbox imports do not trigger a rescore.
+- Rekordbox-imported tracks have no `asset_id`. A later browser analysis matches by asset ID only, so the imported track must be picked as the target or a second track is created.

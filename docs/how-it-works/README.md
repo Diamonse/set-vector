@@ -9,10 +9,11 @@ This folder explains how the project works: what each part computes, the formula
 | 1 | [System overview](overview.md) | The three parts, operating principles, the life of a track, where code lives, what is not built yet |
 | 2 | [Audio features and tempo](audio-features-and-tempo.md) | Decoding, hashing, resampling, frame features (RMS, centroid, bass ratio, onset strength), tempogram, DSP beat tracker |
 | 3 | [Rhythm and beat grid](rhythm-and-beat-grid.md) | Beat This! model, offline weights, grid fitting, candidate selection, final BPM |
-| 4 | [Key, loudness, and structure](key-loudness-structure.md) | Chromagram and key templates, Camelot, BS.1770 loudness, novelty boundaries, cue suggestions |
-| 5 | [Set planner](set-planner.md) | Transition scoring, energy arc, cue assignment, search, baselines, evaluation |
-| 6 | [Data and storage](data-and-storage.md) | Python artifacts and cache identity, CLI workflows, reports, Supabase schema, import, measurement statuses |
-| 7 | [Rekordbox bridge](rekordbox-bridge.md) | Reading Rekordbox XML, grid and cue conversion, comparison, safety rules |
+| 4 | [Key, loudness, and structure](key-loudness-structure.md) | Chromagram and key templates, Camelot, BS.1770 loudness, novelty boundaries, phrase-aligned cue suggestions |
+| 5 | [Energy estimate](energy-estimate.md) | Onset rate and other energy inputs, library-relative ranking, weights, who owns an energy value |
+| 6 | [Set planner](set-planner.md) | Transition scoring, energy arc, cue assignment, search, baselines, evaluation |
+| 7 | [Data and storage](data-and-storage.md) | Python artifacts and cache identity, CLI workflows, reports, Supabase schema, imports, measurement statuses, library filters, CLI drift test |
+| 8 | [Rekordbox bridge](rekordbox-bridge.md) | Reading Rekordbox XML, grid and cue conversion, comparison, safety rules, web app import |
 | — | [Glossary](glossary.md) | Short definitions of every term used above |
 
 ## How each page is laid out
