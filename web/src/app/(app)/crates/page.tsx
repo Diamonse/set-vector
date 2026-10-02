@@ -44,15 +44,19 @@ export default async function CratesPage() {
           {crates.map((c) => {
             const total = c.trackIds.reduce((s, id) => s + (durations.get(id) ?? 0), 0);
             return (
-              <li key={c.id} className="flex flex-col gap-2 panel p-6">
-                <Link href={`/crates/${c.id}`} className="text-card-title">
+              <li key={c.id} className="pad flex flex-col gap-2 p-6">
+                <Link
+                  href={`/crates/${c.id}`}
+                  data-pad-link
+                  className="text-card-title text-ink no-underline after:absolute after:inset-0 after:rounded-card focus-visible:outline-none"
+                >
                   {c.name}
                 </Link>
                 {c.description ? <p className="line-clamp-2 text-caption text-muted">{c.description}</p> : null}
                 <p className="text-data text-muted">
                   {c.trackIds.length} tracks · {formatTime(total)} full length
                 </p>
-                <div className="mt-2">
+                <div className="relative z-10 mt-2">
                   <Button asChild variant="secondary" size="sm">
                     <Link href={`/plans/new?crate=${c.id}`}>Plan from this crate</Link>
                   </Button>

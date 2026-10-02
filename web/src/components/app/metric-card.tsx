@@ -2,8 +2,9 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * A readout: label, large value, and optional detail. `meter` (0 to 1) adds a segmented
- * level bar like a mixer's meter; the value text always carries the same information.
+ * A readout on a deck screen: label, large value, and optional detail, always dark like a
+ * CDJ display. `meter` (0 to 1) adds a segmented level bar like a mixer's meter; the value
+ * text always carries the same information.
  */
 export function MetricCard({
   label,
@@ -25,7 +26,7 @@ export function MetricCard({
   const unavailable = value === null || value === undefined || value === "";
   const lit = meter === null || meter === undefined ? null : Math.round(Math.max(0, Math.min(1, meter)) * 20);
   return (
-    <div className={cn("flex flex-col gap-2 panel p-5", className)}>
+    <div className={cn("deck-screen m-1 flex flex-col gap-2 p-5", className)}>
       <div className="flex items-start justify-between gap-2">
         <span className="text-eyebrow text-muted">{label}</span>
         {status}
