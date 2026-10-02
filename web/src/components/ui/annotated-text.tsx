@@ -435,6 +435,8 @@ export interface AnnotatedTextProps {
   duration?: number;
   /** Additional classes applied to the wrapper. */
   className?: string;
+  /** Classes for the mark itself, to adjust its placement for unusual line heights. */
+  decorationClassName?: string;
 }
 
 export function AnnotatedText({
@@ -442,6 +444,7 @@ export function AnnotatedText({
   variant = "wavy",
   color,
   className,
+  decorationClassName,
   animate = true,
   delay = 0,
   duration = 0.65,
@@ -526,7 +529,7 @@ export function AnnotatedText({
   }, [animate, delay, duration, variant]);
 
   const mark: MarkDefinition = marks[variant];
-  const decorationClass = cn(mark.decoration, color ?? mark.color);
+  const decorationClass = cn(mark.decoration, color ?? mark.color, decorationClassName);
 
   return (
     <span ref={ref} className={cn(mark.wrapper, className)}>

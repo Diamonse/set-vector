@@ -107,7 +107,9 @@ export default async function HomePage() {
             </p>
             {/* Several reveals in one heading, so "set" can morph and "evidence" can take the action colour; the
                 delays continue the stagger, one beat per word. */}
-            <h1 className="mt-6 text-display max-w-[15ch]">
+            {/* A little looser than the display style's leading, with the underline under "evidence" set just below
+                the letters (the mark's default offset is measured from the line box), so it clears the next line. */}
+            <h1 className="mt-6 text-display max-w-[15ch] leading-[1.06]!">
               <KineticTextReveal text="Shape a" delay={0.1} />{" "}
               <span className="-my-[0.12em] inline-block overflow-hidden py-[0.12em] align-bottom">
                 <span className="kinetic-segment" style={{ "--kinetic-delay": "0.25s" } as React.CSSProperties}>
@@ -117,7 +119,7 @@ export default async function HomePage() {
               {/* The line ends after the morphing word, so a longer word never pushes the rest onto a new line. */}
               <br />
               <KineticTextReveal text="from" delay={0.325} />{" "}
-              <AnnotatedText variant="underline" delay={1.1}>
+              <AnnotatedText variant="underline" delay={1.1} decorationClassName="bottom-[-0.2em] h-[0.36em]">
                 <KineticTextReveal text="evidence" className="text-action" delay={0.4} />
               </AnnotatedText>{" "}
               <KineticTextReveal text="you can inspect." delay={0.475} />
