@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { PlanRequestForm } from "@/components/plans/plan-request-form";
 import { Button } from "@/components/ui/button";
 import { listCrates, listTracks } from "@/lib/data/queries";
+import { cueStateOf } from "@/lib/library/filters";
 import { requireUser } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/schemas";
 
@@ -15,7 +16,8 @@ export default async function NewPlanPage({ searchParams }: PageProps<"/plans/ne
   const crateParam = typeof params.crate === "string" && isUuid(params.crate) ? params.crate : null;
   const { supabase } = await requireUser();
   const [tracks, crates] = await Promise.all([listTracks(supabase), listCrates(supabase)]);
-  const pickerTracks = tracks.map(({ cues: _cues, notes: _notes, ...t }) => t);
+  // Cue lists stay on the server; the picker only needs each track's cue state to filter by it.
+  const pickerTracks = tracks.map(({ cues: _cues, notes: _notes, ...t }) => ({ ...t, cueState: cueStateOf({ ...t, cues: _cues }) }));
 
   return (
     <>

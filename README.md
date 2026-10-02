@@ -88,6 +88,9 @@ Supabase, with each user's rows visible only to that user.
   alternative, compare the plan with
   simple baselines (random, BPM-sorted, Camelot walk), record your own judgment of each
   transition, and export the plan as CSV or JSON.
+- **Home dashboard.** After signing in you land on a home page with quick actions, a
+  getting-started checklist, library health, charts of your tempos, keys, energy, and
+  styles, and your recent plans, analyses, and changes.
 - **Light and dark themes**, following your system setting or a manual choice.
 
 ### Using it

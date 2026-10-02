@@ -1,6 +1,6 @@
 "use client";
 
-import { Disc3, Library, ListMusic, Menu, X } from "lucide-react";
+import { Disc3, House, Library, ListMusic, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Button } from "@/components/ui/button";
 
 const NAV = [
+  { href: "/home", label: "Home", Icon: House },
   { href: "/library", label: "Library", Icon: Library },
   { href: "/crates", label: "Crates", Icon: Disc3 },
   { href: "/plans", label: "Plans", Icon: ListMusic },
@@ -65,7 +66,7 @@ export function TopBar({ email }: { email: string }) {
     <header ref={headerRef} className="sticky top-0 z-40 border-b border-divider bg-[var(--header-bg)] backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-4 py-2.5 md:px-6">
         <div className="flex items-center gap-8">
-          <Link href="/library" className="no-underline" aria-label="SetVector library">
+          <Link href="/home" className="no-underline" aria-label="SetVector home">
             <Logo />
           </Link>
           <nav aria-label="Main" className="key-well hidden items-center gap-1 rounded-[14px] p-1 md:flex">

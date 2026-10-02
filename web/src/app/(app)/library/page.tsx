@@ -15,7 +15,9 @@ import { requireUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Library" };
 
-export default async function LibraryPage() {
+export default async function LibraryPage({ searchParams }: PageProps<"/library">) {
+  const params = await searchParams;
+  const initialReview = params.review === "needs" || params.review === "complete" ? params.review : "all";
   const { supabase } = await requireUser();
   const [tracks, libraryEnergy] = await Promise.all([listTracks(supabase), loadLibraryEnergy(supabase).catch(() => null)]);
   const stale = libraryEnergy?.needsReanalysis.size ?? 0;
@@ -109,7 +111,7 @@ export default async function LibraryPage() {
             </div>
             <RecalculateEnergy />
           </section>
-          <TrackTable tracks={tracks} />
+          <TrackTable tracks={tracks} initialReview={initialReview} />
         </div>
       )}
     </>

@@ -740,3 +740,20 @@
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
 }
+
+/* First-load intro: hidden unless the head script marked <html> before first paint. */
+#intro-splash {
+  display: none;
+}
+html[data-intro] #intro-splash {
+  display: flex;
+  transition-property: opacity;
+  transition-timing-function: ease-out;
+}
+html[data-intro="leaving"] #intro-splash {
+  opacity: 0;
+  pointer-events: none;
+}
+html[data-intro="on"] body {
+  overflow: hidden;
+}
