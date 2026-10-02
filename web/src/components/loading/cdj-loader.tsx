@@ -203,7 +203,7 @@ const BLUE = "var(--electric)";
 const SOFT_BLUE = "var(--data-rhythm-dark)";
 
 /** Flat vector deck: the instant and no-WebGL version of the loader, beat-locked like the 3D one. */
-function DeckVector({ aspect, className }: { aspect: number; className?: string }) {
+export function DeckVector({ aspect, className }: { aspect: number; className?: string }) {
   const v = VECTORS.get(aspect)!;
   const id = aspect > 1 ? "w" : "n";
   const jogR = LAYOUT.jogR;
