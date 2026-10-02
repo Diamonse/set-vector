@@ -186,6 +186,8 @@ function SetOrder({
                 <TransitionCard
                   index={i}
                   transition={transition}
+                  from={item}
+                  to={plan.items[i + 1] ?? null}
                   worst={worst === i && plan.transitions.length > 1}
                   planId={planId}
                   judgment={judgments[`${transition.fromTrackId}>${transition.toTrackId}`]}

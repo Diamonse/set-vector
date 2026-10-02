@@ -272,6 +272,9 @@
  * LED rings, the hot-cue pads chase one per beat, the platter turns at 33 1/3 rpm, and the
  * waveform scrolls one bar (four beats) per cycle. Still under reduced motion.
  */
+@keyframes deck-blink {
+  50% { opacity: 0.25; }
+}
 @keyframes deck-kick {
   to { opacity: 0.5; }
 }
@@ -302,6 +305,10 @@
   }
   .deck-scroll {
     animation: deck-scroll 1.9355s linear infinite;
+  }
+  /* Empty readouts blink like a CDJ waiting for a track (one cycle per bar at 124 BPM). */
+  .deck-blink {
+    animation: deck-blink 1.9355s steps(1) infinite;
   }
 }
 
