@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Disc3, FileAudio, Upload, XCircle } from "lucide-react";
+import { CheckCircle2, Disc3, FileAudio, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAnalyses, type SaveOutcome } from "@/app/actions/analysis";
@@ -167,7 +167,7 @@ export function AnalyzeView({ tracks }: { tracks: LibraryTrackRef[] }) {
           </CardDescription>
         </CardHeader>
         <div
-          className={`flex flex-col items-center gap-3 rounded-inset border-2 border-dashed p-8 text-center ${dragOver ? "border-action bg-action/5" : "border-control-border"}`}
+          className={`flex flex-col items-center gap-3 rounded-inset border-2 border-dashed bg-[var(--field)] p-8 text-center shadow-[inset_0_1px_3px_var(--key-shade)] transition-colors ${dragOver ? "border-[var(--led-blue)]" : "border-control-border"}`}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);
@@ -179,8 +179,17 @@ export function AnalyzeView({ tracks }: { tracks: LibraryTrackRef[] }) {
             addFiles(e.dataTransfer.files);
           }}
         >
-          <Upload className="size-6 text-muted" aria-hidden />
-          <p>Drop audio files here, or</p>
+          {/* A deck's media slot: the LED lights blue while files are held over it, amber once some are queued. */}
+          <div aria-hidden className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-3">
+              <span
+                className={`size-2.5 rounded-full ${dragOver ? "bg-[var(--led-blue)] shadow-[0_0_8px_var(--led-blue)]" : items.length ? "bg-[var(--led-amber)] shadow-[0_0_8px_var(--led-amber)]" : "border border-[var(--key-edge)] bg-[var(--key-well)]"}`}
+              />
+              <span className="block h-4 w-36 rounded-[4px] bg-[#050506] shadow-[inset_0_2px_3px_rgb(0_0_0/0.9),0_0_0_2px_var(--key-edge),0_1px_0_3px_var(--key-highlight)]" />
+            </div>
+            <span className="font-mono text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">USB · SD</span>
+          </div>
+          <p>{dragOver ? "Release to load the files" : "Drop audio files here, or"}</p>
           <Button type="button" variant="secondary" onClick={() => inputRef.current?.click()}>
             Choose files
           </Button>

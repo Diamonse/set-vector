@@ -2,7 +2,8 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/app/logo";
 import { ThemeToggle } from "@/components/app/theme-toggle";
-import { WaveformArt } from "@/components/music/waveform-art";
+import { DeckVector } from "@/components/loading/cdj-loader";
+import { STAGE_ASPECT } from "@/components/loading/deck-layout";
 
 const POINTS = [
   "Analyze audio in your browser; files never leave your device",
@@ -23,7 +24,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <p className="mt-4 max-w-[16ch] font-[family-name:var(--font-display)] text-[44px] leading-[1.02] font-semibold tracking-[-0.04em] text-on-dark">
             Every transition, explained.
           </p>
-          <WaveformArt animated bars={64} className="mt-10 h-28" />
+          {/* The same vector deck as the page loader, playing on the beat. */}
+          <DeckVector aspect={STAGE_ASPECT.wide} className="-mx-4 mt-6 w-[calc(100%+2rem)] max-w-[520px]" />
           <ul className="mt-10 flex flex-col gap-3">
             {POINTS.map((p) => (
               <li key={p} className="flex items-start gap-3 text-on-dark-muted">

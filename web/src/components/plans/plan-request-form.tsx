@@ -83,6 +83,7 @@ function NumberField({
   );
 }
 
+/** Options as selector pads: the chosen pad presses in and its indicator LED lights blue. */
 function RadioCards<T extends string>({
   name,
   legend,
@@ -101,17 +102,11 @@ function RadioCards<T extends string>({
       <legend className="mb-3 text-ui text-ink">{legend}</legend>
       <div className="grid gap-3 md:grid-cols-2">
         {options.map((o) => (
-          <label
-            key={o.value}
-            className={`flex cursor-pointer gap-3 rounded-inset border p-4 ${value === o.value ? "border-action bg-action/5" : "border-control-border bg-surface hover:border-muted"}`}
-          >
-            <input
-              type="radio"
-              name={name}
-              value={o.value}
-              checked={value === o.value}
-              onChange={() => onChange(o.value)}
-              className="mt-1 size-4 accent-[var(--action)]"
+          <label key={o.value} className="key key-focus flex cursor-pointer gap-3 rounded-inset p-4 pr-10">
+            <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} className="peer sr-only" />
+            <span
+              aria-hidden
+              className="absolute top-4 right-4 size-2.5 rounded-full border border-[var(--key-edge)] bg-[var(--key-well)] peer-checked:border-transparent peer-checked:bg-[var(--led-blue)] peer-checked:shadow-[0_0_8px_var(--led-blue)]"
             />
             <span>
               <span className="block text-ui text-ink">{o.label}</span>
@@ -299,14 +294,16 @@ export function PlanRequestForm({
 
           {pool ? (
             <div className="flex flex-col gap-4">
-              <fieldset className="flex flex-wrap gap-6">
+              <fieldset>
                 <legend className="mb-2 text-ui text-ink">Target</legend>
-                {(["duration", "count"] as const).map((v) => (
-                  <label key={v} className="inline-flex min-h-11 items-center gap-2">
-                    <input type="radio" name="limit" checked={limit === v} onChange={() => setLimit(v)} className="size-4 accent-[var(--action)]" />
-                    {v === "duration" ? "Duration" : "Track count"}
-                  </label>
-                ))}
+                <div className="key-well inline-flex gap-1 rounded-[14px] p-1.5">
+                  {(["duration", "count"] as const).map((v) => (
+                    <label key={v} className="key-select key-focus inline-flex min-h-10 cursor-pointer items-center rounded-control px-4 pt-1 text-ui">
+                      <input type="radio" name="limit" checked={limit === v} onChange={() => setLimit(v)} className="sr-only" />
+                      {v === "duration" ? "Duration" : "Track count"}
+                    </label>
+                  ))}
+                </div>
               </fieldset>
               {limit === "count" ? (
                 <div className="max-w-xs">
