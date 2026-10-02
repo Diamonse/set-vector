@@ -261,13 +261,13 @@ export function RekordboxImport() {
       ) : null}
 
       {batchError ? (
-        <Alert tone="error" aria-live="polite">
+        <Alert tone="error">
           {batchError}
         </Alert>
       ) : null}
 
       {outcomes && outcomes.length > 0 ? (
-        <Alert tone={summary.skipped ? "warning" : "success"} aria-live="polite">
+        <Alert tone={summary.skipped ? "warning" : "success"}>
           <AlertTitle>
             {summary.created} added, {summary.linked} linked to existing tracks, {summary.updated} updated, {summary.skipped} skipped.{" "}
             {summary.cueRegions} cue region(s) created.

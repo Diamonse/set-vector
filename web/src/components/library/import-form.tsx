@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { importLibrary, type ImportState } from "@/app/actions/import";
+import { ActionForm } from "@/components/app/action-form";
 import { FormField } from "@/components/app/form-field";
 import { SubmitButton } from "@/components/app/submit-button";
 import { Alert } from "@/components/ui/alert";
@@ -23,7 +24,7 @@ export function ImportForm() {
   const preview = useMemo(() => (text.trim() ? parseLibrary(text) : null), [text]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-6">
+    <ActionForm state={state} action={formAction} className="flex flex-col gap-6">
       <Card>
         <CardHeader>
           <CardTitle>Source</CardTitle>
@@ -104,7 +105,7 @@ export function ImportForm() {
       ) : null}
 
       {state.message ? (
-        <Alert tone={state.ok ? "success" : "error"} aria-live="polite">
+        <Alert tone={state.ok ? "success" : "error"}>
           <p>{state.message}</p>
           {state.problems.length > 0 ? (
             <ul className="mt-2 list-disc pl-5 text-caption">
@@ -124,6 +125,6 @@ export function ImportForm() {
           Import {preview ? preview.tracks.length : 0} track(s)
         </SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

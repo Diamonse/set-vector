@@ -3,6 +3,7 @@
 import { Minus, Plus } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import { createPlan } from "@/app/actions/plans";
+import { ActionForm } from "@/components/app/action-form";
 import { FormMessage } from "@/components/app/form-message";
 import { SubmitButton } from "@/components/app/submit-button";
 import { TrackPicker, type PickerTrack } from "@/components/app/track-picker";
@@ -205,7 +206,7 @@ export function PlanRequestForm({
   }, [request, candidateIds, name, source, crateId, limit, pool]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-6">
+    <ActionForm state={state} action={formAction} className="flex flex-col gap-6">
       <input type="hidden" name="payload" value={payload} />
 
       <Card>
@@ -637,6 +638,6 @@ export function PlanRequestForm({
         </SubmitButton>
         {candidates.length === 0 ? <p className="text-caption text-muted">Choose candidate tracks first.</p> : null}
       </div>
-    </form>
+    </ActionForm>
   );
 }
