@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, JetBrains_Mono, Unbounded } from "next/font/google";
+import { IntroSplash } from "@/components/loading/intro-splash";
+import { INTRO_INIT_SCRIPT } from "@/lib/intro";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -22,10 +24,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // The theme script sets data-theme before hydration, so React must not warn about it.
+    // The theme and intro scripts set attributes before hydration, so React must not warn about them.
     <html lang="en" suppressHydrationWarning className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: INTRO_INIT_SCRIPT }} />
       </head>
       <body>
         <a
@@ -35,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         {children}
+        <IntroSplash />
       </body>
     </html>
   );
