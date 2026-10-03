@@ -1,11 +1,13 @@
 import "server-only";
 import type { Annotation, Crate, Track } from "@/lib/domain/types";
 import type { PlanRequest, PlanResult } from "@/lib/planner";
+import type { PlaylistEntry } from "@/lib/rekordbox/playlist";
 import type { ServerClient } from "@/lib/supabase/server";
 import { toAnnotation, toCrate, toTrack, type AnnotationRow, type CrateRow, type TrackRow } from "./rows";
 
 const TRACK_SELECT = "*, cue_regions(*)";
 const PAGE = 1000;
+const ID_BATCH = 150;
 
 /** Loads the whole library with cues, paging past PostgREST's row limit. */
 export async function listTracks(supabase: ServerClient): Promise<Track[]> {
@@ -193,6 +195,45 @@ export async function getRekordboxLink(supabase: ServerClient, trackId: string):
   if (error || !data) return null;
   const row = data as { rekordbox_track_id: number; location: string; tempo: StoredRekordboxLink["tempo"]; marks: StoredRekordboxLink["marks"]; imported_at: string };
   return { rekordboxTrackId: Number(row.rekordbox_track_id), location: row.location, tempo: row.tempo, marks: row.marks, importedAt: row.imported_at };
+}
+
+/** Rekordbox Location URIs keyed by track id; tracks without a link are absent. Empty if the table is not migrated yet. */
+async function listRekordboxLocations(supabase: ServerClient, ids: string[]): Promise<Map<string, string>> {
+  const locations = new Map<string, string>();
+  // Batches keep the id filter well inside URL length limits.
+  for (let from = 0; from < ids.length; from += ID_BATCH) {
+    const { data, error } = await supabase
+      .from("rekordbox_links")
+      .select("track_id, location")
+      .in("track_id", ids.slice(from, from + ID_BATCH));
+    if (error) return locations;
+    for (const row of (data ?? []) as { track_id: string; location: string }[]) locations.set(row.track_id, row.location);
+  }
+  return locations;
+}
+
+/** Playlist entries for plan items in set order, with each track's duration and Rekordbox location. */
+export async function listPlaylistEntries(
+  supabase: ServerClient,
+  items: { trackId: string; title: string; artist: string }[],
+): Promise<PlaylistEntry[]> {
+  const ids = [...new Set(items.map((i) => i.trackId))];
+  const durations = new Map<string, number>();
+  for (let from = 0; from < ids.length; from += ID_BATCH) {
+    const { data, error } = await supabase
+      .from("tracks")
+      .select("id, duration_seconds")
+      .in("id", ids.slice(from, from + ID_BATCH));
+    if (error) throw new Error(`Could not load the plan's tracks: ${error.message}`);
+    for (const row of (data ?? []) as { id: string; duration_seconds: number | string }[]) durations.set(row.id, Number(row.duration_seconds));
+  }
+  const locations = await listRekordboxLocations(supabase, ids);
+  return items.map((i) => ({
+    title: i.title,
+    artist: i.artist,
+    durationSeconds: durations.get(i.trackId) ?? null,
+    location: locations.get(i.trackId) ?? null,
+  }));
 }
 
 /** Most recent revisions across the library, newest first. */
