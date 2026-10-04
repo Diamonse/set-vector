@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { recordAnnotation } from "@/lib/data/annotations";
 import { refreshEnergyEstimates } from "@/lib/data/energy";
 import { fittingCues, planTrackUpdate } from "@/lib/analysis/apply";
+import { DURATION_TOLERANCE_SECONDS, uniqueTwin } from "@/lib/data/matching";
 import { saveAnalysisSchema, type SaveAnalysisInput } from "@/lib/analysis/schema";
 import type { ServerClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/supabase/server";
@@ -60,6 +61,20 @@ async function resolveTrack(supabase: ServerClient, input: SaveAnalysisInput): P
   }
   const { data: existing } = await supabase.from("tracks").select(TRACK_FIELDS).eq("asset_id", input.assetId).maybeSingle();
   if (existing) return { row: existing as TrackRowLite, created: false };
+  // A track from a Rekordbox import (or typed in) has no audio file yet. Reuse it when exactly one
+  // such track has this title, artist and length, so the analysis and the Rekordbox link share a track.
+  const seconds = input.result.durationSeconds;
+  const { data: unanalyzed } = await supabase
+    .from("tracks")
+    .select(`${TRACK_FIELDS}, title, artist`)
+    .is("asset_id", null)
+    .gte("duration_seconds", seconds - DURATION_TOLERANCE_SECONDS)
+    .lte("duration_seconds", seconds + DURATION_TOLERANCE_SECONDS);
+  const twin = uniqueTwin((unanalyzed ?? []) as (TrackRowLite & { title: string; artist: string })[], input.title, input.artist, seconds);
+  if (twin) {
+    const { error } = await supabase.from("tracks").update({ asset_id: input.assetId }).eq("id", twin.id).is("asset_id", null);
+    if (!error) return { row: twin, created: false };
+  }
   const { data, error } = await supabase
     .from("tracks")
     .insert({
