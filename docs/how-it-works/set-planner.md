@@ -341,7 +341,7 @@ Code: `web/src/lib/planner/evaluate.ts` → `assignCues`, `evaluateSequence`.
 
 ## 10. Diversity and duration
 
-**Artist and remix spacing.** For each track and each of the next `artistSpacing` tracks (so with spacing 3, fewer than 3 tracks in between), count an artist violation when they share an artist token, and a remix violation when they share a non-empty remix group (case-insensitive). Artist strings are lower-cased and split on `,`, `&`, `feat`, `feat.`, `ft`, `ft.`, a standalone `x`, `/` and `;`. Repeated plays of the same track are skipped here (the repeat rule handles them).
+**Artist and remix spacing.** For each track and each of the next `artistSpacing` tracks (so with spacing 3, fewer than 3 tracks in between), count an artist violation when they share an artist token, and a remix violation when they share a non-empty remix group (case-insensitive). Artist strings are lower-cased and split on `,`, `&`, `/`, `;`, a standalone `x`, and the whole words `feat`, `featuring` and `ft` (with or without a period), so names that only start with those letters, such as "Featurecast", stay whole. The beam search's step score uses the same tokens (`web/src/lib/planner/artists.ts` → `artistTokens`). Repeated plays of the same track are skipped here (the repeat rule handles them).
 
 **Style runs.** A track's primary style is its first tag. Each track beyond the 4th in a run with the same primary style adds 1 to the run excess $R$.
 
@@ -521,4 +521,4 @@ Code: `web/src/app/actions/plans.ts` → `createPlan`, `saveEditedOrder`, `adopt
 - **Plan creation is not atomic.** `createPlan` inserts the plan and its items in two statements; if the second fails, the plan exists without items (the message says so). Edits use the atomic `replace_plan_items`.
 - **Runtime.** Planning runs synchronously in the server action, and the exact solver runs outside the time budget. Anchors can never repeat even when repeats are allowed, because search never offers them as ordinary options.
 - **Heuristic, not proof.** If the proposal violates a constraint, that does not prove no valid plan exists (the warning says so). The exact solver only covers fixed crates of up to 8 tracks and is not used to replace the proposal.
-- **Small details.** `missingEvidence.reviewedCues` counts reviewed entries, not missing ones. The artist tokenizer splits on `feat`/`ft` at a word start, so "featuring" leaves a stray "uring" token and names starting with "ft" are split.
+- **Small details.** `missingEvidence.reviewedCues` counts reviewed entries, not missing ones.
