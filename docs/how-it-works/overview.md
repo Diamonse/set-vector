@@ -68,7 +68,7 @@ These rules come from `AGENTS.md`, `docs/architecture.md` and the code, and they
 2. A Web Worker runs the full analysis: features, tempo, Beat This! via ONNX (if available), grid selection, key, loudness, boundaries, phrase-aligned cue suggestions and the energy inputs.
 3. A server action validates the result with a Zod schema. It stores the full JSON in `track_analyses`, writes BPM and key onto the track only where the user has not reviewed them, and inserts cue suggestions as `pending`. It then rescores the energy estimate of every track the user has not rated.
 4. The user reviews values and cues in the track editor (waveform, beat markers, drag-to-resize regions). Each change is appended to `annotations`.
-5. The planner builds an order from a crate or pool. It scores directional transitions (exit region of A into entry region of B), assigns cues jointly, matches the result against an energy arc, and searches for a low-cost order. Each step is explained in the plan view and can be exported as CSV or JSON.
+5. The planner builds an order from a crate or pool. It scores directional transitions (exit region of A into entry region of B), assigns cues jointly, matches the result against an energy arc, and searches for a low-cost order. Each step is explained in the plan view and can be exported as CSV, JSON, or an M3U8 playlist that Rekordbox imports (paths come from Rekordbox-linked tracks only).
 
 **From Rekordbox (web app).** Instead of steps 1–3, **Library › Import › Import a Rekordbox collection** reads a collection export in the browser and adds or links tracks with Rekordbox's tempo, key, grid and cues. Cues become approved entry and exit regions; tracks without usable cues get phrase suggestions from the Rekordbox grid. Analyzing the audio later, with the imported track picked as the target, adds the browser measurements and the energy inputs.
 
@@ -87,8 +87,8 @@ These rules come from `AGENTS.md`, `docs/architecture.md` and the code, and they
 | `web/src/lib/analysis` | Browser analysis pipeline and worker |
 | `web/src/lib/energy` | Library-relative energy estimate |
 | `web/src/lib/cues` | Phrase-aligned entry and exit suggestions, shared by analysis and Rekordbox import |
-| `web/src/lib/rekordbox` | Browser XML reader, grid expansion and cue mapping for the Rekordbox import |
-| `web/src/lib/library`, `web/src/lib/home` | Library filters and sorting; home dashboard statistics |
+| `web/src/lib/rekordbox` | Browser XML reader, grid expansion and cue mapping for the Rekordbox import; M3U8 playlist export |
+| `web/src/lib/library`, `web/src/lib/home` | Library filters and sorting; home dashboard statistics and activity calendar |
 | `web/src/lib/planner` | Set planner (framework-free TypeScript) |
 | `web/src/lib/domain` | Shared types, Camelot logic, formatting |
 | `web/src/lib/data`, `web/src/app/actions` | Supabase queries and server actions |
@@ -100,5 +100,5 @@ These rules come from `AGENTS.md`, `docs/architecture.md` and the code, and they
 
 - **Calibrated energy model.** `docs/architecture.md` plans an energy module (calibrated curves with explanations). Today the web app has an experimental, library-relative 1–10 estimate with fixed, unvalidated weights ([energy-estimate.md](energy-estimate.md)), used only where the user has no rating of their own. There are no energy curves within a track.
 - **Key, loudness, structure and energy in Python.** These exist only in the web app.
-- **Writing back to Rekordbox from the web app.** The web import only reads; writing XML is done by the Python bridge.
+- **Writing grids and cues back to Rekordbox from the web app.** The web app reads Rekordbox XML and exports plans as M3U8 playlists, but it writes no XML; grids and cues go to Rekordbox only through the Python bridge.
 - **Transitions and playlists in Python.** The planner lives only in the web app.

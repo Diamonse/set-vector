@@ -14,7 +14,7 @@ All weights and thresholds are declared starting hypotheses, not fitted values (
 6. **Beam search** builds candidate orders from a cheap step score (30 % of the time budget).
 7. **Local search** (swap, relocate, and in pool mode replace, add, remove) improves several beam results under the full objective. Each evaluation assigns cues **jointly** along the sequence (Viterbi).
 8. Pick the best as the **proposal**, keep up to `alternatives` close but different plans, run four **baselines** on the same tracks, and for fixed crates of up to 8 tracks run the **exact solver** to measure the optimizer gap.
-9. **Save** the request and result as JSON on the plan, write one `plan_items` row per track, and allow edits, adoption of an alternative, transition judgments, and CSV or JSON **export**.
+9. **Save** the request and result as JSON on the plan, write one `plan_items` row per track, and allow edits, adoption of an alternative, transition judgments, and CSV, JSON or M3U8 playlist **export**.
 
 Code: `web/src/lib/planner/index.ts` → `planSet`.
 
@@ -487,11 +487,23 @@ Code: `web/src/lib/planner/types.ts` → `PlanMetrics`, `PlanResult`; `web/src/l
 
 **Judge a transition.** `judgeTransition` records a pair annotation (`works`, `needs_adjustment`, `clash`) with the option IDs. These judgments are stored for future evaluation and weight fitting; the planner does not read them yet.
 
-**Export.** `GET /plans/{id}/export?format=json` returns `{name, request, result}`. Any other format returns CSV of the proposal, one row per track, CRLF line endings, quoted where needed:
+**Export.** `GET /plans/{id}/export?format=…` signs the user in, loads the plan, and returns the current proposal in one of three formats. The file name is a slug of the plan name.
+
+| `format` | Contents |
+|---|---|
+| `json` | `{name, request, result}`, pretty-printed |
+| `m3u8` | An extended M3U8 playlist of the proposal's file paths, for Rekordbox's *File › Import › Import Playlist* (below) |
+| `csv`, or anything else | One row per track, as below |
+
+**M3U8.** Rekordbox needs a local file path on each line, and the web app never holds audio files, so the path comes from the track's Rekordbox link (`rekordbox_links.location`, decoded with the same `pathFromLocation` as the import). Each track becomes `#EXTINF:<seconds>,<artist> - <title>` followed by its path, in set order, with repeats written each time they occur. Duration is rounded to whole seconds, or `-1` if unknown; line breaks in the label become spaces. Windows drive paths get backslashes, other paths are kept as they are. A track with no link, a non-file location, or a path containing a line break cannot be written: it becomes a `# Skipped, no Rekordbox file path: …` comment, so the gap stays visible in the file, and the plan page lists those tracks before download. The file starts with `#EXTM3U`, uses CRLF line endings, and is served as `audio/x-mpegurl; charset=utf-8`. Only the order is exported; cues, grids and transitions are not part of an M3U8.
+
+Code: `web/src/app/(app)/plans/[planId]/export/route.ts` → `GET`; `web/src/lib/rekordbox/playlist.ts` → `buildM3u8`, `playlistPath`; `web/src/lib/data/queries.ts` → `listPlaylistEntries`.
+
+**CSV.** One row per track, CRLF line endings, quoted where needed:
 
 `position, title, artist, elapsed_start_s, play_start_s, play_end_s, entry, entry_status, exit, exit_status, energy, target_energy, next_transition, overlap_s, tempo_adjust_pct, transition_cost, review_needed, explanation`
 
-The transition columns describe the move from that row to the next, so they are empty on the last row. The file name is a slug of the plan name.
+The transition columns describe the move from that row to the next, so they are empty on the last row.
 
 Code: `web/src/app/actions/plans.ts` → `createPlan`, `saveEditedOrder`, `adoptAlternative`, `judgeTransition`, `deletePlan`; `web/src/app/(app)/plans/[planId]/export/route.ts` → `GET`; `web/src/lib/planner/index.ts` → `evaluateEditedOrder`.
 

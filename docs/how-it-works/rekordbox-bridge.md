@@ -2,7 +2,7 @@
 
 The Rekordbox bridge reads a Rekordbox XML collection export, matches its tracks to local audio files, and writes a second XML file that Rekordbox can import: SetVector's beat grid for tracks Rekordbox has not analyzed, and SetVector's cues on top of whatever the user already has. It never touches Rekordbox's own database, and it never replaces an existing grid or an existing (non-SetVector) cue. A companion script, `scripts/rekordbox_probe.py`, measures what a given Rekordbox version actually does with an imported file, because the bridge will not change a track already in the collection until that version has been measured.
 
-The web app has a separate, read-only **Rekordbox import** (section 9). It parses the same export in the browser, adds or links library tracks, keeps each track's Rekordbox grid and cue points, and turns the cues into entry and exit regions for the planner. It never writes XML back.
+The web app has a separate, read-only **Rekordbox import** (section 9). It parses the same export in the browser, adds or links library tracks, keeps each track's Rekordbox grid and cue points, and turns the cues into entry and exit regions for the planner. It never writes XML back. In the other direction, the web app can export a plan as an M3U8 playlist that Rekordbox imports, using the file paths recorded by the import (section 9.7).
 
 This page covers the XML shapes involved, how a track is matched between the two sides, the grid-conversion math, how cues are placed, the comparison report used by the probe, the safety rules, and the web import. Beat and downbeat detection itself (the Beat This! model and its fallback) is covered in `rhythm-and-beat-grid.md`; where artifacts are cached on disk is covered in `data-and-storage.md`.
 
@@ -391,11 +391,23 @@ Code: `web/src/app/(app)/library/[trackId]/page.tsx`; `web/src/lib/data/queries.
 
 | | Python bridge | Web import |
 |---|---|---|
-| Direction | Reads and writes XML | Reads only |
+| Direction | Reads and writes XML | Reads XML; writes only M3U8 playlists of a plan's file paths |
 | Track matching | Decoded file path | `Location` URI, then title and artist (and version, duration) |
 | Grid | Converts SetVector grids into `TEMPO` markers | Keeps Rekordbox markers and expands them for display and suggestions |
 | Cues | Writes `SV …` cues into free slots | Reads every cue and maps it to an entry or exit region |
 | Audio | Analyzes local files | Uses no audio; `asset_id` stays empty until the file is analyzed in the browser |
+
+### 9.7 Plan export as an M3U8 playlist
+
+**What and why.** A finished plan is most useful as a playlist inside Rekordbox. Rekordbox's *File › Import › Import Playlist* accepts an extended M3U8 file that lists absolute file paths, and adds any file it does not hold yet. Writing a playlist needs only paths, so it is much simpler and safer than writing collection XML: nothing about existing tracks, grids or cues is touched.
+
+**Where the paths come from.** The web app never stores audio or file paths of its own. The only local path it knows is the `Location` URI that a Rekordbox import saved on `rekordbox_links`. So a track can appear in the playlist only if a Rekordbox import created it or matched it to an existing library track. A track added by browser analysis or CSV alone is written as a comment line instead, and the plan page warns about those tracks.
+
+**Path rules.** `playlistPath` decodes the URI with `pathFromLocation` (section 9.1), so `file://localhost/C:/Users/dj/Music/Caf%C3%A9.mp3` becomes `C:\Users\dj\Music\Café.mp3`: Windows drive paths get backslashes, and other paths, such as macOS `/Users/...`, are kept as they are. Streaming locations and paths containing a line break give no path, because a line break would split the playlist entry.
+
+The file format and HTTP details are in [set-planner.md](set-planner.md) section 17.
+
+Code: `web/src/lib/rekordbox/playlist.ts` → `playlistPath`, `buildM3u8`; `web/src/lib/data/queries.ts` → `listPlaylistEntries`; `web/tests/rekordbox/playlist.test.ts`.
 
 ---
 
@@ -422,3 +434,11 @@ Web import:
 - **Partial results on a link failure.** The track is created or its empty fields filled before the link is written. If the link then fails (for example, another track is already linked to the same location), the track change stays but its grid and cues are not saved; the outcome says so.
 - **No audio identity.** The import cannot fill `asset_id`. Analyzing the file later must target the imported track explicitly, or the analysis creates a second track.
 - **Energy estimates are not refreshed** after an import, even when it fills a BPM that the estimate uses ([energy-estimate.md](energy-estimate.md)).
+
+Playlist export:
+
+- **Only Rekordbox-linked tracks have paths.** Tracks known only from browser analysis or CSV import are commented out, so a library built without the Rekordbox import exports an empty playlist.
+- **A failed link read looks like a missing path.** `listRekordboxLocations` returns what it has read so far when a query fails, so those tracks are reported as having no Rekordbox file path rather than as an error.
+- **Paths are only as fresh as the last import.** A file moved or renamed since then is written at its old path, and Rekordbox cannot find it.
+- **Network-share locations keep forward slashes.** Only drive-letter paths are converted to backslashes; whether Rekordbox accepts a `//server/share/...` line has not been checked.
+- **Order only.** The playlist carries no cue, grid or transition information; mix points stay in the plan view and the CSV export.

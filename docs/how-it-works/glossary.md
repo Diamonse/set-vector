@@ -129,4 +129,5 @@ Short definitions of the terms used in this folder. The page in brackets has the
 | Capability profile | The import behaviour measured for one Rekordbox version (hot-cue slots, memory-cue limit, colours, re-import behaviour). It is filled only from probe results. |
 | Drift tolerance | 5 ms: the most accumulated BPM-rounding error allowed before a new TEMPO marker is started. |
 | Web import | The web app's read-only Rekordbox import. It links tracks by `Location`, then by title and artist, and turns cues into approved entry and exit regions. [rekordbox](rekordbox-bridge.md) |
+| M3U8 playlist | A text playlist of file paths (`#EXTM3U`, one `#EXTINF` line per track). The web app exports plans in this format for Rekordbox, using paths from Rekordbox-linked tracks. [rekordbox](rekordbox-bridge.md) |
 | Cue role | Whether a Rekordbox cue becomes an entry or an exit: from its type (fade-in, fade-out), then its name (Intro, Mix out, …), then its position (first or last third). [rekordbox](rekordbox-bridge.md) |

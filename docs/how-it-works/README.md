@@ -13,7 +13,7 @@ This folder explains how the project works: what each part computes, the formula
 | 5 | [Energy estimate](energy-estimate.md) | Onset rate and other energy inputs, library-relative ranking, weights, who owns an energy value |
 | 6 | [Set planner](set-planner.md) | Transition scoring, energy arc, cue assignment, search, baselines, evaluation |
 | 7 | [Data and storage](data-and-storage.md) | Python artifacts and cache identity, CLI workflows, reports, Supabase schema, imports, measurement statuses, library filters, CLI drift test |
-| 8 | [Rekordbox bridge](rekordbox-bridge.md) | Reading Rekordbox XML, grid and cue conversion, comparison, safety rules, web app import |
+| 8 | [Rekordbox bridge](rekordbox-bridge.md) | Reading Rekordbox XML, grid and cue conversion, comparison, safety rules, web app import, M3U8 plan export |
 | — | [Glossary](glossary.md) | Short definitions of every term used above |
 
 ## How each page is laid out
