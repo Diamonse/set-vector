@@ -288,7 +288,7 @@ Code: `web/src/lib/library/filters.ts` (`filterTracks`, `sortTracks`, `cueStateO
 | `energyFeatures` | optional: loud-section and integrated loudness, loudness range, onset rate, mean bass ratio, mean centroid — the inputs to the energy estimate ([energy-estimate.md](energy-estimate.md)). Absent in results saved before extractor version 2 |
 | `warnings` | free-text notices surfaced to the user (e.g. no model available, no reliable grid) |
 
-The extractor is `web-analysis` version 3: version 2 added `energyFeatures`, and version 3 changed cue suggestions to phrase-aligned candidates. Because the version is part of the `analysis_key`, re-analyzing a file after an upgrade stores a new row rather than reusing the old one.
+The extractor is `web-analysis` version 4: version 2 added `energyFeatures`, version 3 changed cue suggestions to phrase-aligned candidates, and version 4 stopped the fallback beat tracker from placing beats in silent leading and trailing frames. Because the version is part of the `analysis_key`, re-analyzing a file after an upgrade stores a new row rather than reusing the old one.
 
 This shape is deliberately the single source of truth validated by `analysisResultSchema`; nothing about *how* tempo, key, loudness, or structure are computed belongs here — see [audio-features-and-tempo.md](audio-features-and-tempo.md), [rhythm-and-beat-grid.md](rhythm-and-beat-grid.md), and [key-loudness-structure.md](key-loudness-structure.md).
 
