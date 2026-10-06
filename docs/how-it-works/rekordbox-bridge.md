@@ -432,7 +432,6 @@ Web import:
 - **Phrase suggestions assume 8-bar phrases from the first bar line** of the Rekordbox grid, and Rekordbox's default grids are often not hand-checked.
 - **Filled fields stay on a link failure.** For a matched track, empty fields are filled before the link is written. If the link then fails (for example, another track is already linked to the same location), the filled fields stay but the grid and cues are not saved; the outcome says so. A new track is never left behind, since it is created together with its link.
 - **No audio identity.** The import cannot fill `asset_id`. Analyzing the file later must target the imported track explicitly, or the analysis creates a second track.
-- **Energy estimates are not refreshed** after an import, even when it fills a BPM that the estimate uses ([energy-estimate.md](energy-estimate.md)).
 
 Playlist export:
 

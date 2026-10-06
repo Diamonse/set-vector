@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { recordAnnotation } from "@/lib/data/annotations";
+import { refreshEnergyEstimates } from "@/lib/data/energy";
 import { parseLibrary, type ImportProblem } from "@/lib/import/parse";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -75,6 +76,8 @@ export async function importLibrary(_prev: ImportState, formData: FormData): Pro
       isEstimate: true,
       payload: { format: parsed.format, imported, skipped, problems: problems.length },
     });
+    // Imported tempos and energies change the library every estimate is ranked against.
+    await refreshEnergyEstimates(supabase);
   }
   revalidatePath("/library");
   return {

@@ -179,6 +179,8 @@ A consequence: clearing the energy field on the track form makes the track model
 | At least one analysis saved | `saveAnalyses` |
 | A track's form saved (a tempo edit or a cleared energy value changes the estimates) | `updateTrack` |
 | A track deleted | `deleteTrack` |
+| A CSV or JSON import that added tracks | `importLibrary` |
+| A Rekordbox import that created, linked or updated tracks (once, after the last batch) | `RekordboxImport` → `recalculateEnergy` |
 | **Library › Recalculate energy** | `recalculateEnergy` |
 
 Code: `web/src/lib/data/energy.ts` → `refreshEnergyEstimates`; `web/src/app/actions/energy.ts` → `recalculateEnergy`; `web/supabase/migrations/20261002000000_energy_estimates.sql`.
@@ -191,7 +193,6 @@ The planner reads `tracks.energy` whatever its source, so model estimates feed t
 
 - **Uncalibrated.** The weights (0.35, 0.25, 0.15, 0.15, 0.10), reference ranges and prior weight 8 are hypotheses. They are not fitted to listener judgments, and the score is not a calibrated measure of perceived energy. The per-input points are kept so the estimate can be compared with the user's ratings later.
 - **Library-relative.** The same track can score differently in two libraries, and a score changes when other tracks are added, analyzed or deleted. A saved plan's stored scores reflect the energies at planning time; editing the plan re-scores it with the current values.
-- **Not refreshed after imports.** CSV and Rekordbox imports do not trigger a refresh. A Rekordbox import that fills an empty BPM on an analyzed track leaves its estimate stale until the next refresh event or a manual recalculation.
 - **Whole-track values.** Every input is a whole-track summary. Energy inside a specific entry or exit region, or the build and drop shape within a track, is not measured.
 - **Tempo as energy.** Tempo is scored on its absolute value, so a half-time track noted at 70 BPM ranks as slow even when it feels as intense as a 140 BPM track.
 - **Older analyses** have no onset rate and use a loudness derived from the rounded short-term series. Their estimates use four inputs until the file is analyzed again.
