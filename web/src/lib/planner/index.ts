@@ -59,6 +59,14 @@ export function prepareRequest(tracks: PlannerTrack[], request: PlanRequest): Pr
   }
 
   const anchored = new Set([...request.requiredTrackIds, request.startTrackId, request.endTrackId].filter(Boolean));
+  // Pruning would silently leave supplied tracks out of a use-all plan, so refuse instead.
+  const searchLimit = Math.max(request.search.maxCandidates, 2);
+  if (request.selectionPolicy === "use_all" && candidates.length > searchLimit) {
+    problems.push({
+      field: "candidateTrackIds",
+      message: `Using every track works with at most ${searchLimit} tracks (the search limit); ${candidates.length} were given. Raise the search limit or choose from a pool.`,
+    });
+  }
   if (request.selectionPolicy === "choose_from_pool") {
     if (request.targetCount === null && request.targetDuration === null) {
       problems.push({

@@ -157,6 +157,12 @@ describe("planSet", () => {
     expect(() => planSet(library, request(ids, { selectionPolicy: "choose_from_pool" }))).toThrow(/count or duration/);
   });
 
+  it("rejects use-all requests with more tracks than the search limit instead of dropping tracks", () => {
+    const r = request(ids);
+    r.search = { ...r.search, maxCandidates: 3 };
+    expect(() => planSet(library, r)).toThrow(/at most 3 tracks/);
+  });
+
   it("reports violations for an edited order", () => {
     const r = request(ids, { startTrackId: "t1" });
     const edited = evaluateEditedOrder(library, r, ["t2", "t1", "t3", "t4", "t5", "t6"]);
