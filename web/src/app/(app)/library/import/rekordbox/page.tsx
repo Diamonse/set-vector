@@ -39,8 +39,8 @@ export default function RekordboxImportPage() {
               <li>Average BPM and key, as estimates. Existing values in your library are kept; only empty fields are filled.</li>
               <li>The tempo markers, shown as a beat grid on the track&apos;s Audio tab. Rekordbox grids are a strong reference for bar lines, not ground truth.</li>
               <li>
-                Hot cues, memory cues, and loops become approved entry and exit regions. A cue named like Intro or Mix in is an entry, Outro or
-                Mix out an exit; unnamed cues in the first third are entries and in the last third exits. Each region runs 32 beats on the grid;
+                Hot cues, memory cues, and loops become entry and exit regions. A cue named like Intro or Mix in is an approved entry, Outro or
+                Mix out an approved exit; other cues in the first third are entries and in the last third exits, left pending for you to confirm. Each region runs 32 beats on the grid;
                 loops keep their length.
               </li>
               <li>Tracks with a grid but no usable cue for the start or end get phrase-aligned suggestions from the grid to review.</li>

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { recordAnnotation } from "@/lib/data/annotations";
 import { closeDuration, normName as norm } from "@/lib/data/matching";
-import { mapRekordboxCues } from "@/lib/rekordbox/cues";
+import { cueRegionStatus, mapRekordboxCues } from "@/lib/rekordbox/cues";
 import { rekordboxImportSchema, type RekordboxImportTrack } from "@/lib/rekordbox/schema";
 import type { ServerClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/supabase/server";
@@ -95,15 +95,15 @@ async function applyCueRegions(supabase: ServerClient, work: CueWork[], outcomes
         ),
     );
     for (const r of fresh) {
-      const approved = r.origin === "rekordbox_cue";
+      const status = cueRegionStatus(r);
       rows.push({
         track_id: w.trackId,
         kind: r.kind,
         start_seconds: r.startSeconds,
         end_seconds: r.endSeconds,
         label: r.label.slice(0, 120),
-        provenance: approved ? "reviewed" : "estimate",
-        review_status: approved ? "approved" : "pending",
+        provenance: status.provenance,
+        review_status: status.reviewStatus,
         vocal_activity: "unknown",
         rekordbox_link_id: w.linkId,
       });

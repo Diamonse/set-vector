@@ -24,8 +24,10 @@ export interface MappedCueRegion {
   startSeconds: number;
   endSeconds: number;
   label: string;
-  /** Approved Rekordbox cue, or a pending suggestion from the grid. */
+  /** A Rekordbox cue placed by the user, or a suggestion from the grid. */
   origin: "rekordbox_cue" | "rekordbox_grid";
+  /** For a cue, what decided its role: its type, its name, or only its position. */
+  roleSource?: RoleSource;
 }
 
 export interface CueMapping {
@@ -34,16 +36,32 @@ export interface CueMapping {
   ignored: number;
 }
 
-export function roleOf(mark: PositionMark, duration: number): "entry" | "exit" | null {
-  if (mark.kind === "fade_in") return "entry";
-  if (mark.kind === "fade_out") return "exit";
+export type RoleSource = "type" | "name" | "position";
+
+export function classifyMark(mark: PositionMark, duration: number): { role: "entry" | "exit"; source: RoleSource } | null {
+  if (mark.kind === "fade_in") return { role: "entry", source: "type" };
+  if (mark.kind === "fade_out") return { role: "exit", source: "type" };
   if (mark.kind === "load") return null;
   const entry = ENTRY_NAME.test(mark.name);
   const exit = EXIT_NAME.test(mark.name);
-  if (entry !== exit) return entry ? "entry" : "exit";
-  if (mark.startSeconds < duration / 3) return "entry";
-  if (mark.startSeconds > (duration * 2) / 3) return "exit";
+  if (entry !== exit) return { role: entry ? "entry" : "exit", source: "name" };
+  if (mark.startSeconds < duration / 3) return { role: "entry", source: "position" };
+  if (mark.startSeconds > (duration * 2) / 3) return { role: "exit", source: "position" };
   return null;
+}
+
+export function roleOf(mark: PositionMark, duration: number): "entry" | "exit" | null {
+  return classifyMark(mark, duration)?.role ?? null;
+}
+
+/**
+ * How an imported region is stored. The user placed every Rekordbox cue, so its time is
+ * `reviewed`; it is approved only when its type or name says whether it is a way in or out.
+ * A role guessed from position, and every grid suggestion, waits for review.
+ */
+export function cueRegionStatus(region: MappedCueRegion): { provenance: "reviewed" | "estimate"; reviewStatus: "approved" | "pending" } {
+  if (region.origin === "rekordbox_grid") return { provenance: "estimate", reviewStatus: "pending" };
+  return { provenance: "reviewed", reviewStatus: region.roleSource === "position" ? "pending" : "approved" };
 }
 
 function describe(mark: PositionMark): string {
@@ -80,11 +98,12 @@ export function mapRekordboxCues(marks: PositionMark[], tempo: TempoMarker[], du
   let ignored = 0;
   for (const mark of marks) {
     if (mark.startSeconds >= duration) continue;
-    const kind = roleOf(mark, duration);
-    if (!kind) {
+    const role = classifyMark(mark, duration);
+    if (!role) {
       if (mark.kind !== "load") ignored++;
       continue;
     }
+    const kind = role.role;
     const end = mark.kind === "loop" && mark.endSeconds !== null ? mark.endSeconds : endAfter(mark.startSeconds);
     if (end === null) continue;
     const endSeconds = Math.min(duration, end);
@@ -95,6 +114,7 @@ export function mapRekordboxCues(marks: PositionMark[], tempo: TempoMarker[], du
       endSeconds: round(endSeconds),
       label: describe(mark),
       origin: "rekordbox_cue",
+      roleSource: role.source,
       hot: mark.slot !== null,
     });
   }

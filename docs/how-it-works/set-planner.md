@@ -96,7 +96,7 @@ Code: `web/src/lib/planner/index.ts` → `pruneCandidates`, `resolveTargetCount`
 
 with 30 s in place of the 32-beat phrase when BPM is unknown. At 124 BPM that is 15.5 s. The 32 beats are an assumed phrase length, not a detected one.
 
-Where the options come from: the browser analyzer suggests up to three entries and three exits on 8-bar phrase starts (`pending`, so origin `pending` until reviewed; see [key-loudness-structure.md](key-loudness-structure.md)). A Rekordbox import turns the user's own cues into `reviewed`, `approved` regions (origin `reviewed`, cue cost 0), and adds `pending` phrase suggestions from the Rekordbox grid for a role with no usable cue ([rekordbox-bridge.md](rekordbox-bridge.md)). With several options per kind, the joint cue assignment (section 9) picks the pair that fits each transition.
+Where the options come from: the browser analyzer suggests up to three entries and three exits on 8-bar phrase starts (`pending`, so origin `pending` until reviewed; see [key-loudness-structure.md](key-loudness-structure.md)). A Rekordbox import turns the user's own cues into `reviewed` regions, approved (origin `reviewed`, cue cost 0) when the cue type or name gives the role and pending when only its position does, and adds `pending` phrase suggestions from the Rekordbox grid for a role with no usable cue ([rekordbox-bridge.md](rekordbox-bridge.md)). With several options per kind, the joint cue assignment (section 9) picks the pair that fits each transition.
 
 **Listening mode.** One option each: "Track start" $[0, w]$ and "Track end" $[\text{duration}-w, \text{duration}]$ with $w = \min(20, \text{duration}/4)$, origin `full_track`, vocal activity unknown.
 

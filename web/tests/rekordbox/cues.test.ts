@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapRekordboxCues, roleOf } from "@/lib/rekordbox/cues";
+import { cueRegionStatus, mapRekordboxCues, roleOf } from "@/lib/rekordbox/cues";
 import type { PositionMark, TempoMarker } from "@/lib/rekordbox/read";
 
 const tempo: TempoMarker[] = [{ startSeconds: 0.05, bpm: 124, meter: "4/4", beatInBar: 1 }];
@@ -79,5 +79,30 @@ describe("Rekordbox cue regions", () => {
     const { regions } = mapRekordboxCues([mark(5, { name: "Intro" })], [], 300, 120);
     expect(regions).toHaveLength(1);
     expect(regions[0]!.endSeconds).toBeCloseTo(5 + 16, 3);
+  });
+});
+
+describe("Rekordbox cue review status", () => {
+  it("approves cues whose role comes from their type or name and leaves position guesses pending", () => {
+    const { regions } = mapRekordboxCues(
+      [
+        mark(10, { kind: "fade_in" }),
+        mark(40, { name: "Mix in", slot: 1 }),
+        mark(70, { slot: 2 }), // unnamed, first third: entry by position
+        mark(240, { name: "Outro", slot: 5 }),
+      ],
+      tempo,
+      300,
+    );
+    const status = (start: number) => cueRegionStatus(regions.find((r) => Math.abs(r.startSeconds - start) < 0.01)!);
+    expect(status(10)).toEqual({ provenance: "reviewed", reviewStatus: "approved" });
+    expect(status(40)).toEqual({ provenance: "reviewed", reviewStatus: "approved" });
+    expect(status(70)).toEqual({ provenance: "reviewed", reviewStatus: "pending" });
+    expect(status(240)).toEqual({ provenance: "reviewed", reviewStatus: "approved" });
+  });
+
+  it("leaves grid suggestions as pending estimates", () => {
+    const { regions } = mapRekordboxCues([], tempo, 300);
+    expect(regions.every((r) => cueRegionStatus(r).provenance === "estimate" && cueRegionStatus(r).reviewStatus === "pending")).toBe(true);
   });
 });

@@ -375,11 +375,11 @@ Code: `web/src/app/actions/rekordbox.ts` → `importRekordboxBatch`, `fillEmpty`
 
 **Grid suggestions.** If the track has a grid but no usable cue for a role, the import adds up to three phrase-aligned suggestions for that role from the grid, using the same `phraseCues` as the analyzer (see [key-loudness-structure.md](key-loudness-structure.md)) with bar starts taken from grid positions of 1 and the label prefix "Grid" (for example "Grid outro at bar 161"). No section boundaries are used, since the import has no audio.
 
-**Status.** Regions from cues are saved as `provenance = reviewed`, `review_status = approved`, because the user placed those cues; the planner gives them cue cost 0. Grid suggestions are `estimate` and `pending`.
+**Status.** Regions from cues are saved with `provenance = reviewed`, because the user placed those cues. They are `approved` when the role came from the cue type or name, and the planner then gives them cue cost 0. A role taken only from the position is a guess, so those regions stay `pending` (origin `pending` in the planner, cost 0.4) until the user confirms them. Grid suggestions are `estimate` and `pending`.
 
 **Re-imports.** Each region keeps `rekordbox_link_id`. A later import first deletes the regions that still carry the link, then skips any new region within 0.5 s (start and end) of an existing region of the same kind. A trigger (`detach_edited_rekordbox_cue`) clears `rekordbox_link_id` whenever the user edits, approves or rejects a region, so the user's decision survives later imports.
 
-Code: `web/src/lib/rekordbox/cues.ts` → `roleOf`, `mapRekordboxCues`; `web/src/app/actions/rekordbox.ts` → `applyCueRegions`; `web/supabase/migrations/20261002010000_rekordbox_cue_regions.sql`.
+Code: `web/src/lib/rekordbox/cues.ts` → `classifyMark`, `mapRekordboxCues`, `cueRegionStatus`; `web/src/app/actions/rekordbox.ts` → `applyCueRegions`; `web/supabase/migrations/20261002010000_rekordbox_cue_regions.sql`.
 
 ### 9.5 Display
 
@@ -428,7 +428,7 @@ As of this writing, `PROFILES` is **empty** — no Rekordbox version has actuall
 Web import:
 
 - **Name matching can pick the wrong track.** Two different files with the same title and artist, and lengths within 2 s, are indistinguishable from the export alone. The result list reports what was linked so the user can check.
-- **Cue roles are guessed.** Name matching is English-only and literal. A cue named for its content ("Vocal", "Drop") falls back to its position, and a cue in the middle third is ignored. Every mapped cue is saved as `reviewed` and `approved` even though the role was inferred.
+- **Cue roles are guessed.** Name matching is English-only and literal. A cue named for its content ("Vocal", "Drop") falls back to its position, and a cue in the middle third is ignored. Position-only roles are left pending, so they need a manual review before the planner trusts them. When a memory cue and a hot cue share a point, the hot cue is kept even if only the memory cue is named.
 - **Phrase suggestions assume 8-bar phrases from the first bar line** of the Rekordbox grid, and Rekordbox's default grids are often not hand-checked.
 - **Partial results on a link failure.** The track is created or its empty fields filled before the link is written. If the link then fails (for example, another track is already linked to the same location), the track change stays but its grid and cues are not saved; the outcome says so.
 - **No audio identity.** The import cannot fill `asset_id`. Analyzing the file later must target the imported track explicitly, or the analysis creates a second track.
