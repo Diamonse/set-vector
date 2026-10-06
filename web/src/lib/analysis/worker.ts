@@ -2,6 +2,7 @@
 import * as ort from "onnxruntime-web/wasm";
 import { analyzeAudio } from "./analyze";
 import type { BeatRunner } from "./beat-model";
+import { cacheUntilFailure } from "./model-cache";
 import { loadBeatModel } from "./model-loader";
 import { createOnnxRunner, type OrtLike } from "./onnx-runner";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
@@ -11,17 +12,20 @@ declare const self: DedicatedWorkerGlobalScope;
 ort.env.wasm.wasmPaths = "/ort/";
 ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
 
-let modelPromise: Promise<{ runner: BeatRunner; name: string; sha256: string } | { error: string } | null> | null = null;
+let cachedModel: ReturnType<typeof modelLoader> | null = null;
+
+function modelLoader(manifestUrl: string, pinned?: string) {
+  return cacheUntilFailure(async () => {
+    const loaded = await loadBeatModel(manifestUrl, pinned);
+    if (!loaded) return null;
+    const runner = await createOnnxRunner(ort as unknown as OrtLike, loaded.bytes);
+    return { runner, name: loaded.manifest.name, sha256: loaded.manifest.sha256 };
+  });
+}
 
 function model(manifestUrl: string, pinned?: string) {
-  modelPromise ??= loadBeatModel(manifestUrl, pinned)
-    .then(async (loaded) => {
-      if (!loaded) return null;
-      const runner = await createOnnxRunner(ort as unknown as OrtLike, loaded.bytes);
-      return { runner, name: loaded.manifest.name, sha256: loaded.manifest.sha256 };
-    })
-    .catch((error: Error) => ({ error: error.message }));
-  return modelPromise;
+  cachedModel ??= modelLoader(manifestUrl, pinned);
+  return cachedModel();
 }
 
 const post = (message: WorkerResponse, transfer: Transferable[] = []) => self.postMessage(message, transfer);
