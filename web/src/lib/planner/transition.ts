@@ -102,6 +102,19 @@ export function evaluateTransition(
   const keyB = usableKey(b.keyTonic, b.keyMode, b.keyStatus);
   const vocalClash = exit.vocalActivity === "present" && entry.vocalActivity === "present";
 
+  // The key B is heard in. Without key lock, beatmatching shifts its pitch by the tempo
+  // change; both the transition type and the harmonic cost use this key.
+  let sounding = keyB;
+  let soundingShift = 0;
+  let detuneCost = 0;
+  if (keyB && !preferences.keyLock && tempo && mode !== "listening") {
+    const shift = 12 * Math.log2(tempo.rate);
+    soundingShift = Math.round(shift);
+    sounding = transposeKey(keyB, soundingShift);
+    if (Math.abs(shift - soundingShift) > 0.25) detuneCost = 0.2;
+  }
+  const keyComparison: KeyComparison | null = keyA && sounding ? compareKeys(keyA, sounding) : null;
+
   if (mode === "listening") {
     type = "sequential";
   } else if (!tempo || !tempoWithinLimit || preferences.transitionPreference === "cut") {
@@ -111,7 +124,7 @@ export function evaluateTransition(
     const available = Math.min(exit.endSeconds - exit.startSeconds, entry.endSeconds - entry.startSeconds);
     const blendLength = Math.min(available, BLEND_BEATS * beat);
     const shortLength = Math.min(available, SHORT_BLEND_BEATS * beat);
-    const harmonicOk = keyA !== null && keyB !== null && compareKeys(keyA, keyB).cost <= 0.2;
+    const harmonicOk = keyComparison !== null && keyComparison.cost + detuneCost <= 0.2;
     if (available < MIN_BLEND_BEATS * beat) {
       type = "cut";
     } else if (preferences.transitionPreference === "blend") {
@@ -128,19 +141,8 @@ export function evaluateTransition(
 
   // Harmonic component, using the sounding key when key lock is off.
   let harmonic: CostComponent;
-  let keyComparison: KeyComparison | null = null;
-  let soundingShift = 0;
   const hWeight = weights.harmonic * HARMONIC_FACTOR[type];
-  if (keyA && keyB) {
-    let sounding = keyB;
-    let detuneCost = 0;
-    if (!preferences.keyLock && tempo && type !== "sequential") {
-      const shift = 12 * Math.log2(tempo.rate);
-      soundingShift = Math.round(shift);
-      sounding = transposeKey(keyB, soundingShift);
-      if (Math.abs(shift - soundingShift) > 0.25) detuneCost = 0.2;
-    }
-    keyComparison = compareKeys(keyA, sounding);
+  if (keyComparison) {
     let detail = keyComparison.description;
     if (soundingShift !== 0) detail += ` (B sounds ${soundingShift > 0 ? "+" : ""}${soundingShift} semitones without key lock)`;
     if (detuneCost > 0) detail += "; pitch lands between semitones";

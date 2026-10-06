@@ -134,8 +134,10 @@ The type decides how long the two tracks overlap and how much key and vocals mat
 - Otherwise, with beat length $\beta = 60/\text{BPM}_A$ and $\text{avail} = \min(\text{exit length}, \text{entry length})$:
   - $\text{avail} < 4\beta$ → `cut`.
   - Preference `blend` → `blend`, overlap $\min(\text{avail}, 32\beta)$.
-  - Keys usable on both sides with `compareKeys` cost ≤ 0.2 (same, adjacent, or relative), no vocal clash (vocals `present` in both regions), and $\min(\text{avail}, 32\beta) \ge 16\beta$ → `blend`, overlap $\min(\text{avail}, 32\beta)$.
+  - Keys usable on both sides with a harmonic cost ≤ 0.2 (same, adjacent, or relative, with no off-semitone penalty), no vocal clash (vocals `present` in both regions), and $\min(\text{avail}, 32\beta) \ge 16\beta$ → `blend`, overlap $\min(\text{avail}, 32\beta)$.
   - Otherwise `short_blend`, overlap $\min(\text{avail}, 8\beta)$.
+
+With key lock off, the key compared is the one B sounds in after beatmatching (section 6.1), the same key the harmonic cost uses, so a pair is never suggested as a long blend while its harmonic cost is high.
 
 Code: `web/src/lib/planner/transition.ts` → `evaluateTransition`.
 
@@ -514,7 +516,7 @@ Code: `web/src/app/actions/plans.ts` → `createPlan`, `saveEditedOrder`, `adopt
 - **Energy comparability.** The arc and energy step assume energy values are comparable across tracks on the 1–10 scale. A library can mix user ratings with model estimates that are ranked within the library and not calibrated against those ratings, and the planner does not tell them apart.
 - **`use_all` is capped at the search limit.** A crate larger than `maxCandidates` (default 160, at most 400) cannot be reordered as a whole; it must be planned in pool mode. The schema still accepts up to 5000 candidates.
 - **The seed only affects the Random baseline.** It is shown as a search setting but does not change the proposal.
-- **Key lock and transition type disagree.** With key lock off, the blend decision compares the written keys while the harmonic cost compares the transposed key, so a pair can be suggested as a long blend while its harmonic cost is 1. Rounding a 0.55-semitone shift to a whole semitone also makes the harmonic cost jump sharply.
+- **Semitone rounding without key lock.** The sounding key rounds the pitch shift to a whole semitone, so the harmonic cost jumps sharply around a 0.5-semitone shift (softened only by the 0.2 off-semitone penalty beyond 0.25).
 - **Approved estimated cues stay `estimated`.** A cue with provenance `estimate` and status `approved` still costs 0.35 and flags review, while pruning counts it as complete. It is unclear whether approval should make a cue `reviewed`.
 - **Count versus duration.** With both a count and a duration target, the count is not checked, and add/remove moves can change the track count.
 - **Stale data after edits.** An edited proposal keeps the original alternatives, baselines and exact gap, and is re-scored against the library as it is now, not as it was when planned.

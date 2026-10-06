@@ -70,6 +70,28 @@ describe("directional transitions", () => {
     expect(ab.cost).not.toBeCloseTo(ba.cost, 6);
   });
 
+  describe("without key lock", () => {
+    const unlocked = { ...ctx, preferences: { ...ctx.preferences, keyLock: false } };
+    // B is slowed to 124 BPM from 124 * 2^(1/12), so it sounds one semitone lower.
+    const semitoneFaster = 124 * 2 ** (1 / 12);
+
+    it("chooses the transition type from the key B sounds in, not its written key", () => {
+      const a = track("a");
+      const b = track("b", { bpm: semitoneFaster });
+      const t = evaluateTransition(a, cueOptions(a, "exit", "dj")[0]!, b, cueOptions(b, "entry", "dj")[0]!, unlocked);
+      expect(t.components.harmonic.cost).toBeGreaterThan(0.2);
+      expect(t.type).toBe("short_blend");
+    });
+
+    it("allows a long blend when the written keys differ but the sounding keys match", () => {
+      const a = track("a");
+      const b = track("b", { bpm: semitoneFaster, keyTonic: 10 });
+      const t = evaluateTransition(a, cueOptions(a, "exit", "dj")[0]!, b, cueOptions(b, "entry", "dj")[0]!, unlocked);
+      expect(t.components.harmonic.cost).toBeLessThanOrEqual(0.2);
+      expect(t.type).toBe("blend");
+    });
+  });
+
   it("scores an exact tempo match as free when the tempo limit is 0%", () => {
     const strict = { ...ctx, preferences: { ...ctx.preferences, maxTempoAdjustPct: 0 } };
     const a = track("a");
