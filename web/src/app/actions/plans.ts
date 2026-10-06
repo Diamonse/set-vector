@@ -59,27 +59,18 @@ export async function createPlan(_prev: ActionState, formData: FormData): Promis
     throw e;
   }
 
-  const { data, error } = await supabase
-    .from("plans")
-    .insert({
-      name: parsed.data.name,
-      mode: parsed.data.request.mode,
-      selection_policy: parsed.data.request.selectionPolicy,
-      crate_id: parsed.data.crateId,
-      request: parsed.data.request,
-      result,
-    })
-    .select("id")
-    .single();
-  if (error) return { ok: false, message: `The plan was computed but not saved: ${error.message}` };
-  const planId = (data as { id: string }).id;
-
-  if (result.proposal.items.length > 0) {
-    const { error: itemsError } = await supabase
-      .from("plan_items")
-      .insert(itemRows(result.proposal).map((row) => ({ ...row, plan_id: planId })));
-    if (itemsError) return { ok: false, message: `The plan was saved without its items: ${itemsError.message}` };
-  }
+  // One database call saves the plan and its items together, or neither.
+  const { data, error } = await supabase.rpc("create_plan", {
+    p_name: parsed.data.name,
+    p_mode: parsed.data.request.mode,
+    p_selection_policy: parsed.data.request.selectionPolicy,
+    p_crate_id: parsed.data.crateId,
+    p_request: parsed.data.request,
+    p_result: result,
+    p_items: itemRows(result.proposal),
+  });
+  if (error || typeof data !== "string") return { ok: false, message: `The plan was computed but not saved: ${error?.message ?? "no plan returned"}` };
+  const planId = data;
 
   revalidatePath("/plans");
   redirect(`/plans/${planId}`);
