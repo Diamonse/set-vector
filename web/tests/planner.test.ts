@@ -6,6 +6,7 @@ import {
   matchTempo,
   planSet,
   PlanRequestError,
+  rescorePlan,
   type PlanRequest,
 } from "@/lib/planner";
 import { cueOptions } from "@/lib/planner/options";
@@ -112,6 +113,26 @@ describe("planSet", () => {
     track("t6", { energy: 4, keyTonic: 2, bpm: 90, artist: "Zeta", styleTags: ["Hip-hop"], cues: [] }),
   ];
   const ids = library.map((t) => t.id);
+
+  it("rescores an edited plan's baselines and alternatives against the edit and the current library", () => {
+    const r = request(ids, { selectionPolicy: "choose_from_pool", targetCount: 4 });
+    const original = planSet(library, r);
+    const now = library.map((t) => (t.id === "t3" ? { ...t, energy: 1 } : t));
+    const order = ["t6", "t5", "t4", "t3"];
+    const alternative = ["t1", "t2", "t3", "t4"];
+    const score = (seq: string[]) => evaluateEditedOrder(now, r, seq).objective.total;
+
+    const rescored = rescorePlan(now, r, original, { order, label: "Edited plan" }, [{ order: alternative, label: "Alternative 1" }]);
+
+    expect(rescored.proposal.items.map((i) => i.trackId)).toEqual(order);
+    expect(rescored.proposal.label).toBe("Edited plan");
+    expect(rescored.proposal.objective.total).toBeCloseTo(score(order), 9);
+    expect(rescored.alternatives.map((a) => a.label)).toEqual(["Alternative 1"]);
+    expect(rescored.alternatives[0]!.objective.total).toBeCloseTo(score(alternative), 9);
+    for (const b of rescored.baselines) expect(new Set(b.plan.items.map((i) => i.trackId))).toEqual(new Set(order));
+    // The exhaustive search describes the original proposal, and the plan page says so.
+    expect(rescored.exact).toEqual(original.exact);
+  });
 
   it("reorders a fixed crate using every track once", () => {
     const result = planSet(library, request(ids));

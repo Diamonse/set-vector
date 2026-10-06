@@ -248,3 +248,24 @@ export function evaluateEditedOrder(tracks: PlannerTrack[], request: PlanRequest
   const ctx = new PlanningContext(tracks, request);
   return evaluateSequence(ctx, order, "Edited plan");
 }
+
+/**
+ * A saved plan with a new proposal order, everything it is compared with re-scored against
+ * the current library: the alternatives, and baselines built from the new proposal's tracks.
+ * The exhaustive-search result is kept; it describes the original proposal.
+ */
+export function rescorePlan(
+  tracks: PlannerTrack[],
+  request: PlanRequest,
+  previous: PlanResult,
+  proposal: { order: string[]; label: string },
+  alternatives: { order: string[]; label: string }[],
+): PlanResult {
+  const ctx = new PlanningContext(tracks, request);
+  return {
+    ...previous,
+    proposal: evaluateSequence(ctx, proposal.order, proposal.label),
+    alternatives: alternatives.map((a) => evaluateSequence(ctx, a.order, a.label)),
+    baselines: runBaselines(ctx, proposal.order, request.search.seed),
+  };
+}

@@ -483,9 +483,9 @@ Code: `web/src/lib/planner/types.ts` → `PlanMetrics`, `PlanResult`; `web/src/l
 
 **Create.** The form posts the request as JSON in a `payload` field. `createPlan` validates it with `createPlanSchema` (name 1–120 characters, optional crate), loads the user's tracks, runs `planSet` synchronously, inserts a `plans` row with `request` and the full `result` JSON, then inserts one `plan_items` row per proposal item (position, occurrence ID, track, entry and exit option IDs, play start/end, elapsed start). Option IDs are text so fallback windows (`<trackId>:fallback-entry`) fit. See [data-and-storage.md](data-and-storage.md) for the tables.
 
-**Edit order.** `saveEditedOrder` re-scores a hand-made order with `evaluateEditedOrder` against the stored request and the current library, replaces the proposal, and rewrites the items atomically through the `replace_plan_items` database function (which also marks the plan `edited`). It records a `manual_reorder` annotation with the old and new order, both objective totals, and the user's reason.
+**Edit order.** `saveEditedOrder` re-scores a hand-made order against the stored request and the current library with `rescorePlan`, which also re-scores the alternatives and rebuilds the four baselines from the edited order's tracks, so everything the plan page compares uses the same data. The exhaustive-search result is kept; the page describes it as being about the original proposal. The action replaces the proposal and rewrites the items atomically through the `replace_plan_items` database function (which also marks the plan `edited`). It records a `manual_reorder` annotation with the old and new order, both objective totals, and the user's reason.
 
-**Adopt an alternative.** `adoptAlternative` swaps the chosen alternative with the proposal and records `adopt_alternative`.
+**Adopt an alternative.** `adoptAlternative` swaps the chosen alternative with the proposal, re-scores both lists and the baselines with `rescorePlan` like an edit, and records `adopt_alternative`.
 
 **Judge a transition.** `judgeTransition` records a pair annotation (`works`, `needs_adjustment`, `clash`) with the option IDs. These judgments are stored for future evaluation and weight fitting; the planner does not read them yet.
 
@@ -519,7 +519,7 @@ Code: `web/src/app/actions/plans.ts` → `createPlan`, `saveEditedOrder`, `adopt
 - **Semitone rounding without key lock.** The sounding key rounds the pitch shift to a whole semitone, so the harmonic cost jumps sharply around a 0.5-semitone shift (softened only by the 0.2 off-semitone penalty beyond 0.25).
 - **Approved estimated cues stay `estimated`.** A cue with provenance `estimate` and status `approved` still costs 0.35 and flags review, while pruning counts it as complete. It is unclear whether approval should make a cue `reviewed`.
 - **Count versus duration.** With both a count and a duration target, the count is not checked, and add/remove moves can change the track count.
-- **Stale data after edits.** An edited proposal keeps the original alternatives, baselines and exact gap, and is re-scored against the library as it is now, not as it was when planned.
+- **Edits re-score with today's library.** After an edit or adoption, the proposal, alternatives and baselines reflect the library as it is now, not as it was when planned; only the exhaustive-search figure still describes the original run.
 - **Plan creation is not atomic.** `createPlan` inserts the plan and its items in two statements; if the second fails, the plan exists without items (the message says so). Edits use the atomic `replace_plan_items`.
 - **Runtime.** Planning runs synchronously in the server action, and the exact solver runs outside the time budget. Anchors can never repeat even when repeats are allowed, because search never offers them as ordinary options.
 - **Heuristic, not proof.** If the proposal violates a constraint, that does not prove no valid plan exists (the warning says so). The exact solver only covers fixed crates of up to 8 tracks and is not used to replace the proposal.
