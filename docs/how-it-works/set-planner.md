@@ -188,7 +188,7 @@ Weight: $w = W_\text{harmonic} \cdot f_h(\text{type})$.
 c_\text{tempo} = \min\!\left(1,\ 0.85\cdot\begin{cases} p/L & p \le L \\ 1 & p > L \end{cases} \;+\; 0.15\cdot[\text{multiple} \ne 1]\right)
 ```
 
-A larger stretch costs more, linearly up to the limit; half/double time or an alternative tactus adds 0.15 because it is a less certain match.
+A larger stretch costs more, linearly up to the limit; half/double time or an alternative tactus adds 0.15 because it is a less certain match. With $L = 0$ only an exact match ($p = 0$) is within the limit, and it costs 0 instead of $0/0$.
 
 **Listening mode.** No beatmatching, just how different the tempos feel, on a log scale where a 12 % difference is maximal:
 
@@ -512,7 +512,6 @@ Code: `web/src/app/actions/plans.ts` → `createPlan`, `saveEditedOrder`, `adopt
 - **Weights are unvalidated.** Every weight, cost table and threshold is a declared hypothesis. The research plan calls for held-out listening judgments before any are treated as established ([playlist-engine-evaluation.md](../research/playlist-engine-evaluation.md)).
 - **Whole-track features.** Key, BPM and energy are track-level. The planner does not use local key or energy inside the overlap region, or beat phase. Phrase positions reach it only through where cue regions start (analyzer and Rekordbox suggestions sit on 8-bar phrases); the planner itself does not check that two regions line up on bars, and the 32/16/8/4-beat lengths are assumptions.
 - **Energy comparability.** The arc and energy step assume energy values are comparable across tracks on the 1–10 scale. A library can mix user ratings with model estimates that are ranked within the library and not calibrated against those ratings, and the planner does not tell them apart.
-- **`maxTempoAdjustPct = 0` produces `NaN`.** The schema allows 0. Two tracks at exactly the same tempo then give $p/L = 0/0$, which the clamp does not catch, so the transition cost and the objective become `NaN`.
 - **`use_all` with more than `maxCandidates` tracks.** Pruning drops tracks but the target count is the pruned pool size, so the plan always misses supplied tracks and pays a `count` penalty. Default `maxCandidates` is 160; the schema allows up to 5000 candidates.
 - **The seed only affects the Random baseline.** It is shown as a search setting but does not change the proposal.
 - **Key lock and transition type disagree.** With key lock off, the blend decision compares the written keys while the harmonic cost compares the transposed key, so a pair can be suggested as a long blend while its harmonic cost is 1. Rounding a 0.55-semitone shift to a whole semitone also makes the harmonic cost jump sharply.

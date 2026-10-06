@@ -69,6 +69,15 @@ describe("directional transitions", () => {
     const ba = evaluateTransition(b, cueOptions(b, "exit", "dj")[0]!, a, cueOptions(a, "entry", "dj")[0]!, ctx);
     expect(ab.cost).not.toBeCloseTo(ba.cost, 6);
   });
+
+  it("scores an exact tempo match as free when the tempo limit is 0%", () => {
+    const strict = { ...ctx, preferences: { ...ctx.preferences, maxTempoAdjustPct: 0 } };
+    const a = track("a");
+    const b = track("b");
+    const t = evaluateTransition(a, cueOptions(a, "exit", "dj")[0]!, b, cueOptions(b, "entry", "dj")[0]!, strict);
+    expect(t.components.tempo.cost).toBe(0);
+    expect(Number.isFinite(t.cost)).toBe(true);
+  });
 });
 
 describe("planSet", () => {

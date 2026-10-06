@@ -166,7 +166,8 @@ export function evaluateTransition(
     );
   } else {
     const pct = Math.abs(tempo.adjustPct);
-    const base = tempoWithinLimit ? pct / preferences.maxTempoAdjustPct : 1;
+    // A 0% limit admits only exact matches, which cost nothing.
+    const base = !tempoWithinLimit ? 1 : preferences.maxTempoAdjustPct > 0 ? pct / preferences.maxTempoAdjustPct : 0;
     const multiplePenalty = tempo.multiple !== 1 ? 0.15 : 0;
     let detail = tempoWithinLimit
       ? `about ${pct < 0.05 ? "0" : pct.toFixed(1)}% tempo adjustment`
