@@ -424,7 +424,6 @@ As of this writing, `PROFILES` is **empty** — no Rekordbox version has actuall
 - **A track is matched only by file path.** A renamed or moved file looks like a brand-new track to the bridge; there is no content-based (e.g. audio fingerprint) matching.
 - **Stale export risk is procedural, not enforced.** The bridge cannot detect that an export is stale relative to Rekordbox's live state — it can only warn when a track ends up written as "new" because it is missing from the given export (section 2).
 - **A literal line break inside an XML attribute** (e.g. a multi-line `Comments` field) is already collapsed to spaces by XML attribute-value normalization before SetVector ever sees it; this is standard XML behaviour, not something the bridge does, but it means a round-tripped `Comments` field will never regain its original line breaks.
-- One line of a code comment in `application/rekordbox.py`'s `_process` function (explaining why marks are compared as a multiset rather than by order) is duplicated verbatim — harmless, but worth a cleanup pass.
 
 Web import:
 
