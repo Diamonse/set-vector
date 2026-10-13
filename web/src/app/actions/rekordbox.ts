@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { recordAnnotation } from "@/lib/data/annotations";
+import { closeDuration, normName as norm } from "@/lib/data/matching";
 import { mapRekordboxCues } from "@/lib/rekordbox/cues";
 import { rekordboxImportSchema, type RekordboxImportTrack } from "@/lib/rekordbox/schema";
 import type { ServerClient } from "@/lib/supabase/server";
@@ -35,10 +36,6 @@ interface LibraryRow {
 
 const LIBRARY_FIELDS = "id, title, artist, version_label, duration_seconds, style_tags, bpm, key_status";
 const PAGE = 1000;
-/** Rekordbox `TotalTime` is whole seconds; a decoded or typed duration may differ slightly. */
-const DURATION_TOLERANCE_SECONDS = 2;
-
-const norm = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ");
 
 async function loadLibrary(supabase: ServerClient): Promise<LibraryRow[]> {
   const rows: LibraryRow[] = [];
@@ -178,7 +175,7 @@ export async function importRekordboxBatch(input: unknown): Promise<RekordboxBat
       row = byId.get(linked);
       status = "updated";
     } else {
-      const close = (r: LibraryRow) => Math.abs(Number(r.duration_seconds) - t.durationSeconds) <= DURATION_TOLERANCE_SECONDS;
+      const close = (r: LibraryRow) => closeDuration(r, t.durationSeconds);
       // A track linked to another location is relinked only when its length agrees: the file
       // moved in Rekordbox. A different length is another file with the same name.
       let matches = library.filter(
