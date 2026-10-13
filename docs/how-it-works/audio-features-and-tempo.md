@@ -281,7 +281,7 @@ $D_t$ is the best total score of any beat sequence ending at frame $t$. The pena
 
 **Step 7: backtrack.** Follow backlinks from the last beat until −1, then reverse the list.
 
-**No trimming.** `BEAT_TRIM = False`. librosa's default trim removes leading and trailing beats weaker than half the RMS of the smoothed beat envelope. Per the code comment, that "drops quieter intro and outro beats, where DJs mix". With `trim=False`, librosa still drops beats at the track edges whose local score is exactly 0. The web port does not include this step (see the limitations section).
+**No trimming.** `BEAT_TRIM = False`. librosa's default trim removes leading and trailing beats weaker than half the RMS of the smoothed beat envelope. Per the code comment, that "drops quieter intro and outro beats, where DJs mix". With `trim=False`, librosa still drops beats in the leading and trailing runs of frames whose local score is not positive, so beats do not continue into digital silence at either end. The web port does the same.
 
 **Outputs.**
 - **Python** keeps frame indices in `[0, T)`, deduplicates and sorts them, and returns them as `BeatPosition(frame_index, seconds)` with the tempo as `tempo_bpm`. If the tempo is non-finite or ≤ 0, or no beats remain, both are `None`/empty and a warning "no tempo or beat positions were detected" is added.
@@ -299,7 +299,7 @@ Code: `baseline.py` → `_estimate_beats`; `identity.py` → `BEAT_TRIM`; `tempo
 - `PARAMETERS`: `bass_cutoff_hz` 250.0, `beat_onset_band_hz` 150.0, `beat_trim` false, `spectral_window` "hann", `onset_method` "positive_spectral_flux", `onset_normalization` "track_peak", `resampler` "soxr_hq_when_requested".
 - The installed versions of numpy, scipy, soundfile, librosa, and soxr.
 
-Changing any of these yields a new feature ID (see [data-and-storage.md](data-and-storage.md)). The web app labels its result `extractor: { name: "web-analysis", version: 3 }` (version 2 added the energy inputs, version 3 phrase-aligned cue suggestions) with a smaller parameter set: frame/hop length, `channel_policy: "mono_mean"`, the 150 Hz and 250 Hz bands, `tempo_prior_bpm: 120`, and `analysis_sample_rate: 22050`.
+Changing any of these yields a new feature ID (see [data-and-storage.md](data-and-storage.md)). The web app labels its result `extractor: { name: "web-analysis", version: 4 }` (version 2 added the energy inputs, version 3 phrase-aligned cue suggestions, version 4 librosa's edge trim in the beat tracker) with a smaller parameter set: frame/hop length, `channel_policy: "mono_mean"`, the 150 Hz and 250 Hz bands, `tempo_prior_bpm: 120`, and `analysis_sample_rate: 22050`.
 
 Code: `src/setvector/analysis/identity.py` → `baseline_identity`, `PARAMETERS`; `web/src/lib/analysis/types.ts` → `EXTRACTOR_NAME`, `EXTRACTOR_VERSION`; `analyze.ts` → `analyzeAudio`.
 
@@ -332,7 +332,7 @@ Code: `src/setvector/ingestion/preview.py` → `load_preview`, `_encode_mp3`.
 | Invalid values | `None` with `validity=False` | `NaN` |
 | Tempogram | librosa `tempogram`, chunked | Ported; FFT size next power of two ≥ $2W$ |
 | Tempo | `librosa.feature.tempo` (single value) | Ported, plus `candidates` and `alternatives` |
-| Beat tracker | `librosa.beat.beat_track`, `trim=False` | Ported `trackBeats`; omits librosa's zero-score edge trim. Parity test requires ≥ 95% of librosa's beats within ±1 frame and a count within ±1. |
+| Beat tracker | `librosa.beat.beat_track`, `trim=False` | Ported `trackBeats`, including librosa's edge trim of beats in silent frames. Parity test requires ≥ 95% of librosa's beats within ±1 frame and a count within ±1. |
 | No beats found | Tempo also set to `None` | Tempogram tempo is still returned and used if no grid is accepted |
 | 22,050 Hz audio | soxr inside Beat This! `log_mel` | Kaiser-sinc `resample` for Beat This! and chroma |
 
@@ -348,6 +348,6 @@ Code: `src/setvector/ingestion/preview.py` → `load_preview`, `_encode_mp3`.
 - **The web sample rate depends on sniffing.** If the header is not recognized, features are measured at the device's default rate (often 48 kHz). The frame duration, the bins in each band, and the lag-to-BPM grid then differ from the CLI's results for the same file. The extractor `parameters` record `analysis_sample_rate: 22050` but not the feature rate; the result's top-level `sampleRate` holds it.
 - **Decoder differences are unverified.** libsndfile and browser decoders may handle MP3 encoder delay and padding differently, which would shift every timestamp by a constant. The code does not check or compensate for this.
 - **Python `preserve` mode is not the same as mono.** Summing magnitudes across channels is not the magnitude of the mono mix (out-of-phase content does not cancel). Features from the two policies therefore differ, and the web app only does the mono version.
-- **Web beat tracker is not an exact port.** It omits librosa's edge trim of zero-local-score beats, so in tracks with digital silence at either end it may keep an edge beat that Python drops. It also rounds $P/2$ half-up where NumPy rounds half to even, so the DP search starts one frame earlier when $P \equiv 1 \pmod 4$ (for example $P = 41$, 126 BPM at 44.1 kHz). That predecessor carries a penalty of about 51, so it is almost never chosen. Parity is tested only on one synthetic signal.
+- **Web beat tracker is not an exact port.** It rounds $P/2$ half-up where NumPy rounds half to even, so the DP search starts one frame earlier when $P \equiv 1 \pmod 4$ (for example $P = 41$, 126 BPM at 44.1 kHz). That predecessor carries a penalty of about 51, so it is almost never chosen. Parity is tested only on one synthetic signal.
 - **Web resampler is approximate.** It is not bit-identical to soxr. The passband claim (flat to about 0.9 Nyquist) is a code comment, not a tested property.
 

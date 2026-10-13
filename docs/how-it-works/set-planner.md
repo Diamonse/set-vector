@@ -60,13 +60,13 @@ A `PlanRequest` is everything the planner needs besides the tracks. The form sta
 
 The intuition: a DJ blend puts two tracks on top of each other, so tempo, key, cues and vocals matter most. In a listening playlist one track ends before the next starts, so pacing (energy) and variety (style, diversity) matter more and key barely matters.
 
-**Request checks.** `prepareRequest` drops candidate IDs that no longer exist (with a warning) and removes excluded ones. It throws `PlanRequestError` when: no candidates remain; a track is both required and excluded; a required track or an anchor is not a candidate; the same track opens and closes without repeats; the duration range is not positive with min ≤ max; pool mode has neither a count nor a duration ("otherwise the cheapest plan is trivially short"); the count is below the number of required and anchored tracks; or the count exceeds the candidates without repeats. It warns about tracks without energy (when an arc is set), without a usable key, without BPM (DJ: "transitions default to cuts"), and, in DJ mode, without any non-rejected cue.
+**Request checks.** `prepareRequest` drops candidate IDs that no longer exist (with a warning) and removes excluded ones. It throws `PlanRequestError` when: no candidates remain; a track is both required and excluded; a required track or an anchor is not a candidate; the same track opens and closes without repeats; the duration range is not positive with min ≤ max; pool mode has neither a count nor a duration ("otherwise the cheapest plan is trivially short"); the count is below the number of required and anchored tracks; the count exceeds the candidates without repeats; or `use_all` has more candidates than $\max(\texttt{maxCandidates}, 2)$, since pruning would silently leave supplied tracks out. It warns about tracks without energy (when an arc is set), without a usable key, without BPM (DJ: "transitions default to cuts"), and, in DJ mode, without any non-rejected cue.
 
 Code: `web/src/lib/planner/types.ts` → `PlanRequest`; `web/src/lib/planner/defaults.ts` → `defaultPlanRequest`, `MODE_WEIGHTS`; `web/src/lib/validation/plan-request.ts` → `planRequestSchema`, `createPlanSchema`; `web/src/lib/planner/index.ts` → `prepareRequest`.
 
 ## 2. Candidate pruning and target count
 
-**Pruning.** Search cost grows with the pool, so when there are more than $L = \max(\texttt{maxCandidates}, 2)$ candidates the planner keeps a subset. Required and anchored tracks are always kept. The rest are grouped into energy bands so that every stage of the arc still has candidates:
+**Pruning.** Search cost grows with the pool, so when there are more than $L = \max(\texttt{maxCandidates}, 2)$ candidates the planner keeps a subset. This applies only to pool mode; a `use_all` request that large is rejected up front (section 1). Required and anchored tracks are always kept. The rest are grouped into energy bands so that every stage of the arc still has candidates:
 
 ```math
 \mathrm{band}(e) = \min\!\left(4,\ \left\lfloor \frac{e-1}{2} \right\rfloor\right)
@@ -96,7 +96,7 @@ Code: `web/src/lib/planner/index.ts` → `pruneCandidates`, `resolveTargetCount`
 
 with 30 s in place of the 32-beat phrase when BPM is unknown. At 124 BPM that is 15.5 s. The 32 beats are an assumed phrase length, not a detected one.
 
-Where the options come from: the browser analyzer suggests up to three entries and three exits on 8-bar phrase starts (`pending`, so origin `pending` until reviewed; see [key-loudness-structure.md](key-loudness-structure.md)). A Rekordbox import turns the user's own cues into `reviewed`, `approved` regions (origin `reviewed`, cue cost 0), and adds `pending` phrase suggestions from the Rekordbox grid for a role with no usable cue ([rekordbox-bridge.md](rekordbox-bridge.md)). With several options per kind, the joint cue assignment (section 9) picks the pair that fits each transition.
+Where the options come from: the browser analyzer suggests up to three entries and three exits on 8-bar phrase starts (`pending`, so origin `pending` until reviewed; see [key-loudness-structure.md](key-loudness-structure.md)). A Rekordbox import turns the user's own cues into `reviewed` regions, approved (origin `reviewed`, cue cost 0) when the cue type or name gives the role and pending when only its position does, and adds `pending` phrase suggestions from the Rekordbox grid for a role with no usable cue ([rekordbox-bridge.md](rekordbox-bridge.md)). With several options per kind, the joint cue assignment (section 9) picks the pair that fits each transition.
 
 **Listening mode.** One option each: "Track start" $[0, w]$ and "Track end" $[\text{duration}-w, \text{duration}]$ with $w = \min(20, \text{duration}/4)$, origin `full_track`, vocal activity unknown.
 
@@ -134,8 +134,10 @@ The type decides how long the two tracks overlap and how much key and vocals mat
 - Otherwise, with beat length $\beta = 60/\text{BPM}_A$ and $\text{avail} = \min(\text{exit length}, \text{entry length})$:
   - $\text{avail} < 4\beta$ → `cut`.
   - Preference `blend` → `blend`, overlap $\min(\text{avail}, 32\beta)$.
-  - Keys usable on both sides with `compareKeys` cost ≤ 0.2 (same, adjacent, or relative), no vocal clash (vocals `present` in both regions), and $\min(\text{avail}, 32\beta) \ge 16\beta$ → `blend`, overlap $\min(\text{avail}, 32\beta)$.
+  - Keys usable on both sides with a harmonic cost ≤ 0.2 (same, adjacent, or relative, with no off-semitone penalty), no vocal clash (vocals `present` in both regions), and $\min(\text{avail}, 32\beta) \ge 16\beta$ → `blend`, overlap $\min(\text{avail}, 32\beta)$.
   - Otherwise `short_blend`, overlap $\min(\text{avail}, 8\beta)$.
+
+With key lock off, the key compared is the one B sounds in after beatmatching (section 6.1), the same key the harmonic cost uses, so a pair is never suggested as a long blend while its harmonic cost is high.
 
 Code: `web/src/lib/planner/transition.ts` → `evaluateTransition`.
 
@@ -188,7 +190,7 @@ Weight: $w = W_\text{harmonic} \cdot f_h(\text{type})$.
 c_\text{tempo} = \min\!\left(1,\ 0.85\cdot\begin{cases} p/L & p \le L \\ 1 & p > L \end{cases} \;+\; 0.15\cdot[\text{multiple} \ne 1]\right)
 ```
 
-A larger stretch costs more, linearly up to the limit; half/double time or an alternative tactus adds 0.15 because it is a less certain match.
+A larger stretch costs more, linearly up to the limit; half/double time or an alternative tactus adds 0.15 because it is a less certain match. With $L = 0$ only an exact match ($p = 0$) is within the limit, and it costs 0 instead of $0/0$.
 
 **Listening mode.** No beatmatching, just how different the tempos feel, on a log scale where a 12 % difference is maximal:
 
@@ -341,7 +343,7 @@ Code: `web/src/lib/planner/evaluate.ts` → `assignCues`, `evaluateSequence`.
 
 ## 10. Diversity and duration
 
-**Artist and remix spacing.** For each track and each of the next `artistSpacing` tracks (so with spacing 3, fewer than 3 tracks in between), count an artist violation when they share an artist token, and a remix violation when they share a non-empty remix group (case-insensitive). Artist strings are lower-cased and split on `,`, `&`, `feat`, `feat.`, `ft`, `ft.`, a standalone `x`, `/` and `;`. Repeated plays of the same track are skipped here (the repeat rule handles them).
+**Artist and remix spacing.** For each track and each of the next `artistSpacing` tracks (so with spacing 3, fewer than 3 tracks in between), count an artist violation when they share an artist token, and a remix violation when they share a non-empty remix group (case-insensitive). Artist strings are lower-cased and split on `,`, `&`, `/`, `;`, a standalone `x`, and the whole words `feat`, `featuring` and `ft` (with or without a period), so names that only start with those letters, such as "Featurecast", stay whole. The beam search's step score uses the same tokens (`web/src/lib/planner/artists.ts` → `artistTokens`). Repeated plays of the same track are skipped here (the repeat rule handles them).
 
 **Style runs.** A track's primary style is its first tag. Each track beyond the 4th in a run with the same primary style adds 1 to the run excess $R$.
 
@@ -479,11 +481,11 @@ Code: `web/src/lib/planner/types.ts` → `PlanMetrics`, `PlanResult`; `web/src/l
 
 ## 17. Saving, editing and export
 
-**Create.** The form posts the request as JSON in a `payload` field. `createPlan` validates it with `createPlanSchema` (name 1–120 characters, optional crate), loads the user's tracks, runs `planSet` synchronously, inserts a `plans` row with `request` and the full `result` JSON, then inserts one `plan_items` row per proposal item (position, occurrence ID, track, entry and exit option IDs, play start/end, elapsed start). Option IDs are text so fallback windows (`<trackId>:fallback-entry`) fit. See [data-and-storage.md](data-and-storage.md) for the tables.
+**Create.** The form posts the request as JSON in a `payload` field. `createPlan` validates it with `createPlanSchema` (name 1–120 characters, optional crate), loads the user's tracks, runs `planSet` synchronously, and saves everything with one call to the `create_plan` database function: a `plans` row with `request` and the full `result` JSON, and one `plan_items` row per proposal item (position, occurrence ID, track, entry and exit option IDs, play start/end, elapsed start). Both are written in one transaction, so a failure saves neither. Option IDs are text so fallback windows (`<trackId>:fallback-entry`) fit. See [data-and-storage.md](data-and-storage.md) for the tables.
 
-**Edit order.** `saveEditedOrder` re-scores a hand-made order with `evaluateEditedOrder` against the stored request and the current library, replaces the proposal, and rewrites the items atomically through the `replace_plan_items` database function (which also marks the plan `edited`). It records a `manual_reorder` annotation with the old and new order, both objective totals, and the user's reason.
+**Edit order.** `saveEditedOrder` re-scores a hand-made order against the stored request and the current library with `rescorePlan`, which also re-scores the alternatives and rebuilds the four baselines from the edited order's tracks, so everything the plan page compares uses the same data. The exhaustive-search result is kept; the page describes it as being about the original proposal. The action replaces the proposal and rewrites the items atomically through the `replace_plan_items` database function (which also marks the plan `edited`). It records a `manual_reorder` annotation with the old and new order, both objective totals, and the user's reason.
 
-**Adopt an alternative.** `adoptAlternative` swaps the chosen alternative with the proposal and records `adopt_alternative`.
+**Adopt an alternative.** `adoptAlternative` swaps the chosen alternative with the proposal, re-scores both lists and the baselines with `rescorePlan` like an edit, and records `adopt_alternative`.
 
 **Judge a transition.** `judgeTransition` records a pair annotation (`works`, `needs_adjustment`, `clash`) with the option IDs. These judgments are stored for future evaluation and weight fitting; the planner does not read them yet.
 
@@ -512,14 +514,12 @@ Code: `web/src/app/actions/plans.ts` → `createPlan`, `saveEditedOrder`, `adopt
 - **Weights are unvalidated.** Every weight, cost table and threshold is a declared hypothesis. The research plan calls for held-out listening judgments before any are treated as established ([playlist-engine-evaluation.md](../research/playlist-engine-evaluation.md)).
 - **Whole-track features.** Key, BPM and energy are track-level. The planner does not use local key or energy inside the overlap region, or beat phase. Phrase positions reach it only through where cue regions start (analyzer and Rekordbox suggestions sit on 8-bar phrases); the planner itself does not check that two regions line up on bars, and the 32/16/8/4-beat lengths are assumptions.
 - **Energy comparability.** The arc and energy step assume energy values are comparable across tracks on the 1–10 scale. A library can mix user ratings with model estimates that are ranked within the library and not calibrated against those ratings, and the planner does not tell them apart.
-- **`maxTempoAdjustPct = 0` produces `NaN`.** The schema allows 0. Two tracks at exactly the same tempo then give $p/L = 0/0$, which the clamp does not catch, so the transition cost and the objective become `NaN`.
-- **`use_all` with more than `maxCandidates` tracks.** Pruning drops tracks but the target count is the pruned pool size, so the plan always misses supplied tracks and pays a `count` penalty. Default `maxCandidates` is 160; the schema allows up to 5000 candidates.
+- **`use_all` is capped at the search limit.** A crate larger than `maxCandidates` (default 160, at most 400) cannot be reordered as a whole; it must be planned in pool mode. The schema still accepts up to 5000 candidates.
 - **The seed only affects the Random baseline.** It is shown as a search setting but does not change the proposal.
-- **Key lock and transition type disagree.** With key lock off, the blend decision compares the written keys while the harmonic cost compares the transposed key, so a pair can be suggested as a long blend while its harmonic cost is 1. Rounding a 0.55-semitone shift to a whole semitone also makes the harmonic cost jump sharply.
+- **Semitone rounding without key lock.** The sounding key rounds the pitch shift to a whole semitone, so the harmonic cost jumps sharply around a 0.5-semitone shift (softened only by the 0.2 off-semitone penalty beyond 0.25).
 - **Approved estimated cues stay `estimated`.** A cue with provenance `estimate` and status `approved` still costs 0.35 and flags review, while pruning counts it as complete. It is unclear whether approval should make a cue `reviewed`.
 - **Count versus duration.** With both a count and a duration target, the count is not checked, and add/remove moves can change the track count.
-- **Stale data after edits.** An edited proposal keeps the original alternatives, baselines and exact gap, and is re-scored against the library as it is now, not as it was when planned.
-- **Plan creation is not atomic.** `createPlan` inserts the plan and its items in two statements; if the second fails, the plan exists without items (the message says so). Edits use the atomic `replace_plan_items`.
+- **Edits re-score with today's library.** After an edit or adoption, the proposal, alternatives and baselines reflect the library as it is now, not as it was when planned; only the exhaustive-search figure still describes the original run.
 - **Runtime.** Planning runs synchronously in the server action, and the exact solver runs outside the time budget. Anchors can never repeat even when repeats are allowed, because search never offers them as ordinary options.
 - **Heuristic, not proof.** If the proposal violates a constraint, that does not prove no valid plan exists (the warning says so). The exact solver only covers fixed crates of up to 8 tracks and is not used to replace the proposal.
-- **Small details.** `missingEvidence.reviewedCues` counts reviewed entries, not missing ones. The artist tokenizer splits on `feat`/`ft` at a word start, so "featuring" leaves a stray "uring" token and names starting with "ft" are split.
+- **Small details.** `missingEvidence.reviewedCues` counts reviewed entries, not missing ones.

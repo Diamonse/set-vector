@@ -1,5 +1,6 @@
 import { usableKey } from "@/lib/domain/camelot";
 import { arcPoints, targetEnergyAt } from "./arc";
+import { artistTokens } from "./artists";
 import { cueOptions, typicalPlayedSeconds } from "./options";
 import { evaluateTransition, type TransitionContext } from "./transition";
 import type {
@@ -188,14 +189,6 @@ function assignCues(ctx: PlanningContext, seq: string[]): CuePath {
     if (i < n - 1) transitions.push(ctx.transition(exits[i]!, entries[i + 1]!));
   }
   return { entries, exits, transitions, infeasibleAt };
-}
-
-function artistTokens(artist: string): string[] {
-  return artist
-    .toLowerCase()
-    .split(/,|&|\bfeat\.?|\bft\.?|\bx\b|\/|;/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
 }
 
 function median(values: number[]): number {

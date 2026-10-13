@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { recordAnnotation } from "@/lib/data/annotations";
 import { closeDuration, normName as norm } from "@/lib/data/matching";
-import { mapRekordboxCues } from "@/lib/rekordbox/cues";
+import { cueRegionStatus, mapRekordboxCues } from "@/lib/rekordbox/cues";
 import { rekordboxImportSchema, type RekordboxImportTrack } from "@/lib/rekordbox/schema";
 import type { ServerClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/supabase/server";
@@ -95,15 +95,15 @@ async function applyCueRegions(supabase: ServerClient, work: CueWork[], outcomes
         ),
     );
     for (const r of fresh) {
-      const approved = r.origin === "rekordbox_cue";
+      const status = cueRegionStatus(r);
       rows.push({
         track_id: w.trackId,
         kind: r.kind,
         start_seconds: r.startSeconds,
         end_seconds: r.endSeconds,
         label: r.label.slice(0, 120),
-        provenance: approved ? "reviewed" : "estimate",
-        review_status: approved ? "approved" : "pending",
+        provenance: status.provenance,
+        review_status: status.reviewStatus,
         vocal_activity: "unknown",
         rekordbox_link_id: w.linkId,
       });
@@ -191,28 +191,41 @@ export async function importRekordboxBatch(input: unknown): Promise<RekordboxBat
       status = row ? "linked" : "created";
     }
 
+    const linkFields = { rekordbox_track_id: t.rekordboxTrackId, location: t.location, product, tempo: t.tempo, marks: t.marks };
+    const linkMessage = (message: string) =>
+      message.includes("location") ? "Another library track is already linked to this Rekordbox file." : message;
+    let linkId: string;
     if (!row) {
-      const { data, error } = await supabase
-        .from("tracks")
-        .insert({
+      // The track and its link are created together, so a link that cannot be saved leaves no track behind.
+      const { data, error } = await supabase.rpc("create_rekordbox_track", {
+        p_track: {
           title: t.title,
           artist: t.artist,
           version_label: t.versionLabel,
           duration_seconds: t.durationSeconds,
           style_tags: t.styleTags,
           bpm: t.bpm,
-          bpm_source: t.bpm === null ? null : "estimate",
           key_tonic: t.key?.tonic ?? null,
           key_mode: t.key?.mode ?? null,
-          key_status: t.key ? "estimated" : "unknown",
-        })
-        .select(LIBRARY_FIELDS)
-        .single();
-      if (error || !data) {
-        skip(`The track was not created: ${error?.message ?? "no row returned"}`);
+        },
+        p_link: linkFields,
+      });
+      const ids = data as { track_id: string; link_id: string } | null;
+      if (error || !ids) {
+        skip(`The track was not created: ${error ? linkMessage(error.message) : "no row returned"}`);
         continue;
       }
-      row = data as LibraryRow;
+      row = {
+        id: ids.track_id,
+        title: t.title,
+        artist: t.artist,
+        version_label: t.versionLabel,
+        duration_seconds: t.durationSeconds,
+        style_tags: t.styleTags,
+        bpm: t.bpm,
+        key_status: t.key ? "estimated" : "unknown",
+      };
+      linkId = ids.link_id;
       library.push(row);
       byId.set(row.id, row);
     } else {
@@ -224,28 +237,22 @@ export async function importRekordboxBatch(input: unknown): Promise<RekordboxBat
           continue;
         }
       }
+      const { data: link, error } = await supabase
+        .from("rekordbox_links")
+        .upsert({ track_id: row.id, ...linkFields, imported_at: new Date().toISOString() }, { onConflict: "owner_id,track_id" })
+        .select("id")
+        .single();
+      if (error || !link) {
+        const message = error ? linkMessage(error.message) : "no link returned";
+        outcomes.push({ rekordboxTrackId: t.rekordboxTrackId, status: "skipped", trackId: row.id, message: `Grid and cues not saved: ${message}` });
+        continue;
+      }
+      linkId = (link as { id: string }).id;
     }
 
-    const { data: link, error } = await supabase.from("rekordbox_links").upsert(
-      {
-        track_id: row.id,
-        rekordbox_track_id: t.rekordboxTrackId,
-        location: t.location,
-        product,
-        tempo: t.tempo,
-        marks: t.marks,
-        imported_at: new Date().toISOString(),
-      },
-      { onConflict: "owner_id,track_id" },
-    ).select("id").single();
-    if (error || !link) {
-      const message = !error ? "no link returned" : error.message.includes("location") ? "Another library track is already linked to this Rekordbox file." : error.message;
-      outcomes.push({ rekordboxTrackId: t.rekordboxTrackId, status: "skipped", trackId: row.id, message: `Grid and cues not saved: ${message}` });
-      continue;
-    }
     claimed.add(row.id);
     linkedTracks.add(row.id);
-    cueWork.push({ linkId: (link as { id: string }).id, trackId: row.id, duration: Number(row.duration_seconds), track: t, outcome: outcomes.length });
+    cueWork.push({ linkId, trackId: row.id, duration: Number(row.duration_seconds), track: t, outcome: outcomes.length });
     outcomes.push({
       rekordboxTrackId: t.rekordboxTrackId,
       status,

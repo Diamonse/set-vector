@@ -1,4 +1,5 @@
 import { targetEnergyAt } from "./arc";
+import { artistTokens } from "./artists";
 import { evaluateSequence, type PlanningContext } from "./evaluate";
 import type { EvaluatedPlan } from "./types";
 
@@ -14,14 +15,6 @@ interface BeamState {
   seq: string[];
   score: number;
   elapsed: number;
-}
-
-function artistKey(artist: string): string[] {
-  return artist
-    .toLowerCase()
-    .split(/,|&|\bfeat\.?|\bft\.?|\bx\b|\/|;/)
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 /** Positions whose track is fixed by a start or end anchor. */
@@ -57,11 +50,11 @@ function stepScore(setup: SearchSetup, state: BeamState, id: string, estimatedTo
 
   const spacing = ctx.request.preferences.artistSpacing;
   if (spacing > 0) {
-    const tokens = artistKey(ctx.track(id).artist);
+    const tokens = artistTokens(ctx.track(id).artist);
     const group = ctx.track(id).remixGroup.toLowerCase();
     for (const other of state.seq.slice(-spacing)) {
       const t = ctx.track(other);
-      if (tokens.some((k) => artistKey(t.artist).includes(k))) score += w.diversity * 0.5;
+      if (tokens.some((k) => artistTokens(t.artist).includes(k))) score += w.diversity * 0.5;
       if (group && group === t.remixGroup.toLowerCase()) score += w.diversity * 0.5;
     }
   }

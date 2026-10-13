@@ -65,3 +65,18 @@ describe("baseline parity with baseline.py", () => {
     expect(Math.abs(beats.length - fixture.beatFrames.length)).toBeLessThanOrEqual(1);
   });
 });
+
+describe("beat tracker edges", () => {
+  it("drops beats in silent leading and trailing frames, as librosa does with trim=False", () => {
+    // Onsets every 21 frames from frame 300 to 800 in 1200 frames of otherwise silent envelope.
+    const onset = new Float64Array(1200);
+    for (let f = 300; f < 800; f += 21) {
+      onset[f] = 1;
+      onset[f + 1] = 0.5;
+    }
+    const fps = 22050 / 512;
+    // librosa 0.11 beat_track(onset_envelope, sr=22050, hop_length=512, bpm, trim=False) on this envelope.
+    const librosa = [279, 300, 321, 342, 363, 384, 405, 426, 447, 468, 489, 510, 531, 552, 573, 594, 615, 636, 657, 678, 699, 720, 741, 762, 783, 804];
+    expect(trackBeats(onset, (fps * 60) / 21, fps)).toEqual(librosa);
+  });
+});

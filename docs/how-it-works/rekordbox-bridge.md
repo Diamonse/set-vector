@@ -311,7 +311,7 @@ Code: `scripts/rekordbox_probe.py` → `generate`, `stage2`, `check`; `src/setve
 1. **Parse in the browser.** The user picks a file made with *File › Export Collection in xml format*. It is parsed locally; playlists are not read.
 2. **Preview.** Each `TRACK` becomes a candidate with its mapped fields, beat count, and the cue regions the import would create. Blocked candidates cannot be selected; cautioned ones start unselected.
 3. **Send in batches.** Only the selected tracks' metadata, tempo markers and cue points (never audio) are sent to the server action, 100 tracks per batch.
-4. **Match or create** a library track, fill only its empty fields, and upsert a `rekordbox_links` row holding the grid and cue points.
+4. **Match or create** a library track, fill only its empty fields, and upsert a `rekordbox_links` row holding the grid and cue points. A new track and its link are created in one call to the `create_rekordbox_track` database function, so a link that cannot be saved leaves no track behind.
 5. **Create cue regions** from the cues and the grid, replacing only regions an earlier import created and the user has not touched.
 6. **Record** one `rekordbox_import` annotation per batch with the counts of created, linked, updated and skipped tracks.
 
@@ -375,11 +375,11 @@ Code: `web/src/app/actions/rekordbox.ts` → `importRekordboxBatch`, `fillEmpty`
 
 **Grid suggestions.** If the track has a grid but no usable cue for a role, the import adds up to three phrase-aligned suggestions for that role from the grid, using the same `phraseCues` as the analyzer (see [key-loudness-structure.md](key-loudness-structure.md)) with bar starts taken from grid positions of 1 and the label prefix "Grid" (for example "Grid outro at bar 161"). No section boundaries are used, since the import has no audio.
 
-**Status.** Regions from cues are saved as `provenance = reviewed`, `review_status = approved`, because the user placed those cues; the planner gives them cue cost 0. Grid suggestions are `estimate` and `pending`.
+**Status.** Regions from cues are saved with `provenance = reviewed`, because the user placed those cues. They are `approved` when the role came from the cue type or name, and the planner then gives them cue cost 0. A role taken only from the position is a guess, so those regions stay `pending` (origin `pending` in the planner, cost 0.4) until the user confirms them. Grid suggestions are `estimate` and `pending`.
 
 **Re-imports.** Each region keeps `rekordbox_link_id`. A later import first deletes the regions that still carry the link, then skips any new region within 0.5 s (start and end) of an existing region of the same kind. A trigger (`detach_edited_rekordbox_cue`) clears `rekordbox_link_id` whenever the user edits, approves or rejects a region, so the user's decision survives later imports.
 
-Code: `web/src/lib/rekordbox/cues.ts` → `roleOf`, `mapRekordboxCues`; `web/src/app/actions/rekordbox.ts` → `applyCueRegions`; `web/supabase/migrations/20261002010000_rekordbox_cue_regions.sql`.
+Code: `web/src/lib/rekordbox/cues.ts` → `classifyMark`, `mapRekordboxCues`, `cueRegionStatus`; `web/src/app/actions/rekordbox.ts` → `applyCueRegions`; `web/supabase/migrations/20261002010000_rekordbox_cue_regions.sql`.
 
 ### 9.5 Display
 
@@ -424,16 +424,14 @@ As of this writing, `PROFILES` is **empty** — no Rekordbox version has actuall
 - **A track is matched only by file path.** A renamed or moved file looks like a brand-new track to the bridge; there is no content-based (e.g. audio fingerprint) matching.
 - **Stale export risk is procedural, not enforced.** The bridge cannot detect that an export is stale relative to Rekordbox's live state — it can only warn when a track ends up written as "new" because it is missing from the given export (section 2).
 - **A literal line break inside an XML attribute** (e.g. a multi-line `Comments` field) is already collapsed to spaces by XML attribute-value normalization before SetVector ever sees it; this is standard XML behaviour, not something the bridge does, but it means a round-tripped `Comments` field will never regain its original line breaks.
-- One line of a code comment in `application/rekordbox.py`'s `_process` function (explaining why marks are compared as a multiset rather than by order) is duplicated verbatim — harmless, but worth a cleanup pass.
 
 Web import:
 
 - **Name matching can pick the wrong track.** Two different files with the same title and artist, and lengths within 2 s, are indistinguishable from the export alone. The result list reports what was linked so the user can check.
-- **Cue roles are guessed.** Name matching is English-only and literal. A cue named for its content ("Vocal", "Drop") falls back to its position, and a cue in the middle third is ignored. Every mapped cue is saved as `reviewed` and `approved` even though the role was inferred.
+- **Cue roles are guessed.** Name matching is English-only and literal. A cue named for its content ("Vocal", "Drop") falls back to its position, and a cue in the middle third is ignored. Position-only roles are left pending, so they need a manual review before the planner trusts them. When a memory cue and a hot cue share a point, the hot cue is kept even if only the memory cue is named.
 - **Phrase suggestions assume 8-bar phrases from the first bar line** of the Rekordbox grid, and Rekordbox's default grids are often not hand-checked.
-- **Partial results on a link failure.** The track is created or its empty fields filled before the link is written. If the link then fails (for example, another track is already linked to the same location), the track change stays but its grid and cues are not saved; the outcome says so.
+- **Filled fields stay on a link failure.** For a matched track, empty fields are filled before the link is written. If the link then fails (for example, another track is already linked to the same location), the filled fields stay but the grid and cues are not saved; the outcome says so. A new track is never left behind, since it is created together with its link.
 - **No audio identity.** The import cannot fill `asset_id`. Analyzing the file later must target the imported track explicitly, or the analysis creates a second track.
-- **Energy estimates are not refreshed** after an import, even when it fills a BPM that the estimate uses ([energy-estimate.md](energy-estimate.md)).
 
 Playlist export:
 

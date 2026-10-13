@@ -6,6 +6,7 @@ import {
   matchTempo,
   planSet,
   PlanRequestError,
+  rescorePlan,
   type PlanRequest,
 } from "@/lib/planner";
 import { cueOptions } from "@/lib/planner/options";
@@ -69,6 +70,37 @@ describe("directional transitions", () => {
     const ba = evaluateTransition(b, cueOptions(b, "exit", "dj")[0]!, a, cueOptions(a, "entry", "dj")[0]!, ctx);
     expect(ab.cost).not.toBeCloseTo(ba.cost, 6);
   });
+
+  describe("without key lock", () => {
+    const unlocked = { ...ctx, preferences: { ...ctx.preferences, keyLock: false } };
+    // B is slowed to 124 BPM from 124 * 2^(1/12), so it sounds one semitone lower.
+    const semitoneFaster = 124 * 2 ** (1 / 12);
+
+    it("chooses the transition type from the key B sounds in, not its written key", () => {
+      const a = track("a");
+      const b = track("b", { bpm: semitoneFaster });
+      const t = evaluateTransition(a, cueOptions(a, "exit", "dj")[0]!, b, cueOptions(b, "entry", "dj")[0]!, unlocked);
+      expect(t.components.harmonic.cost).toBeGreaterThan(0.2);
+      expect(t.type).toBe("short_blend");
+    });
+
+    it("allows a long blend when the written keys differ but the sounding keys match", () => {
+      const a = track("a");
+      const b = track("b", { bpm: semitoneFaster, keyTonic: 10 });
+      const t = evaluateTransition(a, cueOptions(a, "exit", "dj")[0]!, b, cueOptions(b, "entry", "dj")[0]!, unlocked);
+      expect(t.components.harmonic.cost).toBeLessThanOrEqual(0.2);
+      expect(t.type).toBe("blend");
+    });
+  });
+
+  it("scores an exact tempo match as free when the tempo limit is 0%", () => {
+    const strict = { ...ctx, preferences: { ...ctx.preferences, maxTempoAdjustPct: 0 } };
+    const a = track("a");
+    const b = track("b");
+    const t = evaluateTransition(a, cueOptions(a, "exit", "dj")[0]!, b, cueOptions(b, "entry", "dj")[0]!, strict);
+    expect(t.components.tempo.cost).toBe(0);
+    expect(Number.isFinite(t.cost)).toBe(true);
+  });
 });
 
 describe("planSet", () => {
@@ -81,6 +113,26 @@ describe("planSet", () => {
     track("t6", { energy: 4, keyTonic: 2, bpm: 90, artist: "Zeta", styleTags: ["Hip-hop"], cues: [] }),
   ];
   const ids = library.map((t) => t.id);
+
+  it("rescores an edited plan's baselines and alternatives against the edit and the current library", () => {
+    const r = request(ids, { selectionPolicy: "choose_from_pool", targetCount: 4 });
+    const original = planSet(library, r);
+    const now = library.map((t) => (t.id === "t3" ? { ...t, energy: 1 } : t));
+    const order = ["t6", "t5", "t4", "t3"];
+    const alternative = ["t1", "t2", "t3", "t4"];
+    const score = (seq: string[]) => evaluateEditedOrder(now, r, seq).objective.total;
+
+    const rescored = rescorePlan(now, r, original, { order, label: "Edited plan" }, [{ order: alternative, label: "Alternative 1" }]);
+
+    expect(rescored.proposal.items.map((i) => i.trackId)).toEqual(order);
+    expect(rescored.proposal.label).toBe("Edited plan");
+    expect(rescored.proposal.objective.total).toBeCloseTo(score(order), 9);
+    expect(rescored.alternatives.map((a) => a.label)).toEqual(["Alternative 1"]);
+    expect(rescored.alternatives[0]!.objective.total).toBeCloseTo(score(alternative), 9);
+    for (const b of rescored.baselines) expect(new Set(b.plan.items.map((i) => i.trackId))).toEqual(new Set(order));
+    // The exhaustive search describes the original proposal, and the plan page says so.
+    expect(rescored.exact).toEqual(original.exact);
+  });
 
   it("reorders a fixed crate using every track once", () => {
     const result = planSet(library, request(ids));
@@ -146,6 +198,12 @@ describe("planSet", () => {
   it("rejects contradictory requests", () => {
     expect(() => planSet(library, request(ids, { requiredTrackIds: ["t1"], excludedTrackIds: ["t1"] }))).toThrow(PlanRequestError);
     expect(() => planSet(library, request(ids, { selectionPolicy: "choose_from_pool" }))).toThrow(/count or duration/);
+  });
+
+  it("rejects use-all requests with more tracks than the search limit instead of dropping tracks", () => {
+    const r = request(ids);
+    r.search = { ...r.search, maxCandidates: 3 };
+    expect(() => planSet(library, r)).toThrow(/at most 3 tracks/);
   });
 
   it("reports violations for an edited order", () => {

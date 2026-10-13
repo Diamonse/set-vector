@@ -3,6 +3,7 @@
 import { Disc3 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { recalculateEnergy } from "@/app/actions/energy";
 import { importRekordboxBatch, type RekordboxOutcome } from "@/app/actions/rekordbox";
 import { FormField } from "@/components/app/form-field";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -130,6 +131,12 @@ export function RekordboxImport() {
       }
       setOutcomes([...all]);
       setProgress({ done: Math.min(i + batch.length, chosen.length), total: chosen.length });
+    }
+    // Filled tempos change the library every energy estimate is ranked against; rescore once,
+    // even when a later batch failed.
+    if (all.some((o) => o.status !== "skipped")) {
+      const refreshed = await recalculateEnergy({ ok: true, message: "" }).catch((e: Error) => ({ ok: false, message: e.message }));
+      if (!refreshed.ok) setBatchError((current) => current ?? refreshed.message);
     }
     setProgress((p) => (p ? { ...p, total: p.done } : p));
   }

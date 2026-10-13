@@ -398,9 +398,6 @@ def _process(
         # Rekordbox exports memory cues before hot cues regardless of request order, so
         # comparing mark order would mark a track changed on every re-export even when its
         # cues are identical; comparing as a multiset lets a stable export stay "unchanged".
-        # Rekordbox exports memory cues before hot cues regardless of request order, so
-        # comparing mark order would mark a track changed on every re-export even when its
-        # cues are identical; comparing as a multiset lets a stable export stay "unchanged".
         if tempo != track.tempo or Counter(final_marks) != Counter(track.marks):
             result = replace(track, tempo=tempo, marks=final_marks)
     elif tempo or final_marks:

@@ -132,7 +132,7 @@ export function estimateTempo(onset: Float64Array, sampleRate: number, hopLength
   return { bpm, candidates, tempogram: tg, framesPerSecond: fps };
 }
 
-/** librosa's `__beat_tracker` without trimming. Returns beat frame indices. */
+/** librosa's `__beat_tracker` with trim=False. Returns beat frame indices. */
 export function trackBeats(onset: Float64Array, bpm: number, framesPerSecond: number, tightness = 100): number[] {
   const n = onset.length;
   if (n === 0 || !(bpm > 0)) return [];
@@ -217,5 +217,11 @@ export function trackBeats(onset: Float64Array, bpm: number, framesPerSecond: nu
     beats.push(i);
     if (backlink[i]! < 0) break;
   }
-  return beats.reverse();
+  // librosa always drops beats in the leading and trailing frames whose local score is not
+  // positive, even with trim=False (`__trim_beats` with a threshold of 0).
+  let first = 0;
+  while (first < n && local[first]! <= 0) first++;
+  let last = n - 1;
+  while (last >= 0 && local[last]! <= 0) last--;
+  return beats.reverse().filter((b) => b >= first && b <= last);
 }

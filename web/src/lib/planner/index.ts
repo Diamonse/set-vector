@@ -59,6 +59,14 @@ export function prepareRequest(tracks: PlannerTrack[], request: PlanRequest): Pr
   }
 
   const anchored = new Set([...request.requiredTrackIds, request.startTrackId, request.endTrackId].filter(Boolean));
+  // Pruning would silently leave supplied tracks out of a use-all plan, so refuse instead.
+  const searchLimit = Math.max(request.search.maxCandidates, 2);
+  if (request.selectionPolicy === "use_all" && candidates.length > searchLimit) {
+    problems.push({
+      field: "candidateTrackIds",
+      message: `Using every track works with at most ${searchLimit} tracks (the search limit); ${candidates.length} were given. Raise the search limit or choose from a pool.`,
+    });
+  }
   if (request.selectionPolicy === "choose_from_pool") {
     if (request.targetCount === null && request.targetDuration === null) {
       problems.push({
@@ -239,4 +247,25 @@ export function planSet(tracks: PlannerTrack[], request: PlanRequest): PlanResul
 export function evaluateEditedOrder(tracks: PlannerTrack[], request: PlanRequest, order: string[]): EvaluatedPlan {
   const ctx = new PlanningContext(tracks, request);
   return evaluateSequence(ctx, order, "Edited plan");
+}
+
+/**
+ * A saved plan with a new proposal order, everything it is compared with re-scored against
+ * the current library: the alternatives, and baselines built from the new proposal's tracks.
+ * The exhaustive-search result is kept; it describes the original proposal.
+ */
+export function rescorePlan(
+  tracks: PlannerTrack[],
+  request: PlanRequest,
+  previous: PlanResult,
+  proposal: { order: string[]; label: string },
+  alternatives: { order: string[]; label: string }[],
+): PlanResult {
+  const ctx = new PlanningContext(tracks, request);
+  return {
+    ...previous,
+    proposal: evaluateSequence(ctx, proposal.order, proposal.label),
+    alternatives: alternatives.map((a) => evaluateSequence(ctx, a.order, a.label)),
+    baselines: runBaselines(ctx, proposal.order, request.search.seed),
+  };
 }

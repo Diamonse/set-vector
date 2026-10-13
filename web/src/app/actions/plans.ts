@@ -6,11 +6,13 @@ import { z } from "zod";
 import { recordAnnotation } from "@/lib/data/annotations";
 import { getPlan, listTracks } from "@/lib/data/queries";
 import { toPlannerTrack } from "@/lib/data/rows";
-import { evaluateEditedOrder, planSet, PlanRequestError, type EvaluatedPlan, type PlanResult } from "@/lib/planner";
+import { planSet, PlanRequestError, rescorePlan, type EvaluatedPlan, type PlanResult } from "@/lib/planner";
 import type { ServerClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/supabase/server";
 import { createPlanSchema } from "@/lib/validation/plan-request";
 import { isUuid, type ActionState } from "@/lib/validation/schemas";
+
+const orderOf = (plan: EvaluatedPlan) => plan.items.map((item) => item.trackId);
 
 function itemRows(plan: EvaluatedPlan) {
   return plan.items.map((item) => ({
@@ -57,27 +59,18 @@ export async function createPlan(_prev: ActionState, formData: FormData): Promis
     throw e;
   }
 
-  const { data, error } = await supabase
-    .from("plans")
-    .insert({
-      name: parsed.data.name,
-      mode: parsed.data.request.mode,
-      selection_policy: parsed.data.request.selectionPolicy,
-      crate_id: parsed.data.crateId,
-      request: parsed.data.request,
-      result,
-    })
-    .select("id")
-    .single();
-  if (error) return { ok: false, message: `The plan was computed but not saved: ${error.message}` };
-  const planId = (data as { id: string }).id;
-
-  if (result.proposal.items.length > 0) {
-    const { error: itemsError } = await supabase
-      .from("plan_items")
-      .insert(itemRows(result.proposal).map((row) => ({ ...row, plan_id: planId })));
-    if (itemsError) return { ok: false, message: `The plan was saved without its items: ${itemsError.message}` };
-  }
+  // One database call saves the plan and its items together, or neither.
+  const { data, error } = await supabase.rpc("create_plan", {
+    p_name: parsed.data.name,
+    p_mode: parsed.data.request.mode,
+    p_selection_policy: parsed.data.request.selectionPolicy,
+    p_crate_id: parsed.data.crateId,
+    p_request: parsed.data.request,
+    p_result: result,
+    p_items: itemRows(result.proposal),
+  });
+  if (error || typeof data !== "string") return { ok: false, message: `The plan was computed but not saved: ${error?.message ?? "no plan returned"}` };
+  const planId = data;
 
   revalidatePath("/plans");
   redirect(`/plans/${planId}`);
@@ -98,9 +91,15 @@ export async function saveEditedOrder(planId: string, order: string[], reason: s
   if (!plan) return { ok: false, message: "Plan not found." };
 
   const tracks = (await listTracks(supabase)).map(toPlannerTrack);
-  const edited = evaluateEditedOrder(tracks, plan.request, parsed.data.order);
-  const previousOrder = plan.result.proposal.items.map((i) => i.trackId);
-  const result: PlanResult = { ...plan.result, proposal: edited };
+  const previousOrder = orderOf(plan.result.proposal);
+  const result = rescorePlan(
+    tracks,
+    plan.request,
+    plan.result,
+    { order: parsed.data.order, label: "Edited plan" },
+    plan.result.alternatives.map((a) => ({ order: orderOf(a), label: a.label })),
+  );
+  const edited = result.proposal;
 
   const error = await saveProposal(supabase, planId, result);
   if (error) return { ok: false, message: error };
@@ -128,9 +127,11 @@ export async function adoptAlternative(planId: string, index: number): Promise<A
   const chosen = plan?.result.alternatives[index];
   if (!plan || !chosen) return { ok: false, message: "Alternative not found." };
 
-  const alternatives = plan.result.alternatives.slice();
-  alternatives[index] = { ...plan.result.proposal, label: `Alternative ${index + 1}` };
-  const result: PlanResult = { ...plan.result, proposal: { ...chosen, label: "Proposed plan" }, alternatives };
+  const alternatives = plan.result.alternatives.map((a, i) =>
+    i === index ? { order: orderOf(plan.result.proposal), label: `Alternative ${index + 1}` } : { order: orderOf(a), label: a.label },
+  );
+  const tracks = (await listTracks(supabase)).map(toPlannerTrack);
+  const result = rescorePlan(tracks, plan.request, plan.result, { order: orderOf(chosen), label: "Proposed plan" }, alternatives);
   const error = await saveProposal(supabase, planId, result);
   if (error) return { ok: false, message: error };
 

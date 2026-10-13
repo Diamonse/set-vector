@@ -70,7 +70,7 @@ These rules come from `AGENTS.md`, `docs/architecture.md` and the code, and they
 4. The user reviews values and cues in the track editor (waveform, beat markers, drag-to-resize regions). Each change is appended to `annotations`.
 5. The planner builds an order from a crate or pool. It scores directional transitions (exit region of A into entry region of B), assigns cues jointly, matches the result against an energy arc, and searches for a low-cost order. Each step is explained in the plan view and can be exported as CSV, JSON, or an M3U8 playlist that Rekordbox imports (paths come from Rekordbox-linked tracks only).
 
-**From Rekordbox (web app).** Instead of steps 1–3, **Library › Import › Import a Rekordbox collection** reads a collection export in the browser and adds or links tracks with Rekordbox's tempo, key, grid and cues. Cues become approved entry and exit regions; tracks without usable cues get phrase suggestions from the Rekordbox grid. Analyzing the audio later, with the imported track picked as the target, adds the browser measurements and the energy inputs.
+**From Rekordbox (web app).** Instead of steps 1–3, **Library › Import › Import a Rekordbox collection** reads a collection export in the browser and adds or links tracks with Rekordbox's tempo, key, grid and cues. Cues become entry and exit regions, approved when their type or name says which; tracks without usable cues get phrase suggestions from the Rekordbox grid. Analyzing the audio later, with the imported track picked as the target, adds the browser measurements and the energy inputs.
 
 ## Where things live
 
